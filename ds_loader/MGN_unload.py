@@ -68,8 +68,7 @@ def load_dataset(path, split):
     return ds
 
 
-def learner(dataset, split):
-    """Run a learner job."""
+def unpack_ds(dataset, split):
     print("Dataset: ", dataset, " Split: ", split)
 
     ds = load_dataset(f"./ds/{dataset}", split)
@@ -101,7 +100,7 @@ def learner(dataset, split):
 
 
 def main():
-    learner(dataset='cylinder', split='train')
+    unpack_ds(dataset='cylinder', split='train')
 
 
 if __name__ == '__main__':
