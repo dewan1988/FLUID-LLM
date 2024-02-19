@@ -19,7 +19,6 @@
 
 import pickle
 import tensorflow.compat.v1 as tf
-from meshgraphnets import dataset
 import numpy as np
 import json
 import os
@@ -38,6 +37,7 @@ def load_dataset(path, split):
     """Load dataset."""
 
     def _parse(proto, meta):
+        print(meta)
         """Parses a trajectory from tf.Example."""
         feature_lists = {k: tf.io.VarLenFeature(tf.string)
                          for k in meta['field_names']}
@@ -71,9 +71,9 @@ def load_dataset(path, split):
 def unpack_ds(dataset, split):
     print("Dataset: ", dataset, " Split: ", split)
 
-    ds = load_dataset(f"./ds/{dataset}", split)
+    ds = load_dataset(f"/mnt/hdd2/fluid_ds/meshgraphnets/{dataset}", split)
     inputs = tf.data.make_one_shot_iterator(ds).get_next()
-    # ['cells', 'mesh_pos', 'node_type', 'velocity', 'target|velocity', 'pressure']
+    # ['cells', 'mesh_pos', 'node_type', 'velocity', 'pressure']
 
     with tf.Session() as sess:
         # Fetch a single sample
@@ -81,7 +81,7 @@ def unpack_ds(dataset, split):
             for i in range(9999):
                 print(i)
                 sample = sess.run(inputs)
-                save_stats = {"velocity": sample['velocity'], "pressure": sample['pressure']}
+                save_stats = {"velocity": sample['velocity'], "pressure": sample['pressure'], "density": sample['density']}
 
                 static_vars = ['cells', 'mesh_pos', 'node_type']
                 for var in static_vars:
@@ -91,8 +91,11 @@ def unpack_ds(dataset, split):
 
                     save_stats[var] = sample[var][0]
 
-                # print(sample['velocity'].dtype)
-                with open(f"./ds/{dataset}_dataset/save_{i}.pkl", 'wb') as f:
+                # Convert cells to int16
+                if np.all(save_stats['cells'] >= np.iinfo(np.int16).min) and np.all(save_stats['cells'] <= np.iinfo(np.int16).max):
+                    save_stats['cells'] = save_stats['cells'].astype(np.int16)
+
+                with open(f"../ds/MGN/{dataset}_dataset/save_{i}.pkl", 'wb') as f:
                     pickle.dump(save_stats, f)
 
         except tf.errors.OutOfRangeError:
@@ -100,7 +103,7 @@ def unpack_ds(dataset, split):
 
 
 def main():
-    unpack_ds(dataset='cylinder', split='train')
+    unpack_ds(dataset='airfoil', split='train')
 
 
 if __name__ == '__main__':
