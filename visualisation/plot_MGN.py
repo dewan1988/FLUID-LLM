@@ -23,7 +23,7 @@ import numpy as np
 
 
 def main():
-    with open("./ds/MGN/cylinder_dataset/save_0.pkl", 'rb') as f:
+    with open("../ds/MGN/cylinder_dataset/save_0.pkl", 'rb') as f:
         rollout_data = pickle.load(f) # pickle.load(fp)
 
     # ['faces', 'mesh_pos', 'gt_velocity', 'pred_velocity']
