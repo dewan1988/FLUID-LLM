@@ -1,4 +1,4 @@
-from plot_mesh import plot_mesh
+from mesh_utils import plot_mesh
 import numpy as np
 import os
 
