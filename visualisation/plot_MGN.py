@@ -20,7 +20,7 @@ def main():
 
     pos = rollout_data['mesh_pos']
     faces = rollout_data['cells']
-    plot_vals = rollout_data['pressure'][300][:, 0]
+    plot_vals = rollout_data['velocity'][0][:, 0]
 
     # plot_mesh(pos, faces, plot_vals)
     grid_z = plot_mesh_smooth(pos, plot_vals, faces, 400)

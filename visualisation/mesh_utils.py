@@ -29,7 +29,7 @@ def plot_mesh_smooth(pos, val, faces, grid_res):
     plt.show()
 
 
-def to_grid(pos, val, faces, grid_res):
+def to_grid(pos, val, faces, grid_res, mask_val=-0.1):
     # Define your grid bounds and resolution
     triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
 
@@ -45,5 +45,5 @@ def to_grid(pos, val, faces, grid_res):
     mask_data = interp(grid_x, grid_y)
     mask = mask_data.mask
     data = mask_data.data
-    data[mask] = -0.1
+    data[mask] = mask_val
     return data
