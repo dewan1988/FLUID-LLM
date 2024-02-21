@@ -1,9 +1,8 @@
-"""Plots a CFD trajectory rollout."""
+"""Plots a sample from MeshGraphNets."""
 
 import pickle
 
 from mesh_utils import plot_mesh, plot_mesh_smooth
-import numpy as np
 
 
 def main():
@@ -23,7 +22,7 @@ def main():
     plot_vals = rollout_data['velocity'][0][:, 0]
 
     # plot_mesh(pos, faces, plot_vals)
-    grid_z = plot_mesh_smooth(pos, plot_vals, faces, 400)
+    grid_z = plot_mesh_smooth(pos, plot_vals, faces, 512)
 
     print(grid_z)
 
