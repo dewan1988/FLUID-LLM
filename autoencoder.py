@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
-import torch.multiprocessing as mp
 import time
 import matplotlib.pyplot as plt
-import random
 
-from dataloader import ds_get
+from dataloader.MGN_dataloader import MGNDataloader
+from dataloader.parallel_dataloader import ParallelDataGenerator
 
 
 class Autoencoder64(nn.Module):
@@ -48,8 +47,8 @@ def train_autoencoder():
     model = Autoencoder64().cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-6)
 
-    dataloader = ParallelDataGenerator(lambda sv, st: ds_get(sv, st),
-                                       num_producers=4, queue_maxsize=8)
+    ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset")
+    dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
     dataloader.run()
 
     st = time.time()
@@ -92,11 +91,11 @@ def train_autoencoder():
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))
     for i in range(3):
-        axes[0, i].imshow(data[i].cpu().numpy())
+        axes[0, i].imshow(data[i].cpu().numpy(), vmin=-0.5, vmax=0.5)
         axes[0, i].set_title(f'Channel {i + 1} Original')
         axes[0, i].axis('off')
 
-        axes[1, i].imshow(output[i].cpu().numpy())
+        axes[1, i].imshow(output[i].cpu().numpy(), vmin=-0.5, vmax=0.5)
         axes[1, i].set_title(f'Channel {i + 1} Reconstruction')
         axes[1, i].axis('off')
     plt.tight_layout()
@@ -105,44 +104,44 @@ def train_autoencoder():
     dataloader.stop()
 
 
-class ParallelDataGenerator:
-    def __init__(self, generator_fn, num_producers=4, queue_maxsize=10):
-        self.generator_fn = generator_fn
-
-        self.queue = mp.Queue(maxsize=queue_maxsize)
-        self.stop_signal = mp.Value('i', 0)
-        self.num_producers = num_producers
-        self.producers = []
-
-    def fetch_data(self):
-        save_no, step_no = random.randint(0, 10), random.randint(0, 100)
-        return self.generator_fn(save_no, step_no)
-
-    def data_producer(self):
-        while not self.stop_signal.value:
-            data = self.fetch_data()
-            self.queue.put(data)
-        print("Producer stopped.")
-
-    def get(self, timeout=1.):
-        try:
-            data = self.queue.get(timeout=timeout)
-            return data
-        except Exception as e:
-            print(f"Error getting data from queue: {e}")
-            return None
-
-    def stop(self):
-        with self.stop_signal.get_lock():
-            self.stop_signal.value = 1
-        for p in self.producers:
-            p.join()
-
-    def run(self):
-        for _ in range(self.num_producers):
-            p = mp.Process(target=self.data_producer)
-            p.start()
-            self.producers.append(p)
+# class ParallelDataGenerator:
+#     def __init__(self, generator_fn, num_producers=4, queue_maxsize=10):
+#         self.generator_fn = generator_fn
+#
+#         self.queue = mp.Queue(maxsize=queue_maxsize)
+#         self.stop_signal = mp.Value('i', 0)
+#         self.num_producers = num_producers
+#         self.producers = []
+#
+#     def fetch_data(self):
+#         save_no, step_no = random.randint(0, 10), random.randint(0, 100)
+#         return self.generator_fn(save_no, step_no)
+#
+#     def data_producer(self):
+#         while not self.stop_signal.value:
+#             data = self.fetch_data()
+#             self.queue.put(data)
+#         print("Producer stopped.")
+#
+#     def get(self, timeout=1.):
+#         try:
+#             data = self.queue.get(timeout=timeout)
+#             return data
+#         except Exception as e:
+#             print(f"Error getting data from queue: {e}")
+#             return None
+#
+#     def stop(self):
+#         with self.stop_signal.get_lock():
+#             self.stop_signal.value = 1
+#         for p in self.producers:
+#             p.join()
+#
+#     def run(self):
+#         for _ in range(self.num_producers):
+#             p = mp.Process(target=self.data_producer)
+#             p.start()
+#             self.producers.append(p)
 
 
 if __name__ == "__main__":
