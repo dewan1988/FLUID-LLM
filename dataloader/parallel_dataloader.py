@@ -1,7 +1,8 @@
 """ Class for multiprocess parallel dataloader. Works with a dataloader class instance. """
 import torch.multiprocessing as mp
 from dataloader.MGN_dataloader import MGNDataloader
-
+from cprint import c_print
+import queue
 
 class ParallelDataGenerator:
     def __init__(self, dataloader: MGNDataloader, num_producers=4, queue_maxsize=10):
@@ -18,8 +19,11 @@ class ParallelDataGenerator:
     def data_producer(self):
         while not self.stop_signal.value:
             data = self.fetch_data()
-            self.queue.put(data)
-        print("Producer stopped.")
+            try:
+                self.queue.put(data, timeout=1)  # Timeout of 1 second
+            except queue.Full:
+                continue  # This allows checking the stop_signal again
+        c_print("Producer stopped.", color="yellow")
 
     def get(self, timeout=1.):
         try:
@@ -30,8 +34,10 @@ class ParallelDataGenerator:
             return None
 
     def stop(self):
+        c_print("Stopping Dataloader", color='red')
         with self.stop_signal.get_lock():
             self.stop_signal.value = 1
+
         for p in self.producers:
             p.join()
 

@@ -2,5 +2,6 @@ matplotlib
 numpy
 torch
 opencv-python
+git+https://github.com/Maccy-Z/c_print.git
 # torch_geometric
 # MegaFlow2D

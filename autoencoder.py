@@ -39,15 +39,14 @@ class Autoencoder64(nn.Module):
 
 
 def train_autoencoder():
-    EPOCHS = 1000
+    EPOCHS = 5000
     BATCH_SIZE = 64
-
-    save_no, step_no = 0, 10
 
     model = Autoencoder64().cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-6)
 
-    ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset")
+    ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset",
+                       resolution=512, patch_size=(32, 32), stride=(16, 16))
     dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
     dataloader.run()
 
@@ -68,7 +67,7 @@ def train_autoencoder():
 
         # Forward pass
         output = model(data)
-        error = (data-output)[torch.logical_not(mask)]
+        error = (data - output)[torch.logical_not(mask)]
         loss = torch.mean(error ** 2 + 0.01 * torch.abs(error))
         # Backward pass
         optimizer.zero_grad()
@@ -84,64 +83,24 @@ def train_autoencoder():
 
     # Plot reconstructions
     data, _ = dataloader.get()
-    data = data[:, :, :, 5].cuda()
+    data = data[:, :, :, 13].cuda()
 
     with torch.no_grad():
         output = model(data)
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))
     for i in range(3):
-        axes[0, i].imshow(data[i].cpu().numpy(), vmin=-0.5, vmax=0.5)
+        axes[0, i].imshow(data[i].cpu().numpy(), vmin=-0.5, vmax=0.75)
         axes[0, i].set_title(f'Channel {i + 1} Original')
         axes[0, i].axis('off')
 
-        axes[1, i].imshow(output[i].cpu().numpy(), vmin=-0.5, vmax=0.5)
+        axes[1, i].imshow(output[i].cpu().numpy(), vmin=-0.5, vmax=0.75)
         axes[1, i].set_title(f'Channel {i + 1} Reconstruction')
         axes[1, i].axis('off')
     plt.tight_layout()
     plt.show()
 
     dataloader.stop()
-
-
-# class ParallelDataGenerator:
-#     def __init__(self, generator_fn, num_producers=4, queue_maxsize=10):
-#         self.generator_fn = generator_fn
-#
-#         self.queue = mp.Queue(maxsize=queue_maxsize)
-#         self.stop_signal = mp.Value('i', 0)
-#         self.num_producers = num_producers
-#         self.producers = []
-#
-#     def fetch_data(self):
-#         save_no, step_no = random.randint(0, 10), random.randint(0, 100)
-#         return self.generator_fn(save_no, step_no)
-#
-#     def data_producer(self):
-#         while not self.stop_signal.value:
-#             data = self.fetch_data()
-#             self.queue.put(data)
-#         print("Producer stopped.")
-#
-#     def get(self, timeout=1.):
-#         try:
-#             data = self.queue.get(timeout=timeout)
-#             return data
-#         except Exception as e:
-#             print(f"Error getting data from queue: {e}")
-#             return None
-#
-#     def stop(self):
-#         with self.stop_signal.get_lock():
-#             self.stop_signal.value = 1
-#         for p in self.producers:
-#             p.join()
-#
-#     def run(self):
-#         for _ in range(self.num_producers):
-#             p = mp.Process(target=self.data_producer)
-#             p.start()
-#             self.producers.append(p)
 
 
 if __name__ == "__main__":

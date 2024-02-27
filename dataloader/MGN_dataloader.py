@@ -8,8 +8,9 @@ import torch
 
 
 class MGNDataloader:
-    def __init__(self, load_dir, patch_size=(64, 64), stride=(32, 32)):
+    def __init__(self, load_dir, resolution=1024, patch_size=(64, 64), stride=(32, 32)):
         self.load_dir = load_dir
+        self.resolution = resolution
         self.patch_size = patch_size
         self.stride = stride
 
@@ -43,9 +44,9 @@ class MGNDataloader:
         Vy = save_data['velocity'][step_num][:, 1]
         P = save_data['pressure'][step_num][:, 0]
 
-        Vx_interp, Vx_mask = to_grid(pos, Vx, faces, grid_res=1024, type=interp_type)
-        Vy_interp, Vy_mask = to_grid(pos, Vy, faces, grid_res=1024, type=interp_type)
-        P_interp, P_mask = to_grid(pos, P, faces, grid_res=1024, mask_interp=True, type=interp_type)
+        Vx_interp, Vx_mask = to_grid(pos, Vx, faces, grid_res=self.resolution, type=interp_type)
+        Vy_interp, Vy_mask = to_grid(pos, Vy, faces, grid_res=self.resolution, type=interp_type)
+        P_interp, P_mask = to_grid(pos, P, faces, grid_res=self.resolution, mask_interp=True, type=interp_type)
 
         Vx_interp, Vy_interp, P_interp = Vx_interp.astype(np.float32), Vy_interp.astype(np.float32), P_interp.astype(np.float32)
         step_state = np.stack([Vx_interp, Vy_interp, P_interp], axis=0)
