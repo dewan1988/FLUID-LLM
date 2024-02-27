@@ -25,14 +25,19 @@ def get_mask(fft_image):
     # Generate the mask
     mask = create_mask(x, y).to(torch.bool)
     #
-    plt.imshow(mask)
-    plt.show()
+
+    # print(torch.sum(mask) / (H * W) * 100)
+    # print(H*W)
+    # plt.imshow(mask)
+    # plt.show()
 
     return mask
 
 
-def get_fft(load_no, step_num, patch_num):
-    in_img, img_mask = ds_get(load_no, step_num=step_num)
+def get_fft(load_no, step_num, patch_num, patch_size=(64, 64), stride=(32, 32)):
+    in_img, img_mask = ds_get(load_no, step_num=step_num, patch_size=patch_size, stride=stride, resolution=512)
+    print(in_img.shape)
+
     in_img = in_img[:, :, :, patch_num]
     img_mask = img_mask[:, :, patch_num]
 
@@ -56,17 +61,18 @@ def plot_changes(in_img, mask_fft, img_mask):
     # Plot the original image and the power spectrum
     fig, axes = plt.subplots(3, 3, figsize=(18, 12))  # Adjust figsize as needed
     for i in range(3):
-        axes[0, i].imshow(in_img[i])  # patches[i] should be the original image or its power spectrum for channel i
+        img_max, img_min = 0.6, -0.2  # in_img[i].max(), in_img[i].min()
+
+        axes[0, i].imshow(in_img[i].T, vmax=img_max, vmin=img_min, origin="lower")  # patches[i] should be the original image or its power spectrum for channel i
         axes[0, i].set_title(f'Channel {i + 1} Original')
         axes[0, i].axis('off')
-    # Plot the reconstructed images in the second row
-    for i in range(3):
-        axes[1, i].imshow(recon_img[i])  # recon_img[i] is the reconstructed image for channel i
+
+        # Plot the reconstructed images in the second row
+        axes[1, i].imshow(recon_img[i].T, vmax=img_max, vmin=img_min, origin="lower")  # recon_img[i] is the reconstructed image for channel i
         axes[1, i].set_title(f'Channel {i + 1} Reconstruction')
         axes[1, i].axis('off')
 
-    # Plot the power spectrum in the third row
-    for i in range(3):
+        # Plot the power spectrum in the third row
         # Convert to numpy for plotting and use logarithmic scale for better visibility
         power_spectrum_np = power_spectrum[i].numpy()
         log_p = np.log1p(power_spectrum_np)
@@ -79,9 +85,11 @@ def plot_changes(in_img, mask_fft, img_mask):
 
 def main():
     load_no = 0
-    step_num = 15
-    patch_num = 50
-    in_img, fft_masked, img_mask = get_fft(load_no, step_num, patch_num)
+    step_num = 2
+    patch_num = 37
+
+    patch_size, stride = (32, 32), (16, 16)
+    in_img, fft_masked, img_mask = get_fft(load_no, step_num, patch_num, patch_size, stride)
     plot_changes(in_img, fft_masked, img_mask)
 
 
