@@ -6,7 +6,8 @@ import sys
 import argparse
 import logging
 
-from utils import set_seed, get_huggingface_model, load_params_from_file
+from utils import set_seed, load_params_from_file
+from data_utils import generate_dummy_ts_dataset
 from models.model import MultivariateTimeLLM
 
 logging.basicConfig(level=logging.INFO,
@@ -28,6 +29,21 @@ if __name__ == '__main__':
 
     model = MultivariateTimeLLM(training_params)
 
+    # Test dummy data
+    B, T, N, M, PATCH_DIM = 4, 64, 10, 5, 32
+    dummy_univariate_dataset = generate_dummy_ts_dataset(multivariate=False,
+                                                         batch_size=B,
+                                                         horizon=T,
+                                                         n=N,
+                                                         in_dim=PATCH_DIM)
 
+    print(f'Dummy univariate dataset shape: {dummy_univariate_dataset.shape}')
 
+    dummy_multivariate_dataset = generate_dummy_ts_dataset(multivariate=True,
+                                                           batch_size=B,
+                                                           horizon=T,
+                                                           n=N,
+                                                           m=M,
+                                                           in_dim=PATCH_DIM)
 
+    print(f'Dummy multivariate dataset shape: {dummy_multivariate_dataset.shape}')
