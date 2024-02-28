@@ -1,9 +1,5 @@
-from math import sqrt
-
-import torch
 import torch.nn as nn
-
-from transformers import AutoConfig, AutoModel, AutoTokenizer, GPT2Model
+from transformers import AutoConfig, AutoModel, AutoTokenizer
 import transformers
 
 from utils import freeze_model
