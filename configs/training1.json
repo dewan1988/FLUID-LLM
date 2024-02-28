@@ -1,0 +1,7 @@
+{
+  "llm_backbone": "huggyllama/llama-7b",
+  "task_name": "dummy_task",
+  "pred_len": 1,
+  "seq_len": 100,
+  "hidden_dim": 256
+}
