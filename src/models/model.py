@@ -6,6 +6,8 @@ import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GPT2Model
 import transformers
 
+from utils import freeze_model
+
 transformers.logging.set_verbosity_error()
 
 
@@ -50,8 +52,7 @@ class MultivariateTimeLLM(nn.Module):
             self.tokenizer.pad_token = pad_token
 
         # Freeze backbone parameters
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        freeze_model(self.backbone)
 
         self.input_embeddings = self.backbone.get_input_embeddings().weight
         self.vocab_size = self.input_embeddings.shape[0]
