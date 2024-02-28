@@ -2,10 +2,16 @@
 Testing
 """
 
-import torch
+import sys
+import argparse
+import logging
 
-from utils import set_seed, get_huggingface_model
-from models import MultivariateTimeLLM
+from utils import set_seed, get_huggingface_model, load_params_from_file
+from models.model import MultivariateTimeLLM
+
+logging.basicConfig(level=logging.INFO,
+                    format=f'[{__name__}:%(levelname)s] %(message)s')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

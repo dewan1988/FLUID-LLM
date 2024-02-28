@@ -1,6 +1,8 @@
 {
-  "llm_backbone": "huggyllama/llama-7b",
   "task_name": "dummy_task",
+  "llm_backbone": "google-bert/bert-base-uncased",
+  "llm_layers": 2,
+  "llm_4bit_loading": false,
   "pred_len": 1,
   "seq_len": 100,
   "hidden_dim": 256
