@@ -1,31 +1,13 @@
-# pylint: disable=g-bad-file-header
-# Copyright 2020 DeepMind Technologies Limited. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
-"""Plots a CFD trajectory rollout."""
+"""Plots a sample from MeshGraphNets."""
 
 import pickle
 
-from matplotlib import animation
-from plot_mesh import plot_mesh
-import numpy as np
+from mesh_utils import plot_mesh, plot_mesh_smooth
 
 
 def main():
     with open("../ds/MGN/cylinder_dataset/save_0.pkl", 'rb') as f:
-        rollout_data = pickle.load(f) # pickle.load(fp)
-
+        rollout_data = pickle.load(f)  # pickle.load(fp)
     # ['faces', 'mesh_pos', 'gt_velocity', 'pred_velocity']
 
     # compute bounds
@@ -35,19 +17,14 @@ def main():
         bb_max = trajectory.max(axis=(0, 1))
         bounds.append((bb_min, bb_max))
 
-    def animate(num):
+    pos = rollout_data['mesh_pos']
+    faces = rollout_data['cells']
+    plot_vals = rollout_data['velocity'][0][:, 0]
 
-        pos = rollout_data['mesh_pos']
-        faces = rollout_data['cells']
-        velocity = rollout_data['velocity'][num]
+    # plot_mesh(pos, faces, plot_vals)
+    grid_z = plot_mesh_smooth(pos, plot_vals, faces, 512)
 
-        plot_mesh(pos, faces, velocity[:, 0])
-
-    # _ = animation.FuncAnimation(fig, animate, frames=num_frames, interval=100)
-    # plt.show(block=True)
-
-    animate(100)
-
+    print(grid_z)
 
 
 if __name__ == '__main__':
