@@ -39,7 +39,7 @@ class Autoencoder64(nn.Module):
 
 
 def train_autoencoder():
-    EPOCHS = 5000
+    EPOCHS = 30
     BATCH_SIZE = 64
 
     model = Autoencoder64().cuda()
@@ -49,11 +49,6 @@ def train_autoencoder():
                        resolution=512, patch_size=(32, 32), stride=(32, 32))
     dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
     dataloader.run()
-
-    # Get typical stats of dataset
-    state, _ = dataloader.get()
-    num_patches = state.shape[-1]
-    value_minmax = [(state[0].min(), state[0].max()), (state[1].min(), state[1].max()), (state[2].min(), state[2].max())]
 
     st = time.time()
     for epoch in range(EPOCHS):
@@ -91,7 +86,7 @@ def train_autoencoder():
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))
     for i in range(3):
-        mins, maxs = value_minmax[i]
+        mins, maxs = ds.ds_min_max[i]
 
         axes[0, i].imshow(data[i].cpu().numpy(), vmin=mins, vmax=maxs)
         axes[0, i].set_title(f'Channel {i + 1} Original')

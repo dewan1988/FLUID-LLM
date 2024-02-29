@@ -4,6 +4,7 @@ from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print
 import queue
 
+
 class ParallelDataGenerator:
     def __init__(self, dataloader: MGNDataloader, num_producers=4, queue_maxsize=10):
         self.dataloader = dataloader
