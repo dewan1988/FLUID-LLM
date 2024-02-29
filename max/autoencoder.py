@@ -46,18 +46,21 @@ def train_autoencoder():
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-6)
 
     ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset",
-                       resolution=512, patch_size=(32, 32), stride=(16, 16))
+                       resolution=512, patch_size=(32, 32), stride=(32, 32))
     dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
     dataloader.run()
 
+    # Get typical stats of dataset
+    state, _ = dataloader.get()
+    num_patches = state.shape[-1]
+    value_minmax = [(state[0].min(), state[0].max()), (state[1].min(), state[1].max()), (state[2].min(), state[2].max())]
+
     st = time.time()
     for epoch in range(EPOCHS):
-        idx = torch.randint(0, 217, [BATCH_SIZE])
+        idx = torch.randint(0, 64, [BATCH_SIZE])
 
         # Load data
         data, mask = dataloader.get()
-
-        # data, _ = ds_get(0, 10, patch_size=(64, 64), stride=(32, 32))
         data = data[:, :, :, idx].cuda()
         data = torch.permute(data, [3, 0, 1, 2])
         mask = mask[:, :, idx].cuda()
@@ -68,7 +71,8 @@ def train_autoencoder():
         # Forward pass
         output = model(data)
         error = (data - output)[torch.logical_not(mask)]
-        loss = torch.mean(error ** 2 + 0.01 * torch.abs(error))
+        loss = error ** 2 # + 0.01 * torch.abs(error)
+        loss = 10 * torch.mean(loss)
         # Backward pass
         optimizer.zero_grad()
         loss.backward()
@@ -76,10 +80,7 @@ def train_autoencoder():
 
         if epoch % 10 == 0:
             print(f'Epoch [{epoch + 1}/{EPOCHS}], Loss: {loss.item():.2g}, Time: {time.time() - st:.2f}')
-
             st = time.time()
-        # print(data.min().item(), data.max().item())
-        # print(output.min().item(), output.max().item())
 
     # Plot reconstructions
     data, _ = dataloader.get()
@@ -90,11 +91,13 @@ def train_autoencoder():
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))
     for i in range(3):
-        axes[0, i].imshow(data[i].cpu().numpy(), vmin=-0.5, vmax=0.75)
+        mins, maxs = value_minmax[i]
+
+        axes[0, i].imshow(data[i].cpu().numpy(), vmin=mins, vmax=maxs)
         axes[0, i].set_title(f'Channel {i + 1} Original')
         axes[0, i].axis('off')
 
-        axes[1, i].imshow(output[i].cpu().numpy(), vmin=-0.5, vmax=0.75)
+        axes[1, i].imshow(output[i].cpu().numpy(), vmin=mins, vmax=maxs)
         axes[1, i].set_title(f'Channel {i + 1} Reconstruction')
         axes[1, i].axis('off')
     plt.tight_layout()
