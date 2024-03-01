@@ -40,7 +40,7 @@ class MGNDataloader:
         patches = self._patch(to_patch)
         state, mask = patches[:-1], patches[-1]
 
-        return state, mask
+        return state, mask.bool()
 
     def _get_step(self, save_file, step_num, interp_type='linear'):
         """
@@ -109,7 +109,6 @@ class MGNSeqDataloader(MGNDataloader):
         states = []
         for i in range(step_num, step_num + self.seq_len * self.seq_interval, self.seq_interval):
             state, mask = self._get_step(save_file, step_num=i)
-
             # Patch mask with state
             to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
             to_patch = torch.from_numpy(to_patch).float()
@@ -144,9 +143,8 @@ def plot_patches(save_num, step_num, patch_no):
 
 def main():
     seq_dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=(16, 16), stride=(16, 16), seq_len=5, seq_interval=2)
-    state, diff, mask = seq_dl.ds_get(save_file=1, step_num=50)
+    state, diff, mask = seq_dl.ds_get(save_file=0, step_num=50)
     step_num, patch_no = 0, 36
-
     diff = diff[step_num, patch_no, :, :, ].numpy()
     state = state[step_num, patch_no, :, :, ].numpy()
 

@@ -1,4 +1,7 @@
 """ Class for multiprocess parallel dataloader. Works with a dataloader class instance. """
+
+# Kill remaining processes:
+# pgrep -f /home/maccyz/Documents/LLM_Fluid/max/autoencoder | xargs kill
 import torch.multiprocessing as mp
 from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print

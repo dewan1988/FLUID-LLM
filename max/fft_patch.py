@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from matplotlib import pyplot as plt
 
-from dataloader import ds_get
+from dataloader.MGN_dataloader import MGNDataloader
 
 
 def get_mask(fft_image):
@@ -10,21 +10,18 @@ def get_mask(fft_image):
         # This is a placeholder for your actual masking function.
         # It should return a mask based on the fx and fy coordinates.
 
-        # return fx ** 2 * fy ** 2 < 0.3 ** 4
-
         abs_x, abs_y = torch.abs(fx), torch.abs(fy)
         mask = (abs_x < 0.1) | (abs_y < 0.1) | (fx ** 2 + fy ** 2 <= 0.4 ** 2)
         return mask
 
-    # Assuming fft_image is the FFT of the image with shape (C, H, W)
+    # Assuming fft_image is the rFFT of the image with shape (C, H, W)
     C, H, W = fft_image.shape
 
     # Create meshgrid of frequency coordinates
-    y, x = torch.meshgrid(torch.linspace(-1, 1, H), torch.linspace(-1, 1, W), indexing='ij')
+    y, x = torch.meshgrid(torch.linspace(-1, 1, H), torch.linspace(0, 1, W), indexing='ij')
 
     # Generate the mask
     mask = create_mask(x, y).to(torch.bool)
-    #
 
     # print(torch.sum(mask) / (H * W) * 100)
     # print(H*W)
@@ -34,18 +31,17 @@ def get_mask(fft_image):
     return mask
 
 
-def get_fft(load_no, step_num, patch_num, patch_size=(64, 64), stride=(32, 32)):
-    in_img, img_mask = ds_get(load_no, step_num=step_num, patch_size=patch_size, stride=stride, resolution=512)
-    print(in_img.shape)
-
+def get_fft(dl, load_no, step_num, patch_num):
+    in_img, img_mask = dl.ds_get(load_no, step_num)
     in_img = in_img[:, :, :, patch_num]
     img_mask = img_mask[:, :, patch_num]
 
     # Compute the FFT of the image
-    fft_img = torch.fft.fft2(in_img)
-    fft = torch.fft.fftshift(fft_img, dim=(-2, -1))
+    fft_img = torch.fft.rfft2(in_img)  # shape = [3, patch_size, patch_size // 2 + 1]
+    fft_img = torch.fft.fftshift(fft_img, dim=1)
+
     # Mask out high frequencies
-    fft_masked = fft * get_mask(fft_img).unsqueeze(0)
+    fft_masked = fft_img * get_mask(fft_img).unsqueeze(0)
 
     return in_img, fft_masked, img_mask
 
@@ -53,9 +49,10 @@ def get_fft(load_no, step_num, patch_num, patch_size=(64, 64), stride=(32, 32)):
 def plot_changes(in_img, mask_fft, img_mask):
     # Compute the power spectrum
     power_spectrum = torch.abs(mask_fft) ** 2
+
     # Reconstruct image
-    unshift = torch.fft.ifftshift(mask_fft, dim=(-2, -1))
-    recon_img = torch.fft.ifft2(unshift, norm="backward").real
+    mask_fft = torch.fft.ifftshift(mask_fft, dim=1)
+    recon_img = torch.fft.irfft2(mask_fft, norm="backward").real
     recon_img[:, img_mask] = 0  # Mask out the padded values
 
     # Plot the original image and the power spectrum
@@ -86,10 +83,12 @@ def plot_changes(in_img, mask_fft, img_mask):
 def main():
     load_no = 0
     step_num = 2
-    patch_num = 37
+    patch_num = 12
 
-    patch_size, stride = (32, 32), (16, 16)
-    in_img, fft_masked, img_mask = get_fft(load_no, step_num, patch_num, patch_size, stride)
+    patch_size, stride = (32, 32), (32, 32)
+
+    dl = MGNDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=patch_size, stride=stride)
+    in_img, fft_masked, img_mask = get_fft(dl, load_no, step_num, patch_num)
     plot_changes(in_img, fft_masked, img_mask)
 
 
