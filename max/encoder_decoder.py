@@ -37,7 +37,7 @@ class FFTEncDec(EncoderDecoder):
         self.fft_mask = self._create_fft_mask()
         print(f'{self.fft_mask.float().mean() = }')
         # Project from mask_dim to enc_dim
-        mask_dim = self.fft_mask.sum().item() * 6   # 3 channels, real + imag
+        mask_dim = self.fft_mask.sum().item() * 6  # 3 channels, real + imag
         print(f'{mask_dim = }')
         self.proj = torch.nn.Linear(mask_dim, enc_dim)
 
@@ -74,13 +74,10 @@ class FFTEncDec(EncoderDecoder):
         """ encoded.shape = (seq_len, num_patches, -1)
             Return shape: (seq_len, num_patches, 3, H, W)
         """
-
+        raise NotImplementedError
         # Reconstruct image
         mask_fft = torch.fft.ifftshift(encoded, dim=-2)
         recon_img = torch.fft.irfft2(mask_fft, norm="backward").real
-
-        plt.tight_layout()
-        plt.show()
 
         return recon_img
 
@@ -160,6 +157,7 @@ def main():
 
     encoded = encoder.encode(state, bc_mask)
     print(f'{encoded.shape = }')
+
 
 if __name__ == '__main__':
     main()

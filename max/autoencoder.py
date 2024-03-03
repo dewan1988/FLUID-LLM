@@ -7,9 +7,9 @@ from dataloader.MGN_dataloader import MGNDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator
 
 
-class Autoencoder64(nn.Module):
+class AutoencoderCNN(nn.Module):
     def __init__(self):
-        super(Autoencoder64, self).__init__()
+        super().__init__()
         self.act = nn.ELU()
 
         # Encoder
@@ -37,12 +37,37 @@ class Autoencoder64(nn.Module):
         return x
 
 
+class AutoencoderMLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.act = nn.ELU()
+
+        # Encoder
+        self.enc_1 = nn.Linear(3 * 32 * 32, 1024)
+        self.enc_2 = nn.Linear(1024, 256)
+        # Decoder
+        self.dec_1 = nn.Linear(256, 1024)
+        self.dec_2 = nn.Linear(1024, 3 * 32 * 32)
+
+    def forward(self, x):
+        bs, c, h, w = x.shape
+        x = x.view(x.shape[0], -1)
+        x = self.act(self.enc_1(x))
+        x = self.act(self.enc_2(x))
+
+        x = self.act(self.dec_1(x))
+        x = self.dec_2(x)
+        x = x.view(bs, c, h, w)
+        return x
+
+
 def train_autoencoder():
-    EPOCHS = 1000
+    EPOCHS = 5000
     BATCH_SIZE = 64
 
-    model = Autoencoder64().cuda()
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-6)
+    #model = AutoencoderCNN().cuda()
+    model = AutoencoderMLP().cuda()
+    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
     ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset",
                        resolution=512, patch_size=(32, 32), stride=(32, 32))
@@ -65,11 +90,13 @@ def train_autoencoder():
         # Forward pass
         output = model(data)
         error = (data - output)[torch.logical_not(mask)]
-        loss = error ** 2  # + 0.01 * torch.abs(error)
+        loss = error ** 2 + 0.01 * torch.abs(error)
         loss = 10 * torch.mean(loss)
         # Backward pass
         optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+
         optimizer.step()
 
         if epoch % 10 == 0:
@@ -77,11 +104,11 @@ def train_autoencoder():
             st = time.time()
 
     # Plot reconstructions
-    for _ in range(4):
+    for _ in range(5):
         data, _ = dataloader.get()
         data = data[:, :, :, 13].cuda()
         with torch.no_grad():
-            output = model(data)
+            output = model(data.unsqueeze(0)).squeeze()
 
         fig, axes = plt.subplots(2, 3, figsize=(12, 6))
         for i in range(3):
