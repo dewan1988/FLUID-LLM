@@ -22,10 +22,10 @@ class MGNDataloader:
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
         # Get typical min/max values
-        state, _ = self._get_step(save_file=self.save_files[0], step_num=25)
+        state, _ = self._get_step(save_file=self.save_files[1], step_num=20)
         self.ds_min_max = [(state[0].min(), state[0].max()), (state[1].min(), state[1].max()), (state[2].min(), state[2].max())]
 
-    def ds_get(self, save_file=None, step_num=0):
+    def ds_get(self, save_file=None, step_num=None):
         """ Returns image from a given save and step patched."""
         if type(save_file) == int:
             save_file = f'save_{save_file}.pkl'
