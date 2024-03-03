@@ -11,6 +11,8 @@ from visualisation.mesh_utils import to_grid
 
 
 class MGNDataloader:
+    """ Load a single timestep from the dataset."""
+
     def __init__(self, load_dir, resolution=512, patch_size=(32, 32), stride=(32, 32)):
         self.load_dir = load_dir
         self.resolution = resolution
@@ -92,7 +94,11 @@ class MGNSeqDataloader(MGNDataloader):
 
     def ds_get(self, save_file=None, step_num=0):
         """ Returns image from a given save and step patched.
-            Return shape = (seq_len-1, num_patches, C, H, W):
+            Last state has no corresponding diff
+            Return:
+                 state.shape = (seq_len, num_patches, C, H, W)
+                 diff.shape = (seq_len - 1, num_patches, C, H, W)
+                 maskk.shape(num_patches, H, W)
         """
         if type(save_file) == int:
             save_file = f'save_{save_file}.pkl'
@@ -109,6 +115,7 @@ class MGNSeqDataloader(MGNDataloader):
         states = []
         for i in range(step_num, step_num + self.seq_len * self.seq_interval, self.seq_interval):
             state, mask = self._get_step(save_file, step_num=i)
+
             # Patch mask with state
             to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
             to_patch = torch.from_numpy(to_patch).float()
@@ -141,18 +148,43 @@ def plot_patches(save_num, step_num, patch_no):
     plt.show()
 
 
-def main():
-    seq_dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=(16, 16), stride=(16, 16), seq_len=5, seq_interval=2)
-    state, diff, mask = seq_dl.ds_get(save_file=0, step_num=50)
-    step_num, patch_no = 0, 36
-    diff = diff[step_num, patch_no, :, :, ].numpy()
-    state = state[step_num, patch_no, :, :, ].numpy()
+def plot_all_patches():
+    load_no = 0
+    step_num = 50
+    patch_size, stride = (24, 24), (24, 24)
 
-    fig, axes = plt.subplots(2, 3, figsize=(18, 6))
-    for i in range(3):
-        axes[0, i].imshow(diff[i])
-        axes[1, i].imshow(state[i], vmin=-0.5, vmax=0.9)
+    seq_dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=patch_size, stride=stride, seq_len=5, seq_interval=2)
+    state, diff, mask = seq_dl.ds_get(save_file=load_no, step_num=step_num)
 
+    x_count, y_count = 21, 5
+
+    p_shows = state[0]
+    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    for i in range(y_count):
+        for j in range(x_count):
+            print(i, j, i + j * y_count)
+            p_show = p_shows[i + j * y_count].numpy()
+            p_show = np.transpose(p_show, (2, 1, 0))
+            for k in range(5):
+                min, max = seq_dl.ds_min_max[0]
+
+                axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+                axes[i, j].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+    p_shows = diff[0]
+
+    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    for i in range(y_count):
+        for j in range(x_count):
+            p_show = p_shows[i + j * y_count].numpy()
+            p_show = np.transpose(p_show, (2, 1, 0))
+            for k in range(3):
+                min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
+
+                axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+                axes[i, j].axis('off')
     plt.tight_layout()
     plt.show()
 
@@ -161,4 +193,4 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
     # plot_patches(None, 10, 20)
-    main()
+    plot_all_patches()
