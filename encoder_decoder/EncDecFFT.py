@@ -1,42 +1,11 @@
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
-
-
-class EncoderDecoder(torch.nn.Module):
-    """
-    Base class for encoding/decoding images into transformer embedding space
-    """
-
-    def __init__(self, img_dim: tuple, enc_dim: int):
-        super().__init__()
-        self.img_dim = img_dim
-        self.enc_dim = enc_dim
-
-    def encode(self, x, bc_mask):
-        """
-        Encode an image into the transformer embedding space
-        Input shape: (seq_len, num_patches, C, H, W)
-        Return shape: (seq_len, num_patches, enc_dim)
-        """
-        raise NotImplementedError
-
-    def decode(self, x, bc_mask):
-        """
-        Decode an image from the transformer embedding space
-        Input shape: (seq_len, num_patches, enc_dim)
-        Return shape: (seq_len, num_patches, C, H, W)
-        """
-        raise NotImplementedError
-
-    def remove_boundary(self, x, bc_mask):
-        """
-        Remove the boundary condition mask from the encoded/decoded image
-        """
-        return x[:, ~bc_mask]
+from EncoderDecoder import EncoderDecoder
 
 
 class FFTEncDec(EncoderDecoder):
+    """ Use FFT to encode and decode images, along with a learnable linear layer to project to the embedding space"""
     def __init__(self, img_dim: tuple, enc_dim: int):
         super().__init__(img_dim, enc_dim)
 
@@ -59,7 +28,7 @@ class FFTEncDec(EncoderDecoder):
 
     def encode(self, x, bc_mask):
         """
-            Encode usng FFT and mask out unneeded values
+            Encode using FFT and mask out unneeded values
             x.shape = (seq_len, num_patches, C, H, W)
             Return shape: (seq_len, num_patches, enc_dim)
         """
@@ -80,17 +49,18 @@ class FFTEncDec(EncoderDecoder):
         """ encoded.shape = (seq_len, num_patches, -1)
             Return shape: (seq_len, num_patches, 3, H, W)
         """
-        raise NotImplementedError
+        # raise NotImplementedError
         # Reconstruct image
         mask_fft = torch.fft.ifftshift(encoded, dim=-2)
         recon_img = torch.fft.irfft2(mask_fft, norm="backward").real
+        recon_img = self.remove_boundary(recon_img, bc_mask)
 
         return recon_img
 
     def encode_plot(self, x, bc_mask):
         """
             Test fn for plotting
-            Encode usng FFT and mask out unneeded values
+            Encode using FFT and mask out unneeded values
             x.shape = (seq_len, num_patches, C, H, W)
             Return shape: (seq_len, num_patches, -1)
         """
@@ -124,7 +94,8 @@ def plot_changes(in_img, encoded, recon_img, bc_mask, plot_num):
     for i in range(3):
         img_max, img_min = 0.6, -0.2  # in_img[i].max(), in_img[i].min()
 
-        axes[0, i].imshow(in_img[i].T, vmax=img_max, vmin=img_min, origin="lower")  # patches[i] should be the original image or its power spectrum for channel i
+        axes[0, i].imshow(in_img[i].T, vmax=img_max, vmin=img_min,
+                          origin="lower")  # patches[i] should be the original image or its power spectrum for channel i
         axes[0, i].set_title(f'Channel {i + 1} Original')
         axes[0, i].axis('off')
 
@@ -149,7 +120,7 @@ def main():
 
     load_no = 0
     step_num = 2
-    plot_num = 22
+    plot_num = 51
     patch_size, stride = (16, 16), (16, 16)
 
     dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=patch_size, stride=stride)
