@@ -6,6 +6,7 @@ import transformers
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
+from models.layers.patch_decoder import PatchDecoder
 
 transformers.logging.set_verbosity_error()
 
@@ -53,6 +54,9 @@ class MultivariateTimeLLM(nn.Module):
             self.tokenizer.pad_token = pad_token
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
+        self.N = N
+        self.M = M
+        self.patch_dim = patch_dim
         self.patch_in_dim = N * M * patch_dim
 
         # Adjust the backbone for time series task
@@ -61,6 +65,8 @@ class MultivariateTimeLLM(nn.Module):
                                                 self.llm_config.hidden_dropout_prob,
                                                 self.llm_config.layer_norm_eps,
                                                 self.llm_config.max_position_embeddings)
+
+        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
 
         self._adjust_backbone_for_time_series_task()
 
@@ -72,6 +78,15 @@ class MultivariateTimeLLM(nn.Module):
         freeze_model(self.backbone)
 
     def forward(self, x):
+        # Encode with patch embedder
         x_enc = self.input_embeddings(x)
-        backbone_out = self.backbone(inputs_embeds=x_enc)
-        return backbone_out
+
+        # Pass through frozen LLM
+        backbone_out = self.backbone(inputs_embeds=x_enc).last_hidden_state
+
+        # Decode hidden state given by the LLM
+        batch_size, seq_len, _ = backbone_out.shape
+        decoder_out = self.output_layer(backbone_out)
+        decoder_out = decoder_out.view(batch_size, seq_len, self.N, self.M, self.patch_dim)
+
+        return backbone_out, decoder_out

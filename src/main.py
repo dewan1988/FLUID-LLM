@@ -49,6 +49,7 @@ if __name__ == '__main__':
 
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, N=N, M=M, patch_dim=PATCH_DIM)
-    model_output = model(dummy_multivariate_dataset).last_hidden_state
+    enc_out, dec_out = model(dummy_multivariate_dataset)
     print("Out")
-    print(model_output.shape)
+    print(enc_out.shape)
+    print(dec_out.shape)
