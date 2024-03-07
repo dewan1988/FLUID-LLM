@@ -1,9 +1,11 @@
+import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 import transformers
 
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
+from models.layers.passthrough_embeddings import PassthroughEmbeddings
 
 transformers.logging.set_verbosity_error()
 
@@ -63,6 +65,9 @@ class MultivariateTimeLLM(nn.Module):
         self._adjust_backbone_for_time_series_task()
 
     def _adjust_backbone_for_time_series_task(self):
+        # Nullify undesired layers
+        self.backbone.embeddings = PassthroughEmbeddings()
+
         # Freeze backbone parameters
         freeze_model(self.backbone)
 
