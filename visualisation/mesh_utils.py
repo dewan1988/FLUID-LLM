@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import time
 
+
 def plot_mesh(pos, faces, val):
     """Plots triangular mesh from positions of nodes and triangles defined using faces."""
     triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
@@ -29,6 +30,7 @@ def plot_mesh_smooth(pos, val, faces, grid_res):
     plt.tight_layout()
     plt.show()
 
+
 def inpaint(img, mask, method='telea'):
     """Inpaints mask to avoid rough edges. """
 
@@ -39,9 +41,9 @@ def inpaint(img, mask, method='telea'):
     img = (img * 255).astype(np.uint8)
     mask = (mask * 255).astype(np.uint8)
     if method == 'telea':
-        img =  cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
+        img = cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
     elif method == 'ns':
-        img =  cv2.inpaint(img, mask, 3, cv2.INPAINT_NS)
+        img = cv2.inpaint(img, mask, 3, cv2.INPAINT_NS)
     else:
         raise ValueError(f"Unknown inpainting method: {method}")
 
@@ -49,7 +51,7 @@ def inpaint(img, mask, method='telea'):
     return img.astype(np.float32)
 
 
-def to_grid(pos, val, faces, grid_res, mask_interp=None, type='linear'):
+def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
     # Define your grid bounds and resolution
     triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
 
@@ -83,9 +85,8 @@ def to_grid(pos, val, faces, grid_res, mask_interp=None, type='linear'):
 
     data[mask] = 0.
 
-    if mask_interp is not None:
+    if mask_interp:
         inpaint_data = inpaint(data, mask, method='telea')
         data[mask] = inpaint_data[mask]
-    #data = inpaint_data
-    # data[mask] = mask_val
+
     return data, mask

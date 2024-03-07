@@ -1,8 +1,12 @@
 """ Class for multiprocess parallel dataloader. Works with a dataloader class instance. """
+
+# Kill remaining processes:
+# pgrep -f /home/maccyz/Documents/LLM_Fluid/max/autoencoder | xargs kill
 import torch.multiprocessing as mp
 from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print
 import queue
+
 
 class ParallelDataGenerator:
     def __init__(self, dataloader: MGNDataloader, num_producers=4, queue_maxsize=10):
