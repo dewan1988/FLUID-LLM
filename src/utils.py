@@ -24,6 +24,11 @@ def freeze_model(model_to_freeze):
         param.requires_grad = False
 
 
+def unfreeze_model(model_to_unfreeze):
+    for param in model_to_unfreeze.parameters():
+        param.requires_grad = True
+
+
 def get_model_size(model):
     num_parameters = sum(p.numel() for p in model.parameters())
     return num_parameters

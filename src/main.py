@@ -5,6 +5,7 @@ Testing
 import sys
 import argparse
 import logging
+from torch.utils.data import DataLoader
 
 from utils import set_seed, load_params_from_file
 from data_utils import generate_dummy_ts_dataset
@@ -27,10 +28,8 @@ if __name__ == '__main__':
     training_params = load_params_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
 
-    model = MultivariateTimeLLM(training_params)
-
     # Test dummy data
-    B, T, N, M, PATCH_DIM = 4, 64, 10, 5, 32
+    B, T, N, M, PATCH_DIM = 4, 64, 10, 5, 16
     dummy_univariate_dataset = generate_dummy_ts_dataset(multivariate=False,
                                                          batch_size=B,
                                                          horizon=T,
@@ -47,3 +46,9 @@ if __name__ == '__main__':
                                                            in_dim=PATCH_DIM)
 
     print(f'Dummy multivariate dataset shape: {dummy_multivariate_dataset.shape}')
+
+    # Test model forward pass
+    model = MultivariateTimeLLM(training_params, N=N, M=M, patch_dim=PATCH_DIM)
+    model_output = model(dummy_multivariate_dataset).last_hidden_state
+    print("Out")
+    print(model_output.shape)
