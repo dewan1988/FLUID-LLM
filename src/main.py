@@ -23,14 +23,16 @@ DTYPE = torch.float16
 def test_loop(model: MultivariateTimeLLM, cfg):
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
-    dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=resolution, patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
+    dl = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution, patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
 
     states, diffs, mask, position_ids = dl.get_sequence()
-    states, diffs = states.to(torch.float16), diffs.to(torch.float16)
+    states, diffs = states.to(DTYPE), diffs.to(DTYPE)
     states, diffs, position_ids = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE)
     backbone_out, preds = model.forward(states, position_ids)
 
-    print(f'{backbone_out.shape}')
+    loss = torch.nn.functional.mse_loss(preds, diffs)
+    print(f'{loss = }')
+    print(f'{diffs.shape = }')
     print(f'{preds.shape = }')
 
     return
