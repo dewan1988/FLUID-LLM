@@ -6,13 +6,34 @@ import sys
 import argparse
 import logging
 from torch.utils.data import DataLoader
+import torch
 
 from utils import set_seed, load_params_from_file
 from data_utils import generate_dummy_ts_dataset
 from models.model import MultivariateTimeLLM
 
+from dataloader.MGN_dataloader import MGNSeqDataloader
+
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
+DEVICE = 'cuda'
+DTYPE = torch.float16
+
+
+def test_loop(model: MultivariateTimeLLM, cfg):
+    patch_size = cfg['patch_size']
+    resolution = cfg['resolution']
+    dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=resolution, patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
+
+    states, diffs, mask, position_ids = dl.get_sequence()
+    states, diffs = states.to(torch.float16), diffs.to(torch.float16)
+    states, diffs, position_ids = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE)
+    backbone_out, preds = model.forward(states, position_ids)
+
+    print(f'{backbone_out.shape}')
+    print(f'{preds.shape = }')
+
+    return
 
 
 if __name__ == '__main__':
@@ -29,27 +50,9 @@ if __name__ == '__main__':
     logging.info(f"Parameters for training: {training_params}")
 
     # Test dummy data
-    B, T, N, M, PATCH_DIM = 4, 64, 10, 5, 16
-    dummy_univariate_dataset = generate_dummy_ts_dataset(multivariate=False,
-                                                         batch_size=B,
-                                                         horizon=T,
-                                                         n=N,
-                                                         in_dim=PATCH_DIM)
-
-    print(f'Dummy univariate dataset shape: {dummy_univariate_dataset.shape}')
-
-    dummy_multivariate_dataset = generate_dummy_ts_dataset(multivariate=True,
-                                                           batch_size=B,
-                                                           horizon=T,
-                                                           n=N,
-                                                           m=M,
-                                                           in_dim=PATCH_DIM)
-
-    print(f'Dummy multivariate dataset shape: {dummy_multivariate_dataset.shape}')
+    N, M = training_params["patch_size"]
 
     # Test model forward pass
-    model = MultivariateTimeLLM(training_params, N=N, M=M, patch_dim=PATCH_DIM)
-    enc_out, dec_out = model(dummy_multivariate_dataset)
-    print("Out")
-    print(enc_out.shape)
-    print(dec_out.shape)
+    model = MultivariateTimeLLM(training_params, N=N, M=M, device_map=DEVICE).to(DEVICE).to(DTYPE)
+    test_loop(model, training_params)
+
