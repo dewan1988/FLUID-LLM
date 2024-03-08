@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 import transformers
+from cprint import c_print
 
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
@@ -12,7 +13,7 @@ transformers.logging.set_verbosity_error()
 
 
 class MultivariateTimeLLM(nn.Module):
-    def __init__(self, config, N, M, patch_dim):
+    def __init__(self, config, N, M, device_map='cpu'):
         super().__init__()
 
         self.config = config
@@ -26,7 +27,7 @@ class MultivariateTimeLLM(nn.Module):
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
-        llm_config.num_hidden_layers = config['llm_layers']
+        # llm_config.num_hidden_layers = config['llm_layers']
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
         self.llm_config = llm_config
@@ -36,8 +37,12 @@ class MultivariateTimeLLM(nn.Module):
             trust_remote_code=True,
             local_files_only=False,
             config=self.llm_config,
-            load_in_4bit=config['llm_4bit_loading']
+            torch_dtype=torch.float16,
+            load_in_4bit=config['llm_4bit_loading'],
+            device_map=device_map
         )
+
+        c_print(f'LLM config: {llm_config}', color='green')
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             config['llm_backbone'],
@@ -56,15 +61,14 @@ class MultivariateTimeLLM(nn.Module):
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
         self.N = N
         self.M = M
-        self.patch_dim = patch_dim
-        self.patch_in_dim = N * M * patch_dim
+        self.patch_in_dim = N * M * 3
 
         # Adjust the backbone for time series task
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
                                                 self.llm_config.hidden_dropout_prob,
                                                 self.llm_config.layer_norm_eps,
-                                                self.llm_config.max_position_embeddings)
+                                                self.llm_config.max_position_embeddings).to(torch.float16)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
 
@@ -77,16 +81,18 @@ class MultivariateTimeLLM(nn.Module):
         # Freeze backbone parameters
         freeze_model(self.backbone)
 
-    def forward(self, x):
+    def forward(self, x, position_ids):
+        batch_size = x.shape[0]
+
         # Encode with patch embedder
-        x_enc = self.input_embeddings(x)
+        x_enc = self.input_embeddings(x, position_ids)
 
         # Pass through frozen LLM
         backbone_out = self.backbone(inputs_embeds=x_enc).last_hidden_state
 
         # Decode hidden state given by the LLM
-        batch_size, seq_len, _ = backbone_out.shape
+        _, seq_len, _ = backbone_out.shape
         decoder_out = self.output_layer(backbone_out)
-        decoder_out = decoder_out.view(batch_size, seq_len, self.N, self.M, self.patch_dim)
+        decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
         return backbone_out, decoder_out

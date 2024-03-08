@@ -10,6 +10,13 @@ from cprint import c_print
 from visualisation.mesh_utils import to_grid
 
 
+def num_patches(dim_size, kern_size, stride, padding=0):
+    """
+    Returns the number of patches that can be extracted from an image
+    """
+    return (dim_size + 2 * padding - kern_size) // stride + 1
+
+
 class MGNDataloader:
     """ Load a single timestep from the dataset."""
 
@@ -24,6 +31,11 @@ class MGNDataloader:
         # Get typical min/max values
         state, _ = self._get_step(save_file=self.save_files[1], step_num=20)
         self.ds_min_max = [(state[0].min(), state[0].max()), (state[1].min(), state[1].max()), (state[2].min(), state[2].max())]
+
+        # Calculate number of patches, assuming stride = patch_size
+        x_px, y_px = state.shape[1:]
+        self.N_x_patch, self.N_y_patch = num_patches(x_px, patch_size[0], stride[0]), num_patches(y_px, patch_size[1], stride[1])
+        self.N_patch = self.N_x_patch * self.N_y_patch
 
     def ds_get(self, save_file=None, step_num=None):
         """ Returns image from a given save and step patched."""
@@ -96,9 +108,9 @@ class MGNSeqDataloader(MGNDataloader):
         """ Returns image from a given save and step patched.
             Last state has no corresponding diff
             Return:
-                 state.shape = (seq_len, num_patches, C, H, W)
-                 diff.shape = (seq_len - 1, num_patches, C, H, W)
-                 maskk.shape(num_patches, H, W)
+                 state.shape = (seq_len, num_patches, 3, H, W)
+                 diff.shape = (seq_len - 1, num_patches, 3, H, W)
+                 mask.shape(num_patches, H, W)
         """
         if type(save_file) == int:
             save_file = f'save_{save_file}.pkl'
@@ -112,6 +124,7 @@ class MGNSeqDataloader(MGNDataloader):
             c_print(f"Step number {step_num} too high, setting to max step number {max_step_num}", 'red')
             step_num = max_step_num
 
+        # Load multiple states
         states = []
         for i in range(step_num, step_num + self.seq_len * self.seq_interval, self.seq_interval):
             state, mask = self._get_step(save_file, step_num=i)
@@ -130,8 +143,33 @@ class MGNSeqDataloader(MGNDataloader):
         states = torch.stack(states, dim=0)
         diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
 
-        # Assume boundary condition mask doesn't change
         return states, diffs, mask.bool()
+
+    def get_sequence(self, save_file=None, step_num=0):
+        """
+        Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
+        Return:
+             state.shape = (1, (seq_len - 1) * num_patches, 3, H, W)
+             diff.shape = (1, (seq_len - 1)  * num_patches, 3, H, W)
+             patch_idx: [x_idx, y_idx, t_idx] for each patch
+
+        """
+        states, diffs, mask = self.ds_get(save_file, step_num)
+        states = states[:-1]
+
+        seq_dim = (self.seq_len - 1) * self.N_patch
+        states = states.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        diffs = diffs.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
+
+        # Get positions / times for each patch
+        arange = np.arange(seq_dim)
+        x_idx = arange % self.N_x_patch
+        y_idx = (arange // self.N_x_patch) % self.N_y_patch
+        t_idx = arange // self.N_patch
+
+        position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
+
+        return states, diffs, mask, torch.from_numpy(position_ids)
 
 
 def plot_patches(save_num, step_num, patch_no):
@@ -151,18 +189,17 @@ def plot_patches(save_num, step_num, patch_no):
 def plot_all_patches():
     load_no = 0
     step_num = 50
-    patch_size, stride = (24, 24), (24, 24)
+    patch_size, stride = (32, 32), (32, 32)
 
     seq_dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=patch_size, stride=stride, seq_len=5, seq_interval=2)
     state, diff, mask = seq_dl.ds_get(save_file=load_no, step_num=step_num)
 
-    x_count, y_count = 21, 5
+    x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
 
     p_shows = state[0]
     fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
     for i in range(y_count):
         for j in range(x_count):
-            print(i, j, i + j * y_count)
             p_show = p_shows[i + j * y_count].numpy()
             p_show = np.transpose(p_show, (2, 1, 0))
             for k in range(5):

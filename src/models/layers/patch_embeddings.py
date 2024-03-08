@@ -1,12 +1,11 @@
 from torch import nn
-
+import torch
 
 class PatchEmbeddings(nn.Module):
     """Patch embeddings layer used to project patches into feature space."""
 
     def __init__(self, in_dim, hidden_dim):
         super().__init__()
-
         self.embeddings = nn.Linear(in_dim, hidden_dim)
 
     def forward(self, x):
