@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class PositionalEmbeddings(nn.Module):
-    """Positional embeddings layer, including time, x and y embeddings."""
+    """Positional embeddings layer, for time, x and y."""
 
     def __init__(self, hidden_size, max_pos_embeddings):
         super().__init__()
