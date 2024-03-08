@@ -16,11 +16,7 @@ class InputEmbeddings(nn.Module):
         self.LayerNorm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
-    def forward(
-            self,
-            x,
-            position_ids,
-    ):
+    def forward(self, x, position_ids):
         """
         Here x.shape = (seq_len, num_patches, C, H, W)
         """
