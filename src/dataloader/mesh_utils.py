@@ -2,7 +2,7 @@ from matplotlib import tri as mtri
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-import time
+import torch
 
 
 def plot_mesh(pos, faces, val):
@@ -92,7 +92,7 @@ def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
     return data, mask
 
 
-def plot_patches(state, N_patch: tuple):
+def plot_patches(state: torch.Tensor, N_patch: tuple):
     """Plot a series of patches in a grid
      state.shape = (N_patch, H, W)"""
 

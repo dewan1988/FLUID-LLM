@@ -65,7 +65,7 @@ def train_autoencoder():
     EPOCHS = 5000
     BATCH_SIZE = 64
 
-    #model = AutoencoderCNN().cuda()
+    # model = AutoencoderCNN().cuda()
     model = AutoencoderMLP().cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 

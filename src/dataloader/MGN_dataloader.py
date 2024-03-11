@@ -6,8 +6,14 @@ import os
 import pickle
 import random
 from cprint import c_print
+from concurrent.futures import ThreadPoolExecutor
 
 from dataloader.mesh_utils import to_grid
+
+
+def unfold_wrapper(states, kernel_size, stride):
+    """Workaround for multiprocessing bug."""
+    return torch.nn.functional.unfold(states, kernel_size=kernel_size, stride=stride)
 
 
 def num_patches(dim_size, kern_size, stride, padding=0):
@@ -89,7 +95,11 @@ class MGNDataloader:
         C = states.shape[0]
 
         states = states.unsqueeze(0)
+
         patches = torch.nn.functional.unfold(states, kernel_size=self.patch_size, stride=self.stride)
+        # with ThreadPoolExecutor() as executor:
+        #     future = executor.submit(unfold_wrapper, states, kernel_size=self.patch_size, stride=self.stride)
+        #     patches = future.result()
 
         # Reshape patches to (N, C, H, W, num_patches)
         h, w = self.patch_size
@@ -123,13 +133,9 @@ class MGNSeqDataloader(MGNDataloader):
         self.seq_len = seq_len
         self.seq_interval = seq_interval
 
-    def ds_get(self, save_file=None, step_num=0):
-        """ Returns image from a given save and step patched.
-            Last state has no corresponding diff
-            Return:
-                 state.shape = (seq_len, num_patches, 3, H, W)
-                 diff.shape = (seq_len - 1, num_patches, 3, H, W)
-                 mask.shape(num_patches, H, W)
+    def _get_full_seq(self, save_file=None, step_num=0):
+        """ Returns numpy arrays of sequence, ready to be patched.
+            Required to avoid pytorch multiprocessing bug.
         """
         if type(save_file) == int:
             save_file = f'save_{save_file}.pkl'
@@ -144,12 +150,21 @@ class MGNSeqDataloader(MGNDataloader):
             step_num = max_step_num
 
         # Load multiple states
-        states = []
+        to_patches = []
         for i in range(step_num, step_num + self.seq_len * self.seq_interval, self.seq_interval):
             state, mask = self._get_step(save_file, step_num=i)
 
             # Patch mask with state
             to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
+            to_patches.append(to_patch)
+
+        return to_patches
+
+    def _ds_get_pt(self, to_patches):
+        """ Pytorch section of ds_get to avoid multiprocessing bug."""
+        # Patch images
+        states = []
+        for to_patch in to_patches:
             to_patch = torch.from_numpy(to_patch).float()
             patches = self._patch(to_patch)
             state, mask = patches[:-1], patches[-1]
@@ -160,38 +175,45 @@ class MGNSeqDataloader(MGNDataloader):
             states.append(state)
 
         states = torch.stack(states, dim=0)
+
+        # Compute diffs and discard last state that has no diff
         diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
-
-        return states, diffs, mask.bool()
-
-    def get_sequence(self, save_file=None, step_num=0):
-        """
-        Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
-        Return:
-             state.shape = (1, (seq_len - 1) * num_patches, 3, H, W)
-             diff.shape = (1, (seq_len - 1)  * num_patches, 3, H, W)
-             patch_idx: [x_idx, y_idx, t_idx] for each patch
-
-        """
-        states, diffs, mask = self.ds_get(save_file, step_num)
         states = states[:-1]
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
-        states = states.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        diffs = diffs.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        states = states.view(seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        diffs = diffs.view(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
-        # Reshape mask as well
-        mask = mask.unsqueeze(0).unsqueeze(2).repeat(1, (self.seq_len - 1), 3, 1, 1)
+        # Reshape mask. All masks are the same
+        mask = mask.unsqueeze(1).repeat((self.seq_len - 1), 3, 1, 1)
+
+        return states, diffs, mask.bool()
+
+    def ds_get(self, save_file=None, step_num=0):
+        """
+        Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
+        Return:
+             state.shape = ((seq_len - 1) * num_patches, 3, H, W)
+             diff.shape = ((seq_len - 1)  * num_patches, 3, H, W)
+             patch_idx: [x_idx, y_idx, t_idx] for each patch
+
+        """
+        to_patches = self._get_full_seq(save_file, step_num)
+
+        # Execute all pytorch here
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(self._ds_get_pt, to_patches)
+            states, diffs, mask = future.result()
 
         # Get positions / times for each patch
+        seq_dim = (self.seq_len - 1) * self.N_patch
         arange = np.arange(seq_dim)
         x_idx = arange % self.N_x_patch
         y_idx = (arange // self.N_x_patch) % self.N_y_patch
         t_idx = arange // self.N_patch
 
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
-
         return states, diffs, mask, torch.from_numpy(position_ids)
 
 
