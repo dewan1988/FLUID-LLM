@@ -36,12 +36,12 @@ class ParallelDataGenerator:
         c_print("Producer stopped.", color="yellow")
 
     def get(self, timeout=3.):
-        # try:
-        data = self.queue.get(timeout=timeout)
-        return data
-        # except Exception as e:
-        #     c_print(f"Error getting data from queue: {e}", color="magenta")
-        #     return None
+        try:
+            data = self.queue.get(timeout=timeout)
+            return data
+        except Exception as e:
+            c_print(f"Error getting data from queue: {e}", color="magenta")
+            return None
 
     def get_batch(self, timeout=3.):
         """ Combines several data samples into a single batch"""
