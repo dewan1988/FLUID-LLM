@@ -2,6 +2,7 @@
 
 # Kill remaining processes:
 # pgrep -f /home/maccyz/Documents/LLM_Fluid/ | xargs kill
+import atexit
 import torch.multiprocessing as mp
 import torch
 
@@ -20,6 +21,7 @@ class ParallelDataGenerator:
         self.num_producers = num_producers
         self.producers = []
 
+        atexit.register(self.stop)
         c_print("Initialising Dataloader", color='green')
 
     def fetch_data(self):
