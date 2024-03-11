@@ -39,8 +39,6 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     parallel_dl = ParallelDataGenerator(dl, bs=2)
     parallel_dl.run()
 
-    x = parallel_dl.get_batch()
-
     states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
     print(f'{states.shape = }, {diffs.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
 
