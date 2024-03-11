@@ -26,7 +26,7 @@ def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
     mse_error = (preds - diffs) ** 2
     mse_error = mse_error * torch.logical_not(bc_mask)
 
-    print(mse_error.shape)
+    print(f'{mse_error.shape = }')
     loss = mse_error.mean()
     return loss
 
@@ -50,6 +50,7 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     print(f'Loss: {loss.item()}')
     loss.backward()
 
+    print()
     for n, p in model.named_parameters():
         if p.requires_grad:
             print(f'{n = }, {p.grad.shape = }')
@@ -69,11 +70,11 @@ if __name__ == '__main__':
 
     set_seed()
     training_params = load_params_from_file(args.config_path)
-    # logging.info(f"Parameters for training: {training_params}")
+    logging.info(f"Parameters for training: {training_params}")
 
     # Test dummy data
     N, M = training_params["patch_size"]
 
     # Test model forward pass
-    model = MultivariateTimeLLM(training_params, N=N, M=M, device_map=DEVICE).to(DEVICE).to(DTYPE)
+    model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
     test_loop(model, training_params)

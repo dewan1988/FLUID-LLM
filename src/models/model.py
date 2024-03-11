@@ -13,7 +13,7 @@ transformers.logging.set_verbosity_error()
 
 
 class MultivariateTimeLLM(nn.Module):
-    def __init__(self, config, N, M, device_map='cpu'):
+    def __init__(self, config, device_map='cpu'):
         super().__init__()
 
         self.config = config
@@ -59,9 +59,9 @@ class MultivariateTimeLLM(nn.Module):
             self.tokenizer.pad_token = pad_token
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
-        self.N = N
-        self.M = M
-        self.patch_in_dim = N * M * 3
+
+        self.N, self.M = config["patch_size"]
+        self.patch_in_dim = self.N * self.M * 3
 
         # Adjust the backbone for time series task
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
