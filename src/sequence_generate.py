@@ -19,7 +19,6 @@ def main():
     ds = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=384, patch_size=(25, 25), stride=(25, 25), seq_len=5)
     patch_shape = ds.N_x_patch, ds.N_y_patch
     N_patch = ds.N_patch
-    limits = ds.ds_min_max[0]
     states, diffs, masks, pos_embed = ds.get_sequence()
 
     print(f'{states.shape = }, {diffs.shape = }, {masks.shape = }, {pos_embed.shape = }')
@@ -32,12 +31,12 @@ def main():
 
     new_state = next_state(test_state, test_diff, test_mask)
 
-    plot_patches(states[0, get_slice, 0], patch_shape, limits)
-    plot_patches(new_state[:, 0], patch_shape, limits)
-
+    plot_patches(states[0, get_slice, 0], patch_shape)
+    plot_patches(new_state[:, 0], patch_shape)
 
 
 if __name__ == '__main__':
     from utils import set_seed
+
     set_seed(2)
     main()

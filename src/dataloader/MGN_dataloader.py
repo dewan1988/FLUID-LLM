@@ -59,7 +59,7 @@ class MGNDataloader:
 
     def _get_step(self, save_file, step_num, interp_type='linear'):
         """
-        Returns all interpolated measurements for a given step
+        Returns all interpolated measurements for a given step, including padding.
         """
 
         with open(f"{self.load_dir}/{save_file}", 'rb') as f:
@@ -78,7 +78,8 @@ class MGNDataloader:
 
         Vx_interp, Vy_interp, P_interp = Vx_interp.astype(np.float32), Vy_interp.astype(np.float32), P_interp.astype(np.float32)
         step_state = np.stack([Vx_interp, Vy_interp, P_interp], axis=0)
-
+        if self.pad:
+            step_state, P_mask = self._pad(step_state, P_mask)
         return step_state, P_mask
 
     def _patch(self, states: torch.Tensor):
@@ -95,6 +96,23 @@ class MGNDataloader:
         patches_reshaped = patches.view(C, h, w, patches.size(2))
 
         return patches_reshaped
+
+    def _pad(self, state, mask):
+        """ Pad state and mask so they can be evenly patched."""
+        _, w, h = state.shape
+        pad_width = (-w % self.patch_size[0])
+        pad_height = (-h % self.patch_size[1])
+
+        padding = (
+            (0, 0),  # No padding on channel dimension
+            (pad_width // 2, pad_width - pad_width // 2),  # Left, Right padding
+            (pad_height // 2, pad_height - pad_height // 2),  # Top, Bottom padding
+        )
+
+        state_pad = np.pad(state, padding, mode='constant', constant_values=0)
+        mask_pad = np.pad(mask, padding[1:], mode='constant', constant_values=1)
+
+        return state_pad, mask_pad
 
 
 class MGNSeqDataloader(MGNDataloader):

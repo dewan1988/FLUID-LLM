@@ -92,15 +92,15 @@ def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
     return data, mask
 
 
-def plot_patches(state, N_patch: tuple, limits: tuple):
+def plot_patches(state, N_patch: tuple):
     """Plot a series of patches in a grid
      state.shape = (N_patch, H, W)"""
-
-    v_min, v_max = limits
 
     x_count, y_count = N_patch
 
     fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+
+    v_min, v_max = state.min(), state.max()
     for i in range(y_count):
         for j in range(x_count):
             patch = state[i + j * y_count].numpy().T

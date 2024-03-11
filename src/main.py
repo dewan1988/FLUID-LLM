@@ -27,7 +27,7 @@ def test_loop(model: MultivariateTimeLLM, cfg):
 
     states, diffs, bc_mask, position_ids = dl.get_sequence()
 
-    states, diffs = states.to(torch.float16), diffs.to(torch.float16)
+    states, diffs = states.to(DTYPE), diffs.to(DTYPE)
     states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
     backbone_out, preds = model.forward(states, position_ids)
 
