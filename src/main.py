@@ -5,11 +5,10 @@ Testing
 import sys
 import argparse
 import logging
-from torch.utils.data import DataLoader
 import torch
+import torch.nn.functional as F
 
 from utils import set_seed, load_params_from_file
-from data_utils import generate_dummy_ts_dataset
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -23,15 +22,21 @@ DTYPE = torch.float16
 def test_loop(model: MultivariateTimeLLM, cfg):
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
-    dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=resolution, patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
+    dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=resolution,
+                          patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
 
-    states, diffs, mask, position_ids = dl.get_sequence()
+    states, diffs, bc_mask, position_ids = dl.get_sequence()
+
     states, diffs = states.to(torch.float16), diffs.to(torch.float16)
-    states, diffs, position_ids = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE)
+    states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
     backbone_out, preds = model.forward(states, position_ids)
 
-    print(f'{backbone_out.shape}')
-    print(f'{preds.shape = }')
+    # When calculating loss, need to mask out BCs
+    print(f'{preds.shape = }, {diffs.shape = }, {bc_mask.shape = }')
+
+    mse_error = (preds - diffs) ** 2
+    mse_error = mse_error * torch.logical_not(bc_mask)
+    loss = mse_error.mean()
 
     return
 
@@ -55,4 +60,3 @@ if __name__ == '__main__':
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, N=N, M=M, device_map=DEVICE).to(DEVICE).to(DTYPE)
     test_loop(model, training_params)
-

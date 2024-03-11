@@ -44,9 +44,9 @@ class AutoencoderMLP(nn.Module):
 
         # Encoder
         self.enc_1 = nn.Linear(3 * 32 * 32, 1024)
-        self.enc_2 = nn.Linear(1024, 256)
+        self.enc_2 = nn.Linear(1024, 512)
         # Decoder
-        self.dec_1 = nn.Linear(256, 1024)
+        self.dec_1 = nn.Linear(512, 1024)
         self.dec_2 = nn.Linear(1024, 3 * 32 * 32)
 
     def forward(self, x):
@@ -69,7 +69,7 @@ def train_autoencoder():
     model = AutoencoderMLP().cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-    ds = MGNDataloader(load_dir="./ds/MGN/cylinder_dataset",
+    ds = MGNDataloader(load_dir="../ds/MGN/cylinder_dataset",
                        resolution=512, patch_size=(32, 32), stride=(32, 32))
     dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
     dataloader.run()

@@ -7,7 +7,7 @@ import pickle
 import random
 from cprint import c_print
 
-from visualisation.mesh_utils import to_grid
+from dataloader.mesh_utils import to_grid
 
 
 def num_patches(dim_size, kern_size, stride, padding=0):
@@ -20,11 +20,12 @@ def num_patches(dim_size, kern_size, stride, padding=0):
 class MGNDataloader:
     """ Load a single timestep from the dataset."""
 
-    def __init__(self, load_dir, resolution=512, patch_size=(32, 32), stride=(32, 32)):
+    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, pad=True):
         self.load_dir = load_dir
         self.resolution = resolution
         self.patch_size = patch_size
         self.stride = stride
+        self.pad = pad
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
@@ -99,8 +100,8 @@ class MGNDataloader:
 class MGNSeqDataloader(MGNDataloader):
     """ Load a sequence of steps from the dataset. """
 
-    def __init__(self, load_dir, resolution=512, patch_size=(32, 32), stride=(32, 32), seq_len=10, seq_interval=1):
-        super().__init__(load_dir, resolution, patch_size, stride)
+    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, seq_interval=1, pad=True):
+        super().__init__(load_dir, resolution, patch_size, stride, pad)
         self.seq_len = seq_len
         self.seq_interval = seq_interval
 
@@ -157,9 +158,13 @@ class MGNSeqDataloader(MGNDataloader):
         states, diffs, mask = self.ds_get(save_file, step_num)
         states = states[:-1]
 
+        # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
         states = states.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
         diffs = diffs.view(1, seq_dim, 3, self.patch_size[0], self.patch_size[1])
+
+        # Reshape mask as well
+        mask = mask.unsqueeze(0).unsqueeze(2).repeat(1, (self.seq_len - 1), 3, 1, 1)
 
         # Get positions / times for each patch
         arange = np.arange(seq_dim)
@@ -170,20 +175,6 @@ class MGNSeqDataloader(MGNDataloader):
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
 
         return states, diffs, mask, torch.from_numpy(position_ids)
-
-
-def plot_patches(save_num, step_num, patch_no):
-    dl = MGNDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=512, patch_size=(32, 32), stride=(32, 32))
-
-    state, mask = dl.ds_get(save_num, step_num)
-
-    p_show = state[:, :, :, patch_no].numpy()
-    p_show = np.transpose(p_show, (2, 1, 0))
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    for i in range(3):
-        axes[i].imshow(p_show[:, :, i], vmin=-0.5, vmax=0.75)
-    plt.show()
 
 
 def plot_all_patches():
@@ -202,11 +193,11 @@ def plot_all_patches():
         for j in range(x_count):
             p_show = p_shows[i + j * y_count].numpy()
             p_show = np.transpose(p_show, (2, 1, 0))
-            for k in range(5):
-                min, max = seq_dl.ds_min_max[0]
 
-                axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
-                axes[i, j].axis('off')
+            min, max = seq_dl.ds_min_max[0]
+
+            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+            axes[i, j].axis('off')
     plt.tight_layout()
     plt.show()
 
@@ -217,11 +208,11 @@ def plot_all_patches():
         for j in range(x_count):
             p_show = p_shows[i + j * y_count].numpy()
             p_show = np.transpose(p_show, (2, 1, 0))
-            for k in range(3):
-                min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
 
-                axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
-                axes[i, j].axis('off')
+            min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
+
+            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+            axes[i, j].axis('off')
     plt.tight_layout()
     plt.show()
 

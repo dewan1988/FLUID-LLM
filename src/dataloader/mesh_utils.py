@@ -90,3 +90,22 @@ def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
         data[mask] = inpaint_data[mask]
 
     return data, mask
+
+
+def plot_patches(state, N_patch: tuple, limits: tuple):
+    """Plot a series of patches in a grid
+     state.shape = (N_patch, H, W)"""
+
+    v_min, v_max = limits
+
+    x_count, y_count = N_patch
+
+    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    for i in range(y_count):
+        for j in range(x_count):
+            patch = state[i + j * y_count].numpy().T
+
+            axes[i, j].imshow(patch, vmin=v_min, vmax=v_max)
+            axes[i, j].axis('off')
+    plt.tight_layout()
+    plt.show()

@@ -20,7 +20,6 @@ class InputEmbeddings(nn.Module):
         """
         Here x.shape = (seq_len, num_patches, C, H, W)
         """
-
         inputs_embeds = self.patch_embeddings(x)
 
         embeddings = inputs_embeds
