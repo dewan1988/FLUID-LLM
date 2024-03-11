@@ -93,16 +93,12 @@ class MGNDataloader:
         Returns a list of patches of size patch_size from the states
         """
         C = states.shape[0]
+        h, w = self.patch_size
 
         states = states.unsqueeze(0)
 
         patches = torch.nn.functional.unfold(states, kernel_size=self.patch_size, stride=self.stride)
-        # with ThreadPoolExecutor() as executor:
-        #     future = executor.submit(unfold_wrapper, states, kernel_size=self.patch_size, stride=self.stride)
-        #     patches = future.result()
-
         # Reshape patches to (N, C, H, W, num_patches)
-        h, w = self.patch_size
         patches_reshaped = patches.view(C, h, w, patches.size(2))
 
         return patches_reshaped
