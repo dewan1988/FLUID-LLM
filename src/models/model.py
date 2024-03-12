@@ -66,8 +66,8 @@ class MultivariateTimeLLM(nn.Module):
         # Adjust the backbone for time series task
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
-                                                self.llm_config.hidden_dropout_prob,
-                                                self.llm_config.layer_norm_eps,
+                                                self.llm_config.embd_pdrop,
+                                                self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings).to(torch.float16)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)

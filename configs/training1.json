@@ -1,6 +1,6 @@
 {
   "task_name": "dummy_task",
-  "llm_backbone": "google-bert/bert-base-uncased",
+  "llm_backbone": "openai-community/gpt2",
   "llm_layers": 2,
   "llm_4bit_loading": false,
   "pred_len": 1,

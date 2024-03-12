@@ -93,7 +93,7 @@ def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
 
 
 def plot_patches(state: torch.Tensor, N_patch: tuple):
-    """Plot a series of patches in a grid
+    """Plot a series of patches in a grid, single channel.
      state.shape = (N_patch, H, W)"""
 
     state = state.detach().cpu()
