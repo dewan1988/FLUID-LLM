@@ -58,7 +58,12 @@ class MGNDataloader:
         # Patch mask with state
         to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
         to_patch = torch.from_numpy(to_patch).float()
-        patches = self._patch(to_patch)
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(self._patch, to_patch)
+            patches = future.result()
+
+        # patches = self._patch(to_patch)
         state, mask = patches[:-1], patches[-1]
 
         return state, mask.bool()
