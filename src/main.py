@@ -32,20 +32,26 @@ def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
 
 
 def test_loop(model: MultivariateTimeLLM, cfg):
+
+    # Init dataloader
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
-    dl = MGNSeqDataloader(load_dir="../ds/MGN/cylinder_dataset", resolution=resolution,
+    dl = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
                           patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
-    parallel_dl = ParallelDataGenerator(dl, bs=2)
+    parallel_dl = ParallelDataGenerator(dl, bs=cfg['batch_size'])
     parallel_dl.run()
 
+    # Get batch from dataloader
     states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
     print(f'{states.shape = }, {diffs.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
 
     states, diffs = states.to(DTYPE), diffs.to(DTYPE)
     states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
+
+    # Send to model
     backbone_out, preds = model.forward(states, position_ids)
 
+    # Backward pass
     loss = loss_fn(preds, diffs, bc_mask)
     print(f'Loss: {loss.item()}')
     loss.backward()
