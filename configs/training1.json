@@ -7,7 +7,7 @@
   "seq_len": 100,
   "hidden_dim": 256,
   "patch_size": [16, 16],
-  "resolution": 256,
+  "resolution": 240,
   "batch_size": 4
 
 }

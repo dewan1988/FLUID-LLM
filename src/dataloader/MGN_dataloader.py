@@ -113,7 +113,7 @@ class MGNDataloader:
         _, w, h = state.shape
         pad_width = (-w % self.patch_size[0])
         pad_height = (-h % self.patch_size[1])
-
+        # print(f'{w=}, {h=}, {pad_width=}, {pad_height=}')
         padding = (
             (0, 0),  # No padding on channel dimension
             (pad_width // 2, pad_width - pad_width // 2),  # Left, Right padding

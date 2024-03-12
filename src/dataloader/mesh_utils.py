@@ -96,6 +96,8 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     """Plot a series of patches in a grid
      state.shape = (N_patch, H, W)"""
 
+    state = state.detach().cpu()
+    print(state.shape)
     x_count, y_count = N_patch
 
     fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
