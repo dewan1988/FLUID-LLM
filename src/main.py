@@ -18,7 +18,7 @@ from sequence_generate import next_state
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 DEVICE = get_available_device()
-DTYPE = torch.float16
+DTYPE = torch.float32
 
 
 def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
@@ -116,10 +116,9 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     print(f'Loss: {loss.item()}')
     loss.backward()
 
-    print()
-    for n, p in model.named_parameters():
-        if p.requires_grad:
-            print(f'{n = }, {p.grad.shape = }')
+    params = model.get_parameters()
+    model_parameters_count = sum(p.numel() for p in params if p.requires_grad)
+    print(f"The model has {model_parameters_count} trainable parameters")
 
     # parallel_dl.stop()
     return

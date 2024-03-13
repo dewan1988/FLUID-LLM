@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
@@ -9,6 +11,7 @@ from lora_utils import add_lora, enable_lora, get_lora_params
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
 from models.layers.patch_decoder import PatchDecoder
+from models.layers.lora import LoRAParametrization
 
 transformers.logging.set_verbosity_error()
 
@@ -86,7 +89,14 @@ class MultivariateTimeLLM(nn.Module):
             freeze_model(self.backbone)
         else:
             unfreeze_model(self.backbone)
-            add_lora(self.backbone)
+
+            lora_config = {  # specify which layers to add lora to, by default only add to linear layers
+                nn.Linear: {
+                    "weight": partial(LoRAParametrization.from_linear, rank=8, lora_dropout_p=0.1, lora_alpha=16),
+                },
+            }
+
+            add_lora(self.backbone, lora_config=lora_config)
             enable_lora(self.backbone)
 
     def forward(self, x, position_ids):
@@ -108,6 +118,15 @@ class MultivariateTimeLLM(nn.Module):
     def get_parameters(self):
         lora_params = []
         base_params = [param for param in self.parameters() if param.requires_grad]
+
+        if not self.config['freeze_llm']:
+            lora_params = [param for param in get_lora_params(self.backbone) if param.requires_grad]
+
+        return base_params + lora_params
+
+    def get_named_parameters(self):
+        lora_params = []
+        base_params = [param for param in self.named_parameters() if param.requires_grad]
 
         if not self.config['freeze_llm']:
             lora_params = [param for param in get_lora_params(self.backbone) if param.requires_grad]
