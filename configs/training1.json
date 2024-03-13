@@ -3,11 +3,11 @@
   "llm_backbone": "openai-community/gpt2",
   "llm_layers": 2,
   "llm_4bit_loading": false,
+  "freeze_llm": false,
   "pred_len": 1,
   "seq_len": 100,
   "hidden_dim": 256,
   "patch_size": [16, 16],
   "resolution": 240,
   "batch_size": 4
-
 }

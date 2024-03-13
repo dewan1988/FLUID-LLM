@@ -5,6 +5,7 @@ import transformers
 from cprint import c_print
 
 from utils import freeze_model, unfreeze_model
+from lora_utils import add_lora, enable_lora, get_lora_params
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
 from models.layers.patch_decoder import PatchDecoder
@@ -72,14 +73,21 @@ class MultivariateTimeLLM(nn.Module):
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
 
-        self._adjust_backbone_for_time_series_task()
+        self._adjust_backbone()
 
-    def _adjust_backbone_for_time_series_task(self):
+    def _adjust_backbone(self):
         # Nullify undesired layers
         self.backbone.embeddings = PassthroughEmbeddings()
 
         # Freeze backbone parameters
         freeze_model(self.backbone)
+
+        if self.config['freeze_llm']:
+            freeze_model(self.backbone)
+        else:
+            unfreeze_model(self.backbone)
+            add_lora(self.backbone)
+            enable_lora(self.backbone)
 
     def forward(self, x, position_ids):
         batch_size = x.shape[0]
@@ -96,3 +104,12 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
         return backbone_out, decoder_out
+
+    def get_parameters(self):
+        lora_params = []
+        base_params = [param for param in self.parameters() if param.requires_grad]
+
+        if not self.config['freeze_llm']:
+            lora_params = [param for param in get_lora_params(self.backbone) if param.requires_grad]
+
+        return base_params + lora_params

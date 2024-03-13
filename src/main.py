@@ -6,9 +6,8 @@ import sys
 import argparse
 import logging
 import torch
-from cprint import c_print
 
-from utils import set_seed, load_params_from_file
+from utils import set_seed, load_params_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -18,7 +17,7 @@ from sequence_generate import next_state
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
-DEVICE = 'cuda'
+DEVICE = get_available_device()
 DTYPE = torch.float16
 
 
