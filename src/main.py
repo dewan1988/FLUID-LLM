@@ -89,11 +89,17 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     resolution = cfg['resolution']
     dl = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
                           patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
-    parallel_dl = ParallelDataGenerator(dl, bs=cfg['batch_size'])
-    parallel_dl.run()
+    # parallel_dl = ParallelDataGenerator(dl, bs=cfg['batch_size'])
+    # parallel_dl.run()
 
     # Get batch from dataloader
-    states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
+    # states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
+    states, diffs, bc_mask, position_ids = dl.ds_get()
+    states = states.unsqueeze(0)
+    diffs = diffs.unsqueeze(0)
+    bc_mask = bc_mask.unsqueeze(0)
+    position_ids = position_ids.unsqueeze(0)
+
     print(f'{states.shape = }, {diffs.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
 
     states, diffs = states.to(DTYPE), diffs.to(DTYPE)
@@ -112,7 +118,7 @@ def test_loop(model: MultivariateTimeLLM, cfg):
         if p.requires_grad:
             print(f'{n = }, {p.grad.shape = }')
 
-    parallel_dl.stop()
+    # parallel_dl.stop()
     return
 
 
