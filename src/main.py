@@ -34,18 +34,23 @@ def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
 
 
 def test_generate(model: MultivariateTimeLLM, cfg):
-
     # Init dataloader
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
     dl = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
                           patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
-    parallel_dl = ParallelDataGenerator(dl, bs=cfg['batch_size'])
-    parallel_dl.run()
+    # parallel_dl = ParallelDataGenerator(dl, bs=cfg['batch_size'])
+    # parallel_dl.run()
     N_patch = dl.N_patch
 
     # Get batch from dataloader
-    states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
+    # states, diffs, bc_mask, position_ids = parallel_dl.get_batch()
+
+    states, diffs, bc_mask, position_ids = dl.ds_get()
+    states = states.unsqueeze(0)
+    diffs = diffs.unsqueeze(0)
+    bc_mask = bc_mask.unsqueeze(0)
+    position_ids = position_ids.unsqueeze(0)
 
     states, diffs = states.to(DTYPE), diffs.to(DTYPE)
     states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
@@ -57,10 +62,10 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     # Send to model
     for i in range(N_patch):
         print(i)
-        pos_id = position_ids[:, :N_patch+i]
+        pos_id = position_ids[:, :N_patch + i]
         # Need patch and mask at t-1
-        last_patch = all_states[:, i:i+1]
-        mask = bc_mask[:, i+N_patch:i+1+N_patch]
+        last_patch = all_states[:, i:i + 1]
+        mask = bc_mask[:, i + N_patch:i + 1 + N_patch]
 
         with torch.no_grad():
             _, pred_diff = model.forward(all_states, pos_id)
@@ -71,19 +76,18 @@ def test_generate(model: MultivariateTimeLLM, cfg):
 
     # Plotting
     img_1 = all_states[0, :N_patch, 0]
-    img_2 = all_states[0, N_patch:2*N_patch, 0]
+    img_2 = all_states[0, N_patch:2 * N_patch, 0]
 
     # Initial image
     plot_patches(img_1, (15, 4))
 
     # Predictions
     plot_patches(img_2, (15, 4))
-    parallel_dl.stop()
+    # parallel_dl.stop()
     return
 
 
 def test_loop(model: MultivariateTimeLLM, cfg):
-
     # Init dataloader
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
@@ -140,4 +144,4 @@ if __name__ == '__main__':
 
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
-    test_generate(model, training_params)
+    test_loop(model, training_params)
