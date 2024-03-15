@@ -28,6 +28,7 @@ class MultivariateTimeLLM(nn.Module):
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
+        assert llm_config.num_hidden_layers >= config['llm_layers'], "Requested number of layers is greater than the model's"
         llm_config.num_hidden_layers = config['llm_layers']
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
