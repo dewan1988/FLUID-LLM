@@ -7,7 +7,6 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
-from sequence_generate import next_state
 from dataloader.mesh_utils import plot_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
@@ -146,6 +145,9 @@ class MultivariateTimeLLM(nn.Module):
         if self.config['plot_patches']:
             img_1 = diffs[0, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
             img_2 = torch.stack(pred_diffs).squeeze()[:, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+
+            mask = bc_mask[0, init_patch:init_patch + N_patch, show_num]
+            img_2[mask] = 0
 
             # Initial image
             plot_patches(img_1, (15, 4))

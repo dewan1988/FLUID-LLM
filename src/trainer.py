@@ -44,7 +44,7 @@ class Trainer:
         mse_error = error ** 2
         mae = torch.abs(error)
 
-        loss = mse_error + 0.001 * mae
+        loss = mse_error + 0.01 * mae
         loss = loss * torch.logical_not(bc_mask)
 
         loss = loss.mean()
