@@ -5,10 +5,11 @@
 import atexit
 import torch.multiprocessing as mp
 import torch
+import queue
 
 from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print
-import queue
+from utils import set_seed
 
 
 class ParallelDataGenerator:
@@ -28,7 +29,8 @@ class ParallelDataGenerator:
         data = self.dataloader.ds_get()
         return data
 
-    def data_producer(self):
+    def data_producer(self, seed=0):
+        set_seed(seed)
         while not self.stop_signal.value:
             data = self.fetch_data()
             try:
@@ -69,8 +71,9 @@ class ParallelDataGenerator:
             p.join()
 
     def run(self):
-        for _ in range(self.num_producers):
-            p = mp.Process(target=self.data_producer, )
+        init_seed = torch.random.initial_seed()
+        for i in range(self.num_producers):
+            p = mp.Process(target=self.data_producer, args=(init_seed + i,))
             p.start()
             self.producers.append(p)
 
