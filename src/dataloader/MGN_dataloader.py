@@ -191,7 +191,7 @@ class MGNSeqDataloader(MGNDataloader):
 
         return states, diffs, mask.bool()
 
-    def ds_get(self, save_file=None, step_num=0):
+    def ds_get(self, save_file=None, step_num=None):
         """
         Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
         Return:
