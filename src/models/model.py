@@ -119,22 +119,23 @@ class MultivariateTimeLLM(nn.Module):
 
         # Start with initial patches, and extrapolate for 1 patch
         init_patch = N_patch * 5
-        seq_states = states[:, :init_patch]
+
 
         # Model reconstructs autoregressively
         pred_diffs = []
         for i in range(N_patch):
-            pos_id = position_ids[:, :init_patch + i]
+            pos_id = position_ids[:, :init_patch + i + 1]
+            seq_states = states[:, :init_patch + i + 1]
             # Need patch and mask at t-1
-            last_patch = seq_states[:, -N_patch:-N_patch + 1]
-            mask = bc_mask[:, init_patch + i: init_patch + i + 1]
+            # last_patch = seq_states[:, -N_patch:-N_patch + 1]
+            # mask = bc_mask[:, init_patch + i: init_patch + i + 1]
 
             with torch.no_grad():
                 _, pred_diff = self(seq_states, pos_id)
             pred_diff = pred_diff[:, -1:] * 10
 
-            new_state = next_state(last_patch, pred_diff, mask)
-            seq_states = torch.cat([seq_states, new_state], dim=1)
+            # new_state = next_state(last_patch, pred_diff, mask)
+            # seq_states = torch.cat([seq_states, new_state], dim=1)
 
             pred_diffs.append(pred_diff)
 
