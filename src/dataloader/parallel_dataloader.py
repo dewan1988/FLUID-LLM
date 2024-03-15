@@ -13,13 +13,14 @@ from utils import set_seed
 
 
 class ParallelDataGenerator:
-    def __init__(self, dataloader: MGNDataloader, bs, num_producers=8, queue_maxsize=16):
+    def __init__(self, dataloader: MGNDataloader, bs, num_procs=8, epoch_size=10):
         self.dataloader = dataloader
         self.bs = bs
+        self.epoch_size = epoch_size
 
-        self.queue = mp.Queue(maxsize=queue_maxsize)
+        self.queue = mp.Queue(maxsize=num_procs*2)
         self.stop_signal = mp.Value('i', 0)
-        self.num_producers = num_producers
+        self.num_procs = num_procs
         self.producers = []
 
         atexit.register(self.stop)
@@ -29,17 +30,17 @@ class ParallelDataGenerator:
         data = self.dataloader.ds_get()
         return data
 
-    def data_producer(self, seed=0):
+    def data_producer(self, seed):
         set_seed(seed)
         while not self.stop_signal.value:
             data = self.fetch_data()
             try:
-                self.queue.put(data, timeout=3)  # Timeout of 1 second
+                self.queue.put(data, timeout=1)  # Timeout of 1 second
             except queue.Full:
                 continue  # This allows checking the stop_signal again
         c_print("Producer stopped.", color="yellow")
 
-    def get(self, timeout=3.):
+    def get(self, timeout=1.):
         try:
             data = self.queue.get(timeout=timeout)
             return data
@@ -47,7 +48,7 @@ class ParallelDataGenerator:
             c_print(f"Error getting data from queue: {e}", color="magenta")
             return None
 
-    def get_batch(self, timeout=3.):
+    def get_batch(self, timeout=1.):
         """ Combines several data samples into a single batch"""
         batch = []  # Initialize an empty list to store the batch
         while len(batch) < self.bs:
@@ -72,18 +73,23 @@ class ParallelDataGenerator:
 
     def run(self):
         init_seed = torch.random.initial_seed()
-        for i in range(self.num_producers):
+        for i in range(self.num_procs):
             p = mp.Process(target=self.data_producer, args=(init_seed + i,))
             p.start()
             self.producers.append(p)
 
+    def __iter__(self):
+        for _ in range(self.epoch_size):
+            yield self.get_batch()
 
-class SingleDataloader():
+
+class SingleDataloader:
     """ Single threaded dataloader"""
 
-    def __init__(self, dataloader: MGNDataloader, bs):
+    def __init__(self, dataloader: MGNDataloader, bs, epoch_size=10):
         self.dataloader = dataloader
         self.bs = bs
+        self.epoch_size = epoch_size
 
     def get_batch(self):
         """ Combines several data samples into a single batch"""
@@ -100,3 +106,8 @@ class SingleDataloader():
 
     def stop(self):
         pass
+
+    def __iter__(self):
+        for _ in range(self.epoch_size):
+            yield self.get_batch()
+

@@ -44,15 +44,16 @@ def test_generate(model: MultivariateTimeLLM, cfg, seq_len, seq_interval):
 def run_train_epoch(dataloader, trainer: Trainer, optimizer):
     trainer.model.train()
 
-    states, diffs, bc_mask, position_ids = dataloader.get_batch()  # TODO: Change this to get number of batches to iterate over.
+    for batch in dataloader:
+        states, diffs, bc_mask, position_ids = batch
 
-    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+        loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
-    # Backpropagation
-    optimizer.zero_grad()
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
-    optimizer.step()
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
+        optimizer.step()
 
     return log_metrics_dict
 

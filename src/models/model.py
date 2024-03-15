@@ -116,13 +116,13 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, states, diffs, bc_mask, position_ids, N_patch):
+    def generate(self, states, diffs, bc_mask, position_ids, N_patch, show_num=2):
         states, diffs = states.to(self.precision), diffs.to(self.precision)
-        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(self.device_map)
+        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
+            self.device_map)
 
         # Start with initial patches, and extrapolate for 1 patch
         init_patch = N_patch * 5
-
 
         # Model reconstructs autoregressively
         pred_diffs = []
@@ -144,8 +144,8 @@ class MultivariateTimeLLM(nn.Module):
 
         # Plotting
         if self.config['plot_patches']:
-            img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-            img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+            img_1 = diffs[0, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+            img_2 = torch.stack(pred_diffs).squeeze()[:, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
             # Initial image
             plot_patches(img_1, (15, 4))

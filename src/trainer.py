@@ -18,7 +18,7 @@ def get_data_loader(config):
                           seq_interval=config['seq_interval'])
 
     if config['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=config['batch_size'])
+        dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'])
         dl.run()
     else:
         dl = SingleDataloader(ds, bs=config['batch_size'])
