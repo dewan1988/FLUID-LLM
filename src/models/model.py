@@ -82,6 +82,9 @@ class MultivariateTimeLLM(nn.Module):
         self._adjust_backbone()
         self.to(device_map)
 
+        self.device_map = device_map
+        self.precision = torch.float16 if config['half_precision'] else torch.float32
+
     def _adjust_backbone(self):
         # Nullify undesired layers
         self.backbone.embeddings = PassthroughEmbeddings()

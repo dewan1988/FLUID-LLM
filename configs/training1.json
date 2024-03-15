@@ -12,7 +12,7 @@
     "bias": "none"
   },
   "half_precision": false,
-  "plot_patches": false,
+  "plot_patches": true,
   "load_dir": "./ds/MGN/cylinder_dataset",
   "patch_size": [16, 16],
   "stride": [16, 16],
@@ -20,7 +20,7 @@
   "seq_interval": 2,
   "resolution": 240,
   "batch_size": 1,
-  "num_epochs": 5,
+  "num_epochs": 100,
   "learning_rate": 1e-3,
   "weight_decay": 0,
   "optimizer": "adam"
