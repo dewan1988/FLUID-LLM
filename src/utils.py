@@ -8,7 +8,7 @@ import numpy as np
 
 from transformers import AutoTokenizer, AutoModel
 
-GLOBAL_SEED = 6934085
+GLOBAL_SEED = 123
 logging.basicConfig(level=logging.INFO,
                     format='[utils:%(levelname)s] %(message)s')
 

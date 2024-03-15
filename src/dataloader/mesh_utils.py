@@ -95,18 +95,17 @@ def to_grid(pos, val, faces, grid_res, mask_interp=False, type='linear'):
 def plot_patches(state: torch.Tensor, N_patch: tuple):
     """Plot a series of patches in a grid, single channel.
      state.shape = (N_patch, H, W)"""
-
-    state = state.detach().cpu()
     x_count, y_count = N_patch
 
-    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
-
+    # state.clamp_(0, 1)
+    state = state.detach().cpu().numpy()
     v_min, v_max = state.min(), state.max()
-    print(f'min: {v_min:.2g}, max: {v_max:.2g}, mean: {state.mean().item():.2g}, std: {state.std().item():.2g}')
+    print(f'min: {v_min:.2g}, max: {v_max:.2g}, mean: {state.mean():.2g}, std: {state.std():.2g}')
+
+    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
     for i in range(y_count):
         for j in range(x_count):
-            patch = state[i + j * y_count].numpy().T
-
+            patch = state[i + j * y_count].T
             axes[i, j].imshow(patch, vmin=v_min, vmax=v_max)
             axes[i, j].axis('off')
     plt.tight_layout()

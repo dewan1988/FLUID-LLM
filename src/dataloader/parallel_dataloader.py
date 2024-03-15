@@ -97,3 +97,6 @@ class SingleDataloader():
     def get(self):
         data = self.dataloader.ds_get()
         return data
+
+    def stop(self):
+        pass

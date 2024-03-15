@@ -28,23 +28,23 @@ def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
     mse_error = error ** 2
     mae = torch.abs(error)
 
-    loss = mse_error + 0.001 * mae
-    loss = loss * torch.logical_not(bc_mask)
+    loss = mse_error + 0.05 * mae
+    loss = loss # * torch.logical_not(bc_mask)
 
     loss = loss.mean()
     return loss
 
 
-def test_generate(model: MultivariateTimeLLM, cfg):
+def test_generate(model: MultivariateTimeLLM, cfg, show_dim=2):
     # Init dataloader
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
     ds = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
-                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=10)
+                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=2)
     N_patch = ds.N_patch
 
     if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=1)
+        dl = ParallelDataGenerator(ds, num_producers=2,bs=1)
         dl.run()
     else:
         dl = SingleDataloader(ds, bs=1)
@@ -70,7 +70,7 @@ def test_generate(model: MultivariateTimeLLM, cfg):
 
         with torch.no_grad():
             _, pred_diff = model.forward(seq_states, pos_id)
-        pred_diff = pred_diff[:, -1:] * 10
+        pred_diff = pred_diff[:, -1:]
 
         new_state = next_state(last_patch, pred_diff, mask)
         seq_states = torch.cat([seq_states, new_state], dim=1)
@@ -78,14 +78,16 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         pred_diffs.append(pred_diff)
 
     # Plotting
-    img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-    img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+    img_1 = diffs[0, init_patch:init_patch + N_patch, show_dim]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+    img_2 = torch.stack(pred_diffs).squeeze()[:, show_dim]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
     # Initial image
     plot_patches(img_1, (15, 4))
 
     # Predictions
     plot_patches(img_2, (15, 4))
+
+    dl.stop()
     return
 
 
@@ -168,8 +170,9 @@ def train_loop(model: MultivariateTimeLLM, cfg):
         sum_loss += loss.item()
         if i % 5 == 0:
             print(i)
-            print(f'Loss: {sum_loss / 5:.4g}')
+            print(f'Loss: {sum_loss / 5:.2g}')
             sum_loss = 0.
+    dl.stop()
     return
 
 
@@ -192,4 +195,6 @@ if __name__ == '__main__':
     model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
 
     train_loop(model, training_params)
+    test_generate(model, training_params)
+    test_generate(model, training_params)
     test_generate(model, training_params)
