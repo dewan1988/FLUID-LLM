@@ -7,7 +7,7 @@ import argparse
 import logging
 import torch
 import time
-from utils import set_seed, load_params_from_file, get_available_device
+from utils import set_seed, load_params_from_file, get_available_device, get_trainable_parameters
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -18,7 +18,7 @@ from sequence_generate import next_state
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 DEVICE = get_available_device()
-DTYPE = torch.float32
+DTYPE = None
 
 
 def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
@@ -81,12 +81,12 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
     img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
-    # Initial image
-    plot_patches(img_1, (15, 4))
+    if cfg['plot_patches']:
+        # Initial image
+        plot_patches(img_1, (15, 4))
 
-    # Predictions
-    plot_patches(img_2, (15, 4))
-    return
+        # Predictions
+        plot_patches(img_2, (15, 4))
 
 
 def test_loop(model: MultivariateTimeLLM, cfg):
@@ -117,17 +117,11 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     print(f'Loss: {loss.item()}')
     loss.backward()
 
-    params = model.get_parameters()
-    model_parameters_count = sum(p.numel() for p in params if p.requires_grad)
-    print(f"The model has {model_parameters_count} trainable parameters")
-
-    return
+    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
 
 
 def train_loop(model: MultivariateTimeLLM, cfg):
-    params = model.get_parameters()
-    model_parameters_count = sum(p.numel() for p in params if p.requires_grad)
-    print(f"The model has {model_parameters_count} trainable parameters")
+    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
 
     for n, p in model.named_parameters():
         if p.requires_grad:
@@ -149,7 +143,7 @@ def train_loop(model: MultivariateTimeLLM, cfg):
 
     # Train loop
     sum_loss = 0.
-    for i in range(250):
+    for i in range(cfg['num_epochs']):
         states, diffs, bc_mask, position_ids = dl.get_batch()
 
         states, diffs = states.to(DTYPE), diffs.to(DTYPE)
@@ -170,7 +164,6 @@ def train_loop(model: MultivariateTimeLLM, cfg):
             print(i)
             print(f'Loss: {sum_loss / 5:.4g}')
             sum_loss = 0.
-    return
 
 
 if __name__ == '__main__':
@@ -187,6 +180,7 @@ if __name__ == '__main__':
     logging.info(f"Parameters for training: {training_params}")
 
     N, M = training_params["patch_size"]
+    DTYPE = torch.float16 if training_params['half_precision'] else torch.float32
 
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
