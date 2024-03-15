@@ -2,7 +2,7 @@
   "task_name": "dummy_task",
   "multiprocess": true,
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 4,
+  "llm_layers": 10,
   "llm_4bit_loading": false,
   "freeze_llm": true,
   "pred_len": 1,

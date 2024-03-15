@@ -31,7 +31,7 @@ class MultivariateTimeLLM(nn.Module):
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
-        # llm_config.num_hidden_layers = config['llm_layers']
+        llm_config.num_hidden_layers = config['llm_layers']
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
         self.llm_config = llm_config
@@ -112,7 +112,7 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out * 0.1
+        return backbone_out, decoder_out * 0.05
 
     def get_parameters(self):
         lora_params = []

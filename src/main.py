@@ -78,8 +78,8 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         pred_diffs.append(pred_diff)
 
     # Plotting
-    img_1 = diffs[0, init_patch:init_patch+N_patch, 0]  #seq_states[0, init_patch - N_patch:init_patch, 0]
-    img_2 = torch.stack(pred_diffs).squeeze()[:, 0]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+    img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+    img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
     # Initial image
     plot_patches(img_1, (15, 4))
@@ -168,7 +168,7 @@ def train_loop(model: MultivariateTimeLLM, cfg):
         sum_loss += loss.item()
         if i % 5 == 0:
             print(i)
-            print(f'Loss: {sum_loss/5:.4g}')
+            print(f'Loss: {sum_loss / 5:.4g}')
             sum_loss = 0.
     return
 
@@ -191,5 +191,5 @@ if __name__ == '__main__':
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
 
-    # train_loop(model, training_params)
+    train_loop(model, training_params)
     test_generate(model, training_params)
