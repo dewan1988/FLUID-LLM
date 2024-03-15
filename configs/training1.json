@@ -1,13 +1,14 @@
 {
   "task_name": "dummy_task",
+  "multiprocess": true,
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 2,
+  "llm_layers": 4,
   "llm_4bit_loading": false,
-  "freeze_llm": false,
+  "freeze_llm": true,
   "pred_len": 1,
   "seq_len": 100,
   "hidden_dim": 256,
   "patch_size": [16, 16],
   "resolution": 240,
-  "batch_size": 4
+  "batch_size": 8
 }

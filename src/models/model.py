@@ -63,7 +63,6 @@ class MultivariateTimeLLM(nn.Module):
             self.tokenizer.pad_token = pad_token
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
-
         self.N, self.M = config["patch_size"]
         self.patch_in_dim = self.N * self.M * 3
 
@@ -113,7 +112,7 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out
+        return backbone_out, decoder_out * 0.1
 
     def get_parameters(self):
         lora_params = []

@@ -12,7 +12,7 @@ import queue
 
 
 class ParallelDataGenerator:
-    def __init__(self, dataloader: MGNDataloader, bs=1, num_producers=4, queue_maxsize=8):
+    def __init__(self, dataloader: MGNDataloader, bs, num_producers=8, queue_maxsize=16):
         self.dataloader = dataloader
         self.bs = bs
 
@@ -73,3 +73,24 @@ class ParallelDataGenerator:
             p = mp.Process(target=self.data_producer, )
             p.start()
             self.producers.append(p)
+
+
+class SingleDataloader():
+    """ Single threaded dataloader"""
+
+    def __init__(self, dataloader: MGNDataloader, bs):
+        self.dataloader = dataloader
+        self.bs = bs
+
+    def get_batch(self):
+        """ Combines several data samples into a single batch"""
+        batch = []
+        for _ in range(self.bs):
+            data = self.dataloader.ds_get()
+            batch.append(data)
+        batch = [torch.stack(tensors) for tensors in zip(*batch)]
+        return batch
+
+    def get(self):
+        data = self.dataloader.ds_get()
+        return data
