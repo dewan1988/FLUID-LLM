@@ -7,7 +7,7 @@ import argparse
 import logging
 import torch
 import time
-from utils import set_seed, load_params_from_file, get_available_device
+from utils import set_seed, load_params_from_file, get_available_device, get_trainable_parameters
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -18,7 +18,7 @@ from sequence_generate import next_state
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 DEVICE = get_available_device()
-DTYPE = torch.float32
+DTYPE = None
 
 
 def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
@@ -28,23 +28,23 @@ def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
     mse_error = error ** 2
     mae = torch.abs(error)
 
-    loss = mse_error + 0.05 * mae
-    loss = loss # * torch.logical_not(bc_mask)
+    loss = mse_error + 0.001 * mae
+    loss = loss * torch.logical_not(bc_mask)
 
     loss = loss.mean()
     return loss
 
 
-def test_generate(model: MultivariateTimeLLM, cfg, show_dim=2):
+def test_generate(model: MultivariateTimeLLM, cfg):
     # Init dataloader
     patch_size = cfg['patch_size']
     resolution = cfg['resolution']
     ds = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
-                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=2)
+                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=10)
     N_patch = ds.N_patch
 
     if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, num_producers=2,bs=1)
+        dl = ParallelDataGenerator(ds, bs=1)
         dl.run()
     else:
         dl = SingleDataloader(ds, bs=1)
@@ -70,7 +70,7 @@ def test_generate(model: MultivariateTimeLLM, cfg, show_dim=2):
 
         with torch.no_grad():
             _, pred_diff = model.forward(seq_states, pos_id)
-        pred_diff = pred_diff[:, -1:]
+        pred_diff = pred_diff[:, -1:] * 10
 
         new_state = next_state(last_patch, pred_diff, mask)
         seq_states = torch.cat([seq_states, new_state], dim=1)
@@ -78,17 +78,15 @@ def test_generate(model: MultivariateTimeLLM, cfg, show_dim=2):
         pred_diffs.append(pred_diff)
 
     # Plotting
-    img_1 = diffs[0, init_patch:init_patch + N_patch, show_dim]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-    img_2 = torch.stack(pred_diffs).squeeze()[:, show_dim]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+    img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+    img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
-    # Initial image
-    plot_patches(img_1, (15, 4))
+    if cfg['plot_patches']:
+        # Initial image
+        plot_patches(img_1, (15, 4))
 
-    # Predictions
-    plot_patches(img_2, (15, 4))
-
-    dl.stop()
-    return
+        # Predictions
+        plot_patches(img_2, (15, 4))
 
 
 def test_loop(model: MultivariateTimeLLM, cfg):
@@ -119,17 +117,11 @@ def test_loop(model: MultivariateTimeLLM, cfg):
     print(f'Loss: {loss.item()}')
     loss.backward()
 
-    params = model.get_parameters()
-    model_parameters_count = sum(p.numel() for p in params if p.requires_grad)
-    print(f"The model has {model_parameters_count} trainable parameters")
-
-    return
+    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
 
 
 def train_loop(model: MultivariateTimeLLM, cfg):
-    params = model.get_parameters()
-    model_parameters_count = sum(p.numel() for p in params if p.requires_grad)
-    print(f"The model has {model_parameters_count} trainable parameters")
+    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
 
     for n, p in model.named_parameters():
         if p.requires_grad:
@@ -151,7 +143,7 @@ def train_loop(model: MultivariateTimeLLM, cfg):
 
     # Train loop
     sum_loss = 0.
-    for i in range(250):
+    for i in range(cfg['num_epochs']):
         states, diffs, bc_mask, position_ids = dl.get_batch()
 
         states, diffs = states.to(DTYPE), diffs.to(DTYPE)
@@ -170,10 +162,8 @@ def train_loop(model: MultivariateTimeLLM, cfg):
         sum_loss += loss.item()
         if i % 5 == 0:
             print(i)
-            print(f'Loss: {sum_loss / 5:.2g}')
+            print(f'Loss: {sum_loss / 5:.4g}')
             sum_loss = 0.
-    dl.stop()
-    return
 
 
 if __name__ == '__main__':
@@ -190,11 +180,10 @@ if __name__ == '__main__':
     logging.info(f"Parameters for training: {training_params}")
 
     N, M = training_params["patch_size"]
+    DTYPE = torch.float16 if training_params['half_precision'] else torch.float32
 
     # Test model forward pass
     model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
 
     train_loop(model, training_params)
-    test_generate(model, training_params)
-    test_generate(model, training_params)
     test_generate(model, training_params)

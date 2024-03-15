@@ -34,6 +34,10 @@ def get_model_size(model):
     return num_parameters
 
 
+def get_trainable_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
 def get_available_device():
     if torch.cuda.is_available():
         device = "cuda"

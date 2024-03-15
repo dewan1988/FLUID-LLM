@@ -4,14 +4,13 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 import transformers
+from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
 from utils import freeze_model, unfreeze_model
-from lora_utils import add_lora, enable_lora, get_lora_params
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
 from models.layers.patch_decoder import PatchDecoder
-from models.layers.lora import LoRAParametrization
 
 transformers.logging.set_verbosity_error()
 
@@ -41,7 +40,7 @@ class MultivariateTimeLLM(nn.Module):
             trust_remote_code=True,
             local_files_only=False,
             config=self.llm_config,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float16 if config['half_precision'] else torch.float32,
             load_in_4bit=config['llm_4bit_loading'],
             device_map=device_map
         )
@@ -71,9 +70,15 @@ class MultivariateTimeLLM(nn.Module):
                                                 self.llm_in_dim,
                                                 self.llm_config.embd_pdrop,
                                                 self.llm_config.layer_norm_epsilon,
-                                                self.llm_config.max_position_embeddings).to(torch.float16)
+                                                self.llm_config.max_position_embeddings)
+
+        if config['half_precision']:
+            self.input_embeddings.to(torch.float16)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
+
+        if config['half_precision']:
+            self.output_layer.to(torch.float16)
 
         self._adjust_backbone()
 
@@ -87,16 +92,9 @@ class MultivariateTimeLLM(nn.Module):
         if self.config['freeze_llm']:
             freeze_model(self.backbone)
         else:
-            unfreeze_model(self.backbone)
-
-            lora_config = {  # specify which layers to add lora to, by default only add to linear layers
-                nn.Linear: {
-                    "weight": partial(LoRAParametrization.from_linear, rank=8, lora_dropout_p=0.1, lora_alpha=16),
-                },
-            }
-
-            add_lora(self.backbone, lora_config=lora_config)
-            enable_lora(self.backbone)
+            config = LoraConfig(**self.config['lora_config'])
+            self.backbone = get_peft_model(self.backbone, config)
+            self.backbone.print_trainable_parameters()
 
     def forward(self, x, position_ids):
         batch_size = x.shape[0]
@@ -112,22 +110,4 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out * 0.03
-
-    def get_parameters(self):
-        lora_params = []
-        base_params = [param for param in self.parameters() if param.requires_grad]
-
-        if not self.config['freeze_llm']:
-            lora_params = [param for param in get_lora_params(self.backbone) if param.requires_grad]
-
-        return base_params + lora_params
-
-    def get_named_parameters(self):
-        lora_params = []
-        base_params = [param for param in self.named_parameters() if param.requires_grad]
-
-        if not self.config['freeze_llm']:
-            lora_params = [param for param in get_lora_params(self.backbone) if param.requires_grad]
-
-        return base_params + lora_params
+        return backbone_out, decoder_out * 0.05

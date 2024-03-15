@@ -2,13 +2,22 @@
   "task_name": "dummy_task",
   "multiprocess": false,
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 2,
+  "llm_layers": 10,
   "llm_4bit_loading": false,
-  "freeze_llm": true,
+  "freeze_llm": false,
+  "lora_config": {
+    "r": 16,
+    "lora_alpha": 256,
+    "lora_dropout": 0.1,
+    "bias": "none"
+  },
+  "half_precision": false,
+  "plot_patches": false,
   "pred_len": 1,
   "seq_len": 100,
   "hidden_dim": 256,
   "patch_size": [16, 16],
   "resolution": 240,
-  "batch_size": 1
+  "batch_size": 8,
+  "num_epochs": 1
 }
