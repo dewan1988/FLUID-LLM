@@ -7,6 +7,8 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
+from sequence_generate import next_state
+from dataloader.mesh_utils import plot_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
@@ -21,9 +23,6 @@ class MultivariateTimeLLM(nn.Module):
 
         self.config = config
         self.task_name = config['task_name']
-        self.pred_len = config['pred_len']
-        self.seq_len = config['seq_len']
-        self.hidden_dim = config['hidden_dim']
         self.top_k = 5
         self.d_llm = 4096
 
@@ -81,6 +80,7 @@ class MultivariateTimeLLM(nn.Module):
             self.output_layer.to(torch.float16)
 
         self._adjust_backbone()
+        self.to(device_map)
 
     def _adjust_backbone(self):
         # Nullify undesired layers
@@ -111,3 +111,40 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
         return backbone_out, decoder_out * 0.05
+
+    @torch.no_grad()
+    def generate(self, states, diffs, bc_mask, position_ids, N_patch):
+        states, diffs = states.to(self.precision), diffs.to(self.precision)
+        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(self.device_map)
+
+        # Start with initial patches, and extrapolate for 1 patch
+        init_patch = N_patch * 5
+        seq_states = states[:, :init_patch]
+
+        # Model reconstructs autoregressively
+        pred_diffs = []
+        for i in range(N_patch):
+            pos_id = position_ids[:, :init_patch + i]
+            # Need patch and mask at t-1
+            last_patch = seq_states[:, -N_patch:-N_patch + 1]
+            mask = bc_mask[:, init_patch + i: init_patch + i + 1]
+
+            with torch.no_grad():
+                _, pred_diff = self(seq_states, pos_id)
+            pred_diff = pred_diff[:, -1:] * 10
+
+            new_state = next_state(last_patch, pred_diff, mask)
+            seq_states = torch.cat([seq_states, new_state], dim=1)
+
+            pred_diffs.append(pred_diff)
+
+        # Plotting
+        if self.config['plot_patches']:
+            img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+            img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+
+            # Initial image
+            plot_patches(img_1, (15, 4))
+
+            # Predictions
+            plot_patches(img_2, (15, 4))

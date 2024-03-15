@@ -6,41 +6,26 @@ import sys
 import argparse
 import logging
 import torch
-import time
-from utils import set_seed, load_params_from_file, get_available_device, get_trainable_parameters
+from tqdm import trange, tqdm
+
+from trainer import Trainer, get_data_loader
+from utils import set_seed, load_params_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
-from dataloader.mesh_utils import plot_patches
-from sequence_generate import next_state
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
-DEVICE = get_available_device()
-DTYPE = None
 
 
-def loss_fn(preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
-    # When calculating loss, need to mask out BCs
-
-    error = (preds - diffs)
-    mse_error = error ** 2
-    mae = torch.abs(error)
-
-    loss = mse_error + 0.001 * mae
-    loss = loss * torch.logical_not(bc_mask)
-
-    loss = loss.mean()
-    return loss
-
-
-def test_generate(model: MultivariateTimeLLM, cfg):
-    # Init dataloader
-    patch_size = cfg['patch_size']
-    resolution = cfg['resolution']
-    ds = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
-                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=10)
+def test_generate(model, cfg, seq_len, seq_interval):
+    ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
+                          resolution=cfg['resolution'],
+                          patch_size=cfg['patch_size'],
+                          stride=cfg['stride'],
+                          seq_len=seq_len,
+                          seq_interval=seq_interval)
     N_patch = ds.N_patch
 
     if cfg['multiprocess']:
@@ -49,121 +34,27 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     else:
         dl = SingleDataloader(ds, bs=1)
 
-    # Get batch from dataloader
+    trainer.model.eval()
+
+    # Get batch and run through model
     states, diffs, bc_mask, position_ids = dl.get_batch()
-    print(f'{states.shape = }, {diffs.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
-
-    states, diffs = states.to(DTYPE), diffs.to(DTYPE)
-    states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
-
-    # Start with initial patches, and extrapolate for 1 patch
-    init_patch = N_patch * 5
-    seq_states = states[:, :init_patch]
-
-    # Model reconstructs autoregressively
-    pred_diffs = []
-    for i in range(N_patch):
-        pos_id = position_ids[:, :init_patch + i]
-        # Need patch and mask at t-1
-        last_patch = seq_states[:, -N_patch:-N_patch + 1]
-        mask = bc_mask[:, init_patch + i: init_patch + i + 1]
-
-        with torch.no_grad():
-            _, pred_diff = model.forward(seq_states, pos_id)
-        pred_diff = pred_diff[:, -1:] * 10
-
-        new_state = next_state(last_patch, pred_diff, mask)
-        seq_states = torch.cat([seq_states, new_state], dim=1)
-
-        pred_diffs.append(pred_diff)
-
-    # Plotting
-    img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-    img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
-
-    if cfg['plot_patches']:
-        # Initial image
-        plot_patches(img_1, (15, 4))
-
-        # Predictions
-        plot_patches(img_2, (15, 4))
+    model.generate(states, diffs, bc_mask, position_ids, N_patch)
 
 
-def test_loop(model: MultivariateTimeLLM, cfg):
-    # Init dataloader
-    patch_size = cfg['patch_size']
-    resolution = cfg['resolution']
-    ds = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
-                          patch_size=patch_size, stride=patch_size, seq_len=5, seq_interval=2)
+def run_train_epoch(dataloader, trainer, optimizer):
+    trainer.model.train()
 
-    if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=cfg['batch_size'])
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=cfg['batch_size'])
+    states, diffs, bc_mask, position_ids = dataloader.get_batch()  # TODO: Change this to get number of batches to iterate over.
 
-    # Get batch from dataloader
-    states, diffs, bc_mask, position_ids = dl.get_batch()
-    print(f'{states.shape = }, {diffs.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
+    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
-    states, diffs = states.to(DTYPE), diffs.to(DTYPE)
-    states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
-
-    # Send to model
-    backbone_out, preds = model.forward(states, position_ids)
-
-    # Backward pass
-    loss = loss_fn(preds, diffs, bc_mask)
-    print(f'Loss: {loss.item()}')
+    # Backpropagation
+    optimizer.zero_grad()
     loss.backward()
+    torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
+    optimizer.step()
 
-    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
-
-
-def train_loop(model: MultivariateTimeLLM, cfg):
-    print(f"The model has {get_trainable_parameters(model)} trainable parameters")
-
-    for n, p in model.named_parameters():
-        if p.requires_grad:
-            print(n, p.numel())
-
-    # Init dataloader
-    patch_size = cfg['patch_size']
-    resolution = cfg['resolution']
-    ds = MGNSeqDataloader(load_dir="./ds/MGN/cylinder_dataset", resolution=resolution,
-                          patch_size=patch_size, stride=patch_size, seq_len=10, seq_interval=2)
-
-    if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=cfg['batch_size'])
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=cfg['batch_size'])
-
-    optim = torch.optim.AdamW(model.parameters(), lr=3e-4)
-
-    # Train loop
-    sum_loss = 0.
-    for i in range(cfg['num_epochs']):
-        states, diffs, bc_mask, position_ids = dl.get_batch()
-
-        states, diffs = states.to(DTYPE), diffs.to(DTYPE)
-        states, diffs, position_ids, bc_mask = states.to(DEVICE), diffs.to(DEVICE), position_ids.to(DEVICE), bc_mask.to(DEVICE)
-
-        # Forward pass
-        backbone_out, preds = model.forward(states, position_ids)
-
-        # Backward pass
-        loss = loss_fn(preds, diffs, bc_mask)
-        loss.backward()
-
-        optim.step()
-        optim.zero_grad()
-
-        sum_loss += loss.item()
-        if i % 5 == 0:
-            print(i)
-            print(f'Loss: {sum_loss / 5:.4g}')
-            sum_loss = 0.
+    return log_metrics_dict
 
 
 if __name__ == '__main__':
@@ -179,11 +70,25 @@ if __name__ == '__main__':
     training_params = load_params_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
 
-    N, M = training_params["patch_size"]
-    DTYPE = torch.float16 if training_params['half_precision'] else torch.float32
+    # Get the model
+    precision = torch.float16 if training_params['half_precision'] else torch.float32
+    model = MultivariateTimeLLM(training_params, device_map=get_available_device()).to(precision)
 
-    # Test model forward pass
-    model = MultivariateTimeLLM(training_params, device_map=DEVICE).to(DEVICE).to(DTYPE)
+    # Get the train data loader
+    train_dataloader = get_data_loader(training_params)
 
-    train_loop(model, training_params)
-    test_generate(model, training_params)
+    trainer = Trainer(params=training_params,
+                      model=model,
+                      device=get_available_device())
+
+    optimizer = trainer.prepare_optimizers()
+
+    for epoch in trange(training_params["num_epochs"], desc="Training"):
+        train_log_metrics = run_train_epoch(dataloader=train_dataloader,
+                                            trainer=trainer,
+                                            optimizer=optimizer)
+
+        logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
+
+    #train_loop(model, training_params)
+    #test_generate(model, training_params, seq_len=10, seq_interval=10)
