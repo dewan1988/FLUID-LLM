@@ -85,7 +85,7 @@ class MGNDataloader:
 
         Vx_interp, Vx_mask = to_grid(pos, Vx, faces, grid_res=self.resolution, type=interp_type)
         Vy_interp, Vy_mask = to_grid(pos, Vy, faces, grid_res=self.resolution, type=interp_type)
-        P_interp, P_mask = to_grid(pos, P, faces, grid_res=self.resolution, mask_interp=True, type=interp_type)
+        P_interp, P_mask = to_grid(pos, P, faces, grid_res=self.resolution, type=interp_type)
 
         Vx_interp, Vy_interp, P_interp = Vx_interp.astype(np.float32), Vy_interp.astype(np.float32), P_interp.astype(np.float32)
         step_state = np.stack([Vx_interp, Vy_interp, P_interp], axis=0)
@@ -134,7 +134,7 @@ class MGNSeqDataloader(MGNDataloader):
         self.seq_len = seq_len
         self.seq_interval = seq_interval
 
-    def _get_full_seq(self, save_file=None, step_num=0):
+    def _get_full_seq(self, save_file=None, step_num=None):
         """ Returns numpy arrays of sequence, ready to be patched.
             Required to avoid pytorch multiprocessing bug.
         """
