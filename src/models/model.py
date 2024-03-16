@@ -7,7 +7,6 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
-from sequence_generate import next_state
 from dataloader.mesh_utils import plot_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
@@ -29,6 +28,7 @@ class MultivariateTimeLLM(nn.Module):
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
+        assert llm_config.num_hidden_layers >= config['llm_layers'], "Requested number of layers is greater than the model's"
         llm_config.num_hidden_layers = config['llm_layers']
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
@@ -82,6 +82,9 @@ class MultivariateTimeLLM(nn.Module):
         self._adjust_backbone()
         self.to(device_map)
 
+        self.device_map = device_map
+        self.precision = torch.float16 if config['half_precision'] else torch.float32
+
     def _adjust_backbone(self):
         # Nullify undesired layers
         self.backbone.embeddings = PassthroughEmbeddings()
@@ -110,38 +113,42 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out * 0.05
+        return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, states, diffs, bc_mask, position_ids, N_patch):
+    def generate(self, states, diffs, bc_mask, position_ids, N_patch, show_num=2):
         states, diffs = states.to(self.precision), diffs.to(self.precision)
-        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(self.device_map)
+        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
+            self.device_map)
 
         # Start with initial patches, and extrapolate for 1 patch
         init_patch = N_patch * 5
-        seq_states = states[:, :init_patch]
 
         # Model reconstructs autoregressively
         pred_diffs = []
         for i in range(N_patch):
-            pos_id = position_ids[:, :init_patch + i]
+            pos_id = position_ids[:, :init_patch + i + 1]
+            seq_states = states[:, :init_patch + i + 1]
             # Need patch and mask at t-1
-            last_patch = seq_states[:, -N_patch:-N_patch + 1]
-            mask = bc_mask[:, init_patch + i: init_patch + i + 1]
+            # last_patch = seq_states[:, -N_patch:-N_patch + 1]
+            # mask = bc_mask[:, init_patch + i: init_patch + i + 1]
 
             with torch.no_grad():
                 _, pred_diff = self(seq_states, pos_id)
             pred_diff = pred_diff[:, -1:] * 10
 
-            new_state = next_state(last_patch, pred_diff, mask)
-            seq_states = torch.cat([seq_states, new_state], dim=1)
+            # new_state = next_state(last_patch, pred_diff, mask)
+            # seq_states = torch.cat([seq_states, new_state], dim=1)
 
             pred_diffs.append(pred_diff)
 
         # Plotting
         if self.config['plot_patches']:
-            img_1 = diffs[0, init_patch:init_patch + N_patch, 2]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-            img_2 = torch.stack(pred_diffs).squeeze()[:, 2]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+            img_1 = diffs[0, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+            img_2 = torch.stack(pred_diffs).squeeze()[:, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+
+            mask = bc_mask[0, init_patch:init_patch + N_patch, show_num]
+            img_2[mask] = 0
 
             # Initial image
             plot_patches(img_1, (15, 4))

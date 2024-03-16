@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def test_generate(model: MultivariateTimeLLM, cfg, seq_len, seq_interval):
+def test_generate(model: MultivariateTimeLLM, cfg, batch, seq_len, seq_interval):
     ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
@@ -28,32 +28,23 @@ def test_generate(model: MultivariateTimeLLM, cfg, seq_len, seq_interval):
                           seq_interval=seq_interval)
     N_patch = ds.N_patch
 
-    if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=1)
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=1)
-
-    trainer.model.eval()
-
     # Get batch and run through model
-    states, diffs, bc_mask, position_ids = dl.get_batch()
+    states, diffs, bc_mask, position_ids = batch
     model.generate(states, diffs, bc_mask, position_ids, N_patch)
 
 
-def run_train_epoch(dataloader, trainer: Trainer, optimizer):
+def run_train_epoch(dataloader, trainer: Trainer, optimizer, batch):
     trainer.model.train()
 
-    for batch in dataloader:
-        states, diffs, bc_mask, position_ids = batch
+    states, diffs, bc_mask, position_ids = batch
 
-        loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
-        optimizer.step()
+    # Backpropagation
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
+    optimizer.step()
 
     return log_metrics_dict
 
@@ -84,11 +75,14 @@ if __name__ == '__main__':
 
     optimizer = trainer.prepare_optimizers()
 
-    for epoch in trange(training_params["num_epochs"], desc="Training"):
+    batch = next(iter(train_dataloader))
+
+    for epoch in trange(500, desc="Training"):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
-                                            optimizer=optimizer)
+                                            optimizer=optimizer,
+                                            batch=batch)
 
         logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
 
-    test_generate(model, training_params, seq_len=10, seq_interval=2)
+    test_generate(model, training_params, batch, seq_len=10, seq_interval=2)

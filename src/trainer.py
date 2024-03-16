@@ -18,7 +18,7 @@ def get_data_loader(config):
                           seq_interval=config['seq_interval'])
 
     if config['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=config['batch_size'])
+        dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'], epoch_size=config['epoch_size'])
         dl.run()
     else:
         dl = SingleDataloader(ds, bs=config['batch_size'])
@@ -44,7 +44,7 @@ class Trainer:
         mse_error = error ** 2
         mae = torch.abs(error)
 
-        loss = mse_error + 0.001 * mae
+        loss = mse_error + 0.01 * mae
         loss = loss * torch.logical_not(bc_mask)
 
         loss = loss.mean()
