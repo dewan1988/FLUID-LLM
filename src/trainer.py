@@ -7,6 +7,7 @@ import torch
 from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from utils import get_available_device, get_trainable_parameters
+from losses import MSELoss, MAELoss, MAPELoss, SMAPELoss
 
 
 def get_data_loader(config):
@@ -35,20 +36,26 @@ class Trainer:
 
         self.params = params
         self.model = model
+        self.loss_fn = self._get_loss_fn(params['loss_function'])
 
         self.precision = torch.float16 if params['half_precision'] else torch.float32
         self.device = device
 
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
-        error = (preds - diffs)
-        mse_error = error ** 2
-        mae = torch.abs(error)
-
-        loss = mse_error + 0.01 * mae
-        loss = loss * torch.logical_not(bc_mask)
-
-        loss = loss.mean()
+        loss = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
         return {"loss": loss}
+
+    def _get_loss_fn(self, loss_fn):
+        if loss_fn == "mse":
+            return MSELoss()
+        elif loss_fn == "mae":
+            return MAELoss()
+        elif loss_fn == "mape":
+            return MAPELoss()
+        elif loss_fn == "smape":
+            return SMAPELoss()
+        else:
+            raise ValueError(f"Unknown loss function: {loss_fn}")
 
     def prepare_optimizers(self):
         params = self.model.parameters()

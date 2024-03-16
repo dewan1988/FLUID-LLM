@@ -17,6 +17,7 @@
   "learning_rate": 1e-3,
   "weight_decay": 0,
   "optimizer": "adam",
+  "loss_function": "mse",
   "multiprocess": false,
   "num_workers": 1,
   "load_dir": "./ds/MGN/cylinder_dataset",
