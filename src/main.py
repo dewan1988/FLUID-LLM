@@ -44,7 +44,9 @@ def test_generate(model: MultivariateTimeLLM, cfg, seq_len, seq_interval):
 def run_train_epoch(dataloader, trainer: Trainer, optimizer):
     trainer.model.train()
 
-    for batch in dataloader:
+    metrics_per_epoch = []
+    dataloader_iterator = tqdm(dataloader, desc="Iterating batches", leave=False)
+    for batch_idx, batch in enumerate(dataloader_iterator):
         states, diffs, bc_mask, position_ids = batch
 
         loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
@@ -55,7 +57,18 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
         optimizer.step()
 
-    return log_metrics_dict
+        dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx} | Loss: {log_metrics_dict['train_loss']})")
+        dataloader_iterator.refresh()
+
+        # Keep track of metrics
+        metrics_per_epoch.append(log_metrics_dict)
+
+        # === Aggregate metrics across iterations in the epoch ===
+    metrics_names = metrics_per_epoch[0].keys()
+    metrics_agg = {f"train/{metric_name}": sum(d[metric_name]
+                                               for d in metrics_per_epoch) / len(metrics_per_epoch)
+                   for metric_name in metrics_names}
+    return metrics_agg
 
 
 if __name__ == '__main__':
@@ -84,11 +97,13 @@ if __name__ == '__main__':
 
     optimizer = trainer.prepare_optimizers()
 
-    for epoch in trange(training_params["num_epochs"], desc="Training"):
+    epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=False)
+    for epoch_idx, epoch in enumerate(epoch_iterator):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
                                             optimizer=optimizer)
 
-        logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
+        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx} | Loss: {train_log_metrics['train/train_loss']})")
+        epoch_iterator.refresh()
 
     test_generate(model, training_params, seq_len=10, seq_interval=2)
