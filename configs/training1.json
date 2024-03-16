@@ -1,9 +1,9 @@
 {
-  "task_name": "dummy_task",
+  "task_name": "cylinder_task",
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 4,
+  "llm_layers": 10,
   "llm_4bit_loading": false,
-  "freeze_llm": true,
+  "freeze_llm": false,
   "lora_config": {
     "r": 16,
     "lora_alpha": 256,
@@ -11,8 +11,8 @@
     "bias": "none"
   },
   "half_precision": false,
-  "batch_size": 1,
-  "num_epochs": 5,
+  "batch_size": 4,
+  "num_epochs": 2,
   "epoch_size": 10,
   "learning_rate": 1e-3,
   "weight_decay": 0,
