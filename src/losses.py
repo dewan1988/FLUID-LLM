@@ -38,6 +38,31 @@ class MSELoss(nn.Module):
         return mse_loss_val
 
 
+class RMSELoss(nn.Module):
+    def __init__(self):
+        super(RMSELoss, self).__init__()
+
+    def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
+        """
+        Root Mean Squared Error loss.
+
+        :param preds: Forecast values. Shape: batch, time
+        :param target: Target values. Shape: batch, time
+        :param mask: 0/1 mask. Shape: batch, time
+        :return: Loss value
+        """
+        # Ensure the mask is boolean for indexing
+        mask = mask.bool()
+
+        # Apply mask to input and target
+        input_masked = torch.masked_select(preds, mask)
+        target_masked = torch.masked_select(target, mask)
+
+        # Calculate RMSE
+        loss = torch.sqrt(torch.mean((input_masked - target_masked) ** 2))
+        return loss
+
+
 class MAPELoss(nn.Module):
     def __init__(self):
         super(MAPELoss, self).__init__()

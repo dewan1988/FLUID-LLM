@@ -7,7 +7,7 @@ import torch
 from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from utils import get_available_device, get_trainable_parameters
-from losses import MSELoss, MAELoss, MAPELoss, SMAPELoss
+from losses import MSELoss, RMSELoss, MAELoss, MAPELoss, SMAPELoss
 
 
 def get_data_loader(config):
@@ -48,6 +48,8 @@ class Trainer:
     def _get_loss_fn(self, loss_fn):
         if loss_fn == "mse":
             return MSELoss()
+        elif loss_fn == "rmse":
+            return RMSELoss()
         elif loss_fn == "mae":
             return MAELoss()
         elif loss_fn == "mape":
