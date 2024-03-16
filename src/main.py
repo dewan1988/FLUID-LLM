@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     optimizer = trainer.prepare_optimizers()
 
-    epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=False)
+    epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
