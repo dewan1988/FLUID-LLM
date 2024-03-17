@@ -135,17 +135,19 @@ class MultivariateTimeLLM(nn.Module):
 
             with torch.no_grad():
                 _, pred_diff = self(seq_states, pos_id)
-            pred_diff = pred_diff[:, -1:] * 10
+            pred_diff = pred_diff[:, -1:]
 
             # new_state = next_state(last_patch, pred_diff, mask)
             # seq_states = torch.cat([seq_states, new_state], dim=1)
 
             pred_diffs.append(pred_diff)
 
+        pred_diffs = torch.concatenate(pred_diffs, dim=1)
+
         # Plotting
         if self.config['plot_patches']:
             img_1 = diffs[0, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-            img_2 = torch.stack(pred_diffs).squeeze()[:, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+            img_2 = pred_diffs[0, :, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
 
             mask = bc_mask[0, init_patch:init_patch + N_patch, show_num]
             img_2[mask] = 0
