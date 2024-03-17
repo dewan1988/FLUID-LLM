@@ -30,8 +30,14 @@ class MSELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        loss = self.mse_loss(preds, target)
-        loss = (loss * mask.float()).sum()
+        # Invert mask so 1 is wanted pixel
+        mask = ~mask
+        # Apply mask to input and target
+        input_masked = torch.masked_select(preds, mask)
+        target_masked = torch.masked_select(target, mask)
+
+        loss = self.mse_loss(input_masked, target_masked)
+        loss = loss.sum()
 
         non_zero_elements = mask.sum()
         mse_loss_val = loss / non_zero_elements
@@ -51,8 +57,8 @@ class RMSELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        # Ensure the mask is boolean for indexing
-        mask = mask.bool()
+        # Invert mask so 1 is wanted pixel
+        mask = ~mask
 
         # Apply mask to input and target
         input_masked = torch.masked_select(preds, mask)
@@ -76,8 +82,8 @@ class MAPELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        # Ensure the mask is boolean for indexing
-        mask = mask.bool()
+        # Invert mask so 1 is wanted pixel
+        mask = ~mask
 
         # Apply mask to input and target
         input_masked = torch.masked_select(preds, mask)
@@ -105,8 +111,9 @@ class SMAPELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        if mask is None:
-            mask = t.ones(preds.size())
+        # Invert mask so 1 is wanted pixel
+        mask = ~mask
+
         delta_y = t.abs((target - preds))
         scale = t.abs(target) + t.abs(preds)
         smape = _divide_no_nan(delta_y, scale)
@@ -130,6 +137,15 @@ class MAELoss(nn.Module):
         value at a given time and averages these devations
         over the length of the series.
         """
-        mae = t.abs(target - preds) * mask
-        mae = t.mean(mae)
-        return mae
+        # Invert mask so 1 is wanted pixel
+        mask = ~mask
+        # Apply mask to input and target
+        input_masked = torch.masked_select(preds, mask)
+        target_masked = torch.masked_select(target, mask)
+
+        mae = t.abs(input_masked - target_masked)
+        mae = t.sum(mae)
+
+        non_zero_elements = mask.sum()
+        mse_loss_val = mae / non_zero_elements
+        return mse_loss_val

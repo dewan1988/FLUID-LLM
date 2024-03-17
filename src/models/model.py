@@ -116,7 +116,7 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, states, diffs, bc_mask, position_ids, N_patch, show_num=2):
+    def generate(self, states, diffs, bc_mask, position_ids, N_patch, show_num=2, batch_num=0):
         states, diffs = states.to(self.precision), diffs.to(self.precision)
         states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
             self.device_map)
@@ -146,10 +146,10 @@ class MultivariateTimeLLM(nn.Module):
 
         # Plotting
         if self.config['plot_patches']:
-            img_1 = diffs[0, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
-            img_2 = pred_diffs[0, :, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+            img_1 = diffs[1, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
 
-            mask = bc_mask[0, init_patch:init_patch + N_patch, show_num]
+            img_2 = pred_diffs[batch_num, :, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
+            mask = bc_mask[batch_num, init_patch:init_patch + N_patch, show_num]
             img_2[mask] = 0
 
             # Initial image

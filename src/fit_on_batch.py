@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     batch = next(iter(train_dataloader))
 
-    for epoch in trange(1000, desc="Training"):
+    for epoch in trange(500, desc="Training"):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
                                             optimizer=optimizer,
