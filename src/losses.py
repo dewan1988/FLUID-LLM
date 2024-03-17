@@ -6,16 +6,6 @@ import torch as t
 import torch.nn as nn
 
 
-def _divide_no_nan(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """
-    Auxiliary funtion to handle divide by 0
-    """
-    div = a / b
-    div[div != div] = 0.0
-    div[div == float("inf")] = 0.0
-    return div
-
-
 class MSELoss(nn.Module):
     def __init__(self):
         super(MSELoss, self).__init__()
@@ -70,8 +60,10 @@ class RMSELoss(nn.Module):
 
 
 class MAPELoss(nn.Module):
-    def __init__(self):
+    def __init__(self, eps=1e-5):
         super(MAPELoss, self).__init__()
+
+        self.eps = eps
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -89,18 +81,21 @@ class MAPELoss(nn.Module):
         input_masked = torch.masked_select(preds, mask)
         target_masked = torch.masked_select(target, mask)
 
-        # Avoid division by zero and ensure nonzero target values
-        target_masked = torch.where(target_masked == 0, torch.tensor(1e-8, device=target_masked.device),
-                                    target_masked)
+        # Clamp loss to avoid division by zero
+        target_abs = torch.abs(target_masked).clamp(min=self.eps)
 
         # Calculate MAPE
-        loss = torch.abs((input_masked - target_masked) / target_masked)
+        loss = torch.abs((input_masked - target_masked) / target_abs)
+
+        loss = loss.clamp(max=1.)
         return torch.mean(loss)
 
 
 class SMAPELoss(nn.Module):
-    def __init__(self):
+    def __init__(self, eps=1e-5):
         super(SMAPELoss, self).__init__()
+
+        self.eps = eps
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -115,8 +110,9 @@ class SMAPELoss(nn.Module):
         mask = ~mask
 
         delta_y = t.abs((target - preds))
-        scale = t.abs(target) + t.abs(preds)
-        smape = _divide_no_nan(delta_y, scale)
+        scale = t.abs(target) + t.abs(preds) + self.eps
+
+        smape = delta_y / scale
         smape = smape * mask
         smape = 2 * t.mean(smape)
         return smape
