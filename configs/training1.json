@@ -18,7 +18,7 @@
   "weight_decay": 0,
   "optimizer": "adam",
 
-  "loss_function": "mse",
+  "loss_function": "smape",
   "multiprocess": false,
   "num_workers": 1,
   "load_dir": "./ds/MGN/cylinder_dataset",

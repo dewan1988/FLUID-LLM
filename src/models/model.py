@@ -146,7 +146,7 @@ class MultivariateTimeLLM(nn.Module):
 
         # Plotting
         if self.config['plot_patches']:
-            img_1 = diffs[1, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+            img_1 = diffs[batch_num, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
 
             img_2 = pred_diffs[batch_num, :, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
             mask = bc_mask[batch_num, init_patch:init_patch + N_patch, show_num]
