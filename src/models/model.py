@@ -17,7 +17,7 @@ transformers.logging.set_verbosity_error()
 
 
 class MultivariateTimeLLM(nn.Module):
-    def __init__(self, config, device_map='cpu'):
+    def __init__(self, config, device_map='cpu', precision=torch.float32):
         super().__init__()
 
         self.config = config
@@ -39,7 +39,7 @@ class MultivariateTimeLLM(nn.Module):
             trust_remote_code=True,
             local_files_only=False,
             config=self.llm_config,
-            torch_dtype=torch.float16 if config['half_precision'] else torch.float32,
+            torch_dtype=precision,
             load_in_4bit=config['llm_4bit_loading'],
             device_map=device_map
         )
@@ -64,26 +64,22 @@ class MultivariateTimeLLM(nn.Module):
         self.N, self.M = config["patch_size"]
         self.patch_in_dim = self.N * self.M * 3
 
-        # Adjust the backbone for time series task
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
                                                 self.llm_config.embd_pdrop,
                                                 self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings)
-
-        if config['half_precision']:
-            self.input_embeddings.to(torch.float16)
+        self.input_embeddings.to(precision)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
+        self.output_layer.to(precision)
 
-        if config['half_precision']:
-            self.output_layer.to(torch.float16)
-
+        # Adjust the backbone for time series task
         self._adjust_backbone()
         self.to(device_map)
 
         self.device_map = device_map
-        self.precision = torch.float16 if config['half_precision'] else torch.float32
+        self.precision = precision
 
     def _adjust_backbone(self):
         # Nullify undesired layers

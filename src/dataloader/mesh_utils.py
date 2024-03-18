@@ -98,7 +98,7 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     x_count, y_count = N_patch
 
     # state.clamp_(0, 1)
-    state = state.detach().cpu().numpy()
+    state = state.detach().float().cpu().numpy()
     v_min, v_max = state.min(), state.max()
     print(f'min: {v_min:.2g}, max: {v_max:.2g}, mean: {state.mean():.2g}, std: {state.std():.2g}')
 

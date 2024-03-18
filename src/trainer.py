@@ -8,6 +8,7 @@ from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from utils import get_available_device, get_trainable_parameters
 from losses import MSELoss, RMSELoss, MAELoss, MAPELoss, SMAPELoss
+from models.model import MultivariateTimeLLM
 
 
 def get_data_loader(config):
@@ -28,7 +29,7 @@ def get_data_loader(config):
 
 
 class Trainer:
-    def __init__(self, params, model, device=get_available_device()):
+    def __init__(self, params, model: MultivariateTimeLLM, precision, device=get_available_device()):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
         """
@@ -38,7 +39,7 @@ class Trainer:
         self.model = model
         self.loss_fn = self._get_loss_fn(params['loss_function'])
 
-        self.precision = torch.float16 if params['half_precision'] else torch.float32
+        self.precision = precision
         self.device = device
 
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
@@ -71,7 +72,7 @@ class Trainer:
         elif optimizer_type == "adam":
             optimizer = torch.optim.Adam(list(params),
                                          lr=self.params['learning_rate'],
-                                         weight_decay=self.params['weight_decay'])
+                                         weight_decay=self.params['weight_decay'], eps=1e-7)
         elif optimizer_type == "sgd":
             optimizer = torch.optim.SGD(list(params),
                                         lr=self.params['learning_rate'],

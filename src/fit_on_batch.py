@@ -7,6 +7,7 @@ import argparse
 import logging
 import torch
 from tqdm import trange, tqdm
+from cprint import c_print
 
 from trainer import Trainer, get_data_loader
 from utils import set_seed, load_params_from_file, get_available_device
@@ -33,7 +34,7 @@ def test_generate(model: MultivariateTimeLLM, cfg, batch):
     model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
 
 
-def run_train_epoch(dataloader, trainer: Trainer, optimizer, batch):
+def run_train_epoch(trainer: Trainer, optimizer, batch):
     trainer.model.train()
 
     states, diffs, bc_mask, position_ids = batch
@@ -63,14 +64,15 @@ if __name__ == '__main__':
     logging.info(f"Parameters for training: {training_params}")
 
     # Get the model
-    precision = torch.float16 if training_params['half_precision'] else torch.float32
-    model = MultivariateTimeLLM(training_params, device_map=get_available_device()).to(precision)
+    precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
+    model = MultivariateTimeLLM(training_params, device_map=get_available_device(), precision=precision)
 
     # Get the train data loader
     train_dataloader = get_data_loader(training_params)
 
     trainer = Trainer(params=training_params,
                       model=model,
+                      precision=precision,
                       device=get_available_device())
 
     optimizer = trainer.prepare_optimizers()
@@ -78,11 +80,11 @@ if __name__ == '__main__':
     batch = next(iter(train_dataloader))
 
     for epoch in trange(1000, desc="Training"):
-        train_log_metrics = run_train_epoch(dataloader=train_dataloader,
-                                            trainer=trainer,
+        train_log_metrics = run_train_epoch(trainer=trainer,
                                             optimizer=optimizer,
                                             batch=batch)
 
-        logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
+        if epoch % 5 == 0:
+            logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
 
     test_generate(model, training_params, batch)

@@ -29,7 +29,7 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     N_patch = ds.N_patch
 
     if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=1)
+        dl = ParallelDataGenerator(ds, bs=1, num_procs=1)
         dl.run()
     else:
         dl = SingleDataloader(ds, bs=1)
@@ -85,14 +85,15 @@ if __name__ == '__main__':
     logging.info(f"Parameters for training: {training_params}")
 
     # Get the model
-    precision = torch.float16 if training_params['half_precision'] else torch.float32
-    model = MultivariateTimeLLM(training_params, device_map=get_available_device()).to(precision)
+    precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
+    model = MultivariateTimeLLM(training_params, device_map=get_available_device(), precision=precision)
 
     # Get the train data loader
     train_dataloader = get_data_loader(training_params)
 
     trainer = Trainer(params=training_params,
                       model=model,
+                      precision=precision,
                       device=get_available_device())
 
     optimizer = trainer.prepare_optimizers()
