@@ -3,7 +3,7 @@
   "llm_backbone": "openai-community/gpt2",
   "llm_layers": 2,
   "llm_4bit_loading": false,
-  "freeze_llm": false,
+  "freeze_llm": true,
   "lora_config": {
     "r": 16,
     "lora_alpha": 256,
@@ -11,14 +11,14 @@
     "bias": "none"
   },
   "half_precision": false,
-  "batch_size": 8,
+  "batch_size": 2,
   "num_epochs": 2,
   "epoch_size": 10,
-  "learning_rate": 1e-3,
+  "learning_rate": 0.5e-3,
   "weight_decay": 0,
   "optimizer": "adam",
 
-  "loss_function": "smape",
+  "loss_function": "mae",
   "multiprocess": false,
   "num_workers": 1,
   "load_dir": "./ds/MGN/cylinder_dataset",
