@@ -19,18 +19,18 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def test_generate(model: MultivariateTimeLLM, cfg, batch, seq_len, seq_interval):
+def test_generate(model: MultivariateTimeLLM, cfg, batch):
     ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
                           stride=cfg['stride'],
-                          seq_len=seq_len,
-                          seq_interval=seq_interval)
+                          seq_len=cfg['seq_len'],
+                          seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
     # Get batch and run through model
     states, diffs, bc_mask, position_ids = batch
-    model.generate(states, diffs, bc_mask, position_ids, N_patch)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
 
 
 def run_train_epoch(dataloader, trainer: Trainer, optimizer, batch):
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     batch = next(iter(train_dataloader))
 
-    for epoch in trange(500, desc="Training"):
+    for epoch in trange(1000, desc="Training"):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
                                             optimizer=optimizer,
@@ -85,4 +85,4 @@ if __name__ == '__main__':
 
         logging.info(f'[TRAIN]: Epoch [{epoch + 1}] Metrics: {train_log_metrics}')
 
-    test_generate(model, training_params, batch, seq_len=10, seq_interval=2)
+    test_generate(model, training_params, batch)
