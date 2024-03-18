@@ -19,13 +19,13 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def test_generate(model: MultivariateTimeLLM, cfg, seq_len, seq_interval):
+def test_generate(model: MultivariateTimeLLM, cfg):
     ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
                           stride=cfg['stride'],
-                          seq_len=seq_len,
-                          seq_interval=seq_interval)
+                          seq_len=cfg['seq_len'],
+                          seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
     if cfg['multiprocess']:
@@ -57,7 +57,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
         optimizer.step()
 
-        dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx+1} | Loss: {log_metrics_dict['train_loss']})")
+        dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx+1} | Loss: {log_metrics_dict['train_loss']:.3g})")
         dataloader_iterator.refresh()
 
         # Keep track of metrics
@@ -106,4 +106,4 @@ if __name__ == '__main__':
         epoch_iterator.set_description(f"Training (Epoch: {epoch_idx+1} | Loss: {train_log_metrics['train/train_loss']})")
         epoch_iterator.refresh()
 
-    test_generate(model, training_params, seq_len=10, seq_interval=2)
+    test_generate(model, training_params)
