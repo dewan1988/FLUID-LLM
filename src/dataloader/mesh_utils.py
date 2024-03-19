@@ -72,22 +72,6 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     plt.show()
 
 
-class HashableArray:
-    """Hashable wrapper for numpy array to use with functools.lru cache"""
-
-    def __init__(self, x: np.array):
-        self.item = x
-
-    def __hash__(self):
-        # Optimistic fast hash
-        h = self.item.sum()  # .tobytes()
-        h = hash(h)
-        return h
-
-    def __eq__(self, other):
-        return True
-
-
 @lru_cache(maxsize=5)
 def grid_pos(x_min, x_max, y_min, y_max, grid_res):
     # Scale grid so long axis is grid_res with square grid
@@ -118,13 +102,10 @@ def to_grid(val, grid_x, grid_y, triang, tri_index):
     return data, mask
 
 
-@lru_cache(maxsize=1)
-def get_mesh_interpolation(pos: HashableArray, faces: HashableArray, grid_res=256):
+def get_mesh_interpolation(pos, faces, grid_res=256):
     """ Returns mesh interpolation properties for a given mesh.
         Can be cached for efficiency if mesh is the same.
     """
-
-    pos, faces = pos.item, faces.item
     x_min, y_min = np.min(pos, axis=0)
     x_max, y_max = np.max(pos, axis=0)
     grid_x, grid_y = grid_pos(x_min, x_max, y_min, y_max, grid_res)
@@ -147,8 +128,7 @@ def test_time(save_no=1):
     P = save_data['pressure'][0][:, 0]
 
     st = time.time()
-    p, f = HashableArray(pos), HashableArray(faces)
-    triang, tri_index, grid_x, grid_y = get_mesh_interpolation(p, f)
+    triang, tri_index, grid_x, grid_y = get_mesh_interpolation(pos, faces)
 
     Vx_interp, Vx_mask = to_grid(Vx, grid_x, grid_y, triang, tri_index)
     Vy_interp, Vy_mask = to_grid(Vy, grid_x, grid_y, triang, tri_index)

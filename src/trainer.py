@@ -23,7 +23,7 @@ def get_data_loader(config):
         dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'], epoch_size=config['epoch_size'])
         dl.run()
     else:
-        dl = SingleDataloader(ds, bs=config['batch_size'])
+        dl = SingleDataloader(ds, bs=config['batch_size'], epoch_size=config['epoch_size'])
 
     return dl
 
