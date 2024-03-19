@@ -210,7 +210,7 @@ class MGNSeqDataloader(MGNDataloader):
         diffs = diffs.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
         # Reshape mask. All masks are the same
-        masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1])
+        masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
 
         return states, diffs, masks.bool()
 

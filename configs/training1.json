@@ -1,7 +1,7 @@
 {
   "task_name": "cylinder_task",
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 2,
+  "llm_layers": 5,
   "llm_4bit_loading": false,
   "freeze_llm": false,
   "lora_config": {
@@ -20,7 +20,7 @@
 
   "loss_function": "smape",
   "multiprocess": true,
-  "num_workers": 4,
+  "num_workers": 8,
   "load_dir": "./ds/MGN/cylinder_dataset",
   "patch_size": [16, 16],
   "stride": [16, 16],
