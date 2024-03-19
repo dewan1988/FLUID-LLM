@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import torch
+from functools import lru_cache
 
 
 def plot_mesh(pos, faces, val):
@@ -108,5 +109,104 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
             patch = state[i + j * y_count].T
             axes[i, j].imshow(patch, vmin=v_min, vmax=v_max)
             axes[i, j].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+def grid_pos(x_min, x_max, y_min, y_max, grid_res):
+    # Scale grid so long axis is grid_res with square grid
+    long_axis = max(x_max - x_min, y_max - y_min)
+    short_axis = min(x_max - x_min, y_max - y_min)
+    ratio = short_axis / long_axis
+
+    if x_max - x_min > y_max - y_min:
+        x_points = grid_res
+        y_points = int(grid_res * ratio)
+    else:
+        y_points = grid_res
+        x_points = int(grid_res * ratio)
+
+    grid_x, grid_y = np.mgrid[x_min:x_max:x_points * 1j, y_min:y_max:y_points * 1j]  # Adjust 100j as needed for resolution
+    return grid_x.astype(np.float32), grid_y.astype(np.float32)
+
+
+def to_grid2(val, grid_x, grid_y, triang, tri_index):
+    interp = mtri.LinearTriInterpolator(triang, val)
+    mask_data = interp(grid_x, grid_y, tri_index=tri_index)
+
+    mask = mask_data.mask
+    data = mask_data.data
+
+    data[mask] = 0.
+
+    return data, mask
+
+
+class HashableArray:
+    """Hashable wrapper for numpy array to use with functools.lru cache"""
+
+    def __init__(self, x: np.array):
+        self.item = x
+
+    def __hash__(self):
+        # Optimistic fast hash
+        h = self.item.sum()  # .tobytes()
+        h = hash(h)
+        return h
+
+    def __eq__(self, other):
+        return True
+
+
+@lru_cache(maxsize=1)
+def get_mesh_interpolation(pos: HashableArray, faces: HashableArray):
+    """ Returns mesh interpolation properties for a given mesh.
+        Can be cached for efficiency if mesh is the same.
+    """
+
+    pos, faces = pos.item, faces.item
+    x_min, y_min = np.min(pos, axis=0)
+    x_max, y_max = np.max(pos, axis=0)
+    grid_x, grid_y = grid_pos(x_min, x_max, y_min, y_max, 256)
+
+    triang = mtri.Triangulation(pos[:, 0], pos[:, 1], triangles=faces)
+    tri_index = triang.get_trifinder()(grid_x, grid_y)
+
+    return triang, tri_index, grid_x, grid_y
+
+
+def test_time(save_no=1):
+    with open(f"/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/save_{save_no}.pkl", 'rb') as f:
+        save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
+
+    pos = save_data['mesh_pos']
+    faces = save_data['cells']
+
+    Vx = save_data['velocity'][0][:, 0]
+    Vy = save_data['velocity'][0][:, 1]
+    P = save_data['pressure'][0][:, 0]
+
+    st = time.time()
+    p, f = HashableArray(pos), HashableArray(faces)
+    triang, tri_index, grid_x, grid_y = get_mesh_interpolation(p, f)
+
+    Vx_interp, Vx_mask = to_grid2(Vx, grid_x, grid_y, triang, tri_index)
+    Vy_interp, Vy_mask = to_grid2(Vy, grid_x, grid_y, triang, tri_index)
+    P_interp, P_mask = to_grid2(P, grid_x, grid_y, triang, tri_index)
+    print(f"Interpolation time: {time.time() - st:.3g}s")
+
+    return Vx_interp
+
+
+if __name__ == "__main__":
+    import pickle
+    import time
+
+    for _ in range(10):
+        a = test_time()
+
+    a = test_time(save_no=0)
+
+    plt.imshow(a.T)
     plt.tight_layout()
     plt.show()
