@@ -19,8 +19,8 @@
   "optimizer": "adam",
 
   "loss_function": "smape",
-  "multiprocess": false,
-  "num_workers": 1,
+  "multiprocess": true,
+  "num_workers": 4,
   "load_dir": "./ds/MGN/cylinder_dataset",
   "patch_size": [16, 16],
   "stride": [16, 16],
