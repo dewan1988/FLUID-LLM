@@ -7,6 +7,7 @@ import pickle
 import random
 from cprint import c_print
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 from dataloader.mesh_utils import to_grid
 
@@ -35,8 +36,12 @@ class MGNDataloader:
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
-        # Get typical min/max values
-        state, _ = self._get_step(save_file=self.save_files[1], step_num=20)
+        # Load a random file to get min and max values and patch size
+        with open(f"{self.load_dir}/{self.save_files[1]}", 'rb') as f:
+            save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
+        state, _ = self._get_step(save_data=save_data, step_num=20)
+
+        # Get min and max values for each channel
         self.ds_min_max = [(state[0].min(), state[0].max()), (state[1].min(), state[1].max()), (state[2].min(), state[2].max())]
 
         # Calculate number of patches, assuming stride = patch_size
@@ -68,13 +73,13 @@ class MGNDataloader:
 
         return state, mask.bool()
 
-    def _get_step(self, save_file, step_num, interp_type='linear'):
+    def _get_step(self, save_data, step_num, interp_type='linear'):
         """
         Returns all interpolated measurements for a given step, including padding.
         """
 
-        with open(f"{self.load_dir}/{save_file}", 'rb') as f:
-            save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
+        # with open(f"{self.load_dir}/{save_file}", 'rb') as f:
+        #     save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
 
         pos = save_data['mesh_pos']
         faces = save_data['cells']
@@ -151,9 +156,12 @@ class MGNSeqDataloader(MGNDataloader):
             step_num = max_step_num
 
         # Load multiple states
+        with open(f"{self.load_dir}/{save_file}", 'rb') as f:
+            save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
+
         to_patches = []
         for i in range(step_num, step_num + self.seq_len * self.seq_interval, self.seq_interval):
-            state, mask = self._get_step(save_file, step_num=i)
+            state, mask = self._get_step(save_data, step_num=i)
 
             # Patch mask with state
             to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
