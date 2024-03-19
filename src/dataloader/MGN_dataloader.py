@@ -240,8 +240,12 @@ def plot_all_patches():
     patch_size, stride = (16, 16), (16, 16)
 
     seq_dl = MGNSeqDataloader(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
-                              seq_len=5, seq_interval=2)
-    state, diffs, mask, pos_id = seq_dl.ds_get(save_file=load_no, step_num=step_num)
+                              seq_len=10, seq_interval=2)
+
+    for _ in range(5):
+        st = time.time()
+        state, diffs, mask, pos_id = seq_dl.ds_get(save_file=load_no, step_num=step_num)
+        print(f"Time to get sequence: {time.time() - st:.3g}s")
 
     x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
 

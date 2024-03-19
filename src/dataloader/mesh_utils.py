@@ -72,6 +72,23 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     plt.show()
 
 
+class HashableArray:
+    """Hashable wrapper for numpy array to use with functools.lru cache"""
+
+    def __init__(self, x: np.array):
+        self.item = x
+
+    def __hash__(self):
+        # Optimistic fast hash
+        h = self.item.sum()  # .tobytes()
+        h = hash(h)
+        return h
+
+    def __eq__(self, other):
+        return True
+
+
+@lru_cache(maxsize=5)
 def grid_pos(x_min, x_max, y_min, y_max, grid_res):
     # Scale grid so long axis is grid_res with square grid
     long_axis = max(x_max - x_min, y_max - y_min)
@@ -99,22 +116,6 @@ def to_grid(val, grid_x, grid_y, triang, tri_index):
     data[mask] = 0.
 
     return data, mask
-
-
-class HashableArray:
-    """Hashable wrapper for numpy array to use with functools.lru cache"""
-
-    def __init__(self, x: np.array):
-        self.item = x
-
-    def __hash__(self):
-        # Optimistic fast hash
-        h = self.item.sum()  # .tobytes()
-        h = hash(h)
-        return h
-
-    def __eq__(self, other):
-        return True
 
 
 @lru_cache(maxsize=1)

@@ -68,6 +68,7 @@ if __name__ == '__main__':
     model = MultivariateTimeLLM(training_params, device_map=get_available_device(), precision=precision)
 
     # Get the train data loader
+    training_params['multiprocess'] = False
     train_dataloader = get_data_loader(training_params)
 
     trainer = Trainer(params=training_params,
