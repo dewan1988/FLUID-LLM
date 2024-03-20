@@ -1,4 +1,5 @@
-""" Load MGN tfrecord dataset in pytorch """
+""" Load MGN tfrecord dataset in pytorch.
+    Requires old protobuf version. """
 
 import json
 import os
