@@ -11,14 +11,13 @@ from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print
 from utils import set_seed
 
-
 class ParallelDataGenerator:
     def __init__(self, dataloader: MGNDataloader, bs, num_procs=8, epoch_size=10):
         self.dataloader = dataloader
         self.bs = bs
         self.epoch_size = epoch_size
 
-        self.queue = mp.Queue(maxsize=num_procs*2)
+        self.queue = mp.Queue(maxsize=bs*2)
         self.stop_signal = mp.Value('i', 0)
         self.num_procs = num_procs
         self.producers = []
@@ -51,6 +50,7 @@ class ParallelDataGenerator:
     def get_batch(self, timeout=1.):
         """ Combines several data samples into a single batch"""
         batch = []  # Initialize an empty list to store the batch
+
         while len(batch) < self.bs:
             try:
                 data = self.queue.get(timeout=timeout)  # Try to get data from the queue

@@ -12,9 +12,9 @@
   },
   "half_precision": true,
   "batch_size": 8,
-  "num_epochs": 10,
+  "num_epochs": 200,
   "epoch_size": 100,
-  "learning_rate": 1e-3,
+  "learning_rate": 5e-4,
   "weight_decay": 0,
   "optimizer": "adam",
 
