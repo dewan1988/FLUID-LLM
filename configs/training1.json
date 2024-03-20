@@ -1,7 +1,7 @@
 {
   "task_name": "cylinder_task",
   "llm_backbone": "openai-community/gpt2",
-  "llm_layers": 5,
+  "llm_layers": 7,
   "llm_4bit_loading": false,
   "freeze_llm": false,
   "lora_config": {
