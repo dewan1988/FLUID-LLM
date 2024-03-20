@@ -7,12 +7,14 @@ import torch
 from torch.utils.data import DataLoader
 from torchdata.datapipes.iter import FileLister, FileOpener
 
+
 def check_repeat(arr):
     first_slice = arr[0]
     for i in range(1, len(arr)):
         if not np.array_equal(first_slice, arr[i]):
             return False
     return True
+
 
 def parse_numerical_data(proto, meta):
     """Parses numerical data from a format equivalent to tf.Example, based on 'meta.json'."""
@@ -72,8 +74,6 @@ def main():
         # Convert cells to int16
         if torch.all(save_stats['cells'] >= np.iinfo(np.int16).min) and torch.all(save_stats['cells'] <= np.iinfo(np.int16).max):
             save_stats['cells'] = save_stats['cells'].to(torch.int16)
-
-
 
 
 if __name__ == "__main__":
