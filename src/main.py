@@ -38,7 +38,9 @@ def test_generate(model: MultivariateTimeLLM, cfg):
 
     # Get batch and run through model
     states, diffs, bc_mask, position_ids = dl.get_batch()
-    model.generate(states, diffs, bc_mask, position_ids, N_patch)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=0)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=2)
 
 
 def run_train_epoch(dataloader, trainer: Trainer, optimizer):
@@ -108,3 +110,4 @@ if __name__ == '__main__':
         epoch_iterator.refresh()
 
     test_generate(model, training_params)
+

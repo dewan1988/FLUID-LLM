@@ -1,6 +1,6 @@
 {
   "task_name": "cylinder_task",
-  "llm_backbone": "openai-community/gpt2",
+  "llm_backbone": "facebook/opt-125m",
   "llm_layers": 7,
   "llm_4bit_loading": false,
   "freeze_llm": false,

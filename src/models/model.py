@@ -28,7 +28,7 @@ class MultivariateTimeLLM(nn.Module):
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
-        assert llm_config.num_hidden_layers >= config['llm_layers'], "Requested number of layers is greater than the model's"
+        assert llm_config.num_hidden_layers >= config['llm_layers'], f"Requested number of layers is greater than the model's {llm_config.num_hidden_layers}!"
         llm_config.num_hidden_layers = config['llm_layers']
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
@@ -41,7 +41,8 @@ class MultivariateTimeLLM(nn.Module):
             config=self.llm_config,
             torch_dtype=precision,
             load_in_4bit=config['llm_4bit_loading'],
-            device_map=device_map
+            device_map=device_map,
+            attn_implementation="flash_attention_2"
         )
 
         c_print(f'LLM config: {llm_config}', color='green')
@@ -66,8 +67,8 @@ class MultivariateTimeLLM(nn.Module):
 
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
-                                                self.llm_config.embd_pdrop,
-                                                self.llm_config.layer_norm_epsilon,
+                                                self.llm_config.dropout,
+                                                1e-5,  # self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings)
         self.input_embeddings.to(precision)
 
