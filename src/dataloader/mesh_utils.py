@@ -7,8 +7,8 @@ c_print("Monkey patching matplotlib", color='yellow')
 
 import matplotlib
 # Monkey patch plt grid interpolator.
-from dataloader._triinterpolate import TriInterpolator as CustomTriInterpolator
-from dataloader._triinterpolate import LinearTriInterpolator as CustomLinearTriInterpolator
+from src.dataloader._triinterpolate import TriInterpolator as CustomTriInterpolator
+from src.dataloader._triinterpolate import LinearTriInterpolator as CustomLinearTriInterpolator
 # Replace the default interpolator with the custom one
 matplotlib.tri.TriInterpolator = CustomTriInterpolator
 matplotlib.tri.LinearTriInterpolator = CustomLinearTriInterpolator
@@ -128,7 +128,7 @@ def get_mesh_interpolation(pos, faces, grid_res=256):
 
 
 def test_time(save_no=1):
-    with open(f"/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/save_{save_no}.pkl", 'rb') as f:
+    with open(f"./ds/MGN/cylinder_dataset/save_{save_no}.pkl", 'rb') as f:
         save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
 
     pos = save_data['mesh_pos']
