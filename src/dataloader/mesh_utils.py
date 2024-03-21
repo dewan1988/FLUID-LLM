@@ -7,8 +7,8 @@ c_print("Monkey patching matplotlib", color='yellow')
 
 import matplotlib
 # Monkey patch plt grid interpolator.
-from src.dataloader._triinterpolate import TriInterpolator as CustomTriInterpolator
-from src.dataloader._triinterpolate import LinearTriInterpolator as CustomLinearTriInterpolator
+from _triinterpolate import TriInterpolator as CustomTriInterpolator
+from _triinterpolate import LinearTriInterpolator as CustomLinearTriInterpolator
 # Replace the default interpolator with the custom one
 matplotlib.tri.TriInterpolator = CustomTriInterpolator
 matplotlib.tri.LinearTriInterpolator = CustomLinearTriInterpolator
