@@ -1,9 +1,20 @@
-from matplotlib import tri as mtri
-import matplotlib.pyplot as plt
 import numpy as np
-import cv2
 import torch
 from functools import lru_cache
+from cprint import c_print
+
+c_print("Monkey patching matplotlib", color='yellow')
+
+import matplotlib
+# Monkey patch plt grid interpolator.
+from dataloader._triinterpolate import TriInterpolator as CustomTriInterpolator
+from dataloader._triinterpolate import LinearTriInterpolator as CustomLinearTriInterpolator
+# Replace the default interpolator with the custom one
+matplotlib.tri.TriInterpolator = CustomTriInterpolator
+matplotlib.tri.LinearTriInterpolator = CustomLinearTriInterpolator
+
+from matplotlib import tri as mtri
+import matplotlib.pyplot as plt
 
 
 # def plot_mesh(pos, faces, val):
