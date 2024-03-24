@@ -1,11 +1,12 @@
 """
 Testing
 """
-
+import os
 import sys
 import argparse
 import logging
 import torch
+import wandb
 from tqdm import trange, tqdm
 
 from trainer import Trainer, get_data_loader
@@ -65,7 +66,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
 
-        # === Aggregate metrics across iterations in the epoch ===
+    # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
     metrics_agg = {f"train/{metric_name}": sum(d[metric_name]
                                                for d in metrics_per_epoch) / len(metrics_per_epoch)
@@ -85,6 +86,13 @@ if __name__ == '__main__':
     set_seed()
     training_params = load_params_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
+
+    # Wandb
+    if training_params['enable_wandb'] is False:
+        os.environ['WANDB_MODE'] = 'disabled'
+
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
+    wandb.config.update(training_params)
 
     # Get the model
     precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
@@ -106,8 +114,12 @@ if __name__ == '__main__':
                                             trainer=trainer,
                                             optimizer=optimizer)
 
+        wandb.log(train_log_metrics, step=epoch_idx)
+
         epoch_iterator.set_description(f"Training (Epoch: {epoch_idx+1} | Loss: {train_log_metrics['train/train_loss']})")
         epoch_iterator.refresh()
 
-    test_generate(model, training_params)
+    # Close wandb
+    wandb.finish()
 
+    test_generate(model, training_params)
