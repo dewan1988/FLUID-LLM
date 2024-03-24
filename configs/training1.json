@@ -30,5 +30,6 @@
   "seq_len": 10,
   "seq_interval": 2,
   "resolution": 240,
-  "plot_patches": false
+  "plot_patches": false,
+  "enable_wandb": true
 }
