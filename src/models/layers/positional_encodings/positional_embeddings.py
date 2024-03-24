@@ -10,10 +10,8 @@ class PositionalEmbeddings(nn.Module):
         self.y_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
         self.time_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
 
-    def forward(self, position_ids):
+    def forward(self, x, position_ids):
         x_embeddings = self.x_embeddings(position_ids[..., 0])
         y_embeddings = self.y_embeddings(position_ids[..., 1])
         time_embeddings = self.time_embeddings(position_ids[..., 2])
-
-        return x_embeddings + y_embeddings + time_embeddings
-
+        return x + (x_embeddings + y_embeddings + time_embeddings)
