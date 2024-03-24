@@ -12,6 +12,6 @@ class PatchEmbeddings(nn.Module):
     def forward(self, x):
         seq_len, num_patch, C, H, W = x.shape
         x = x.view(seq_len, num_patch, -1)
-        x = self.embed_in(x)
-        z = self.embed_out(x)
+        x = self.embed_in(x)  # [seq_len, num_patch, hidden_dim]
+        z = self.embed_out(x)  # [seq_len, num_patch, llm_dim]
         return z
