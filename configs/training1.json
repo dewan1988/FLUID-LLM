@@ -13,6 +13,7 @@
   "half_precision": true,
   "flash_attention": true,
   "input_emb_layer_norm_eps": 1e-5,
+  "pos_embedding_type": "rope",
   "use_patches_self_attention": true,
   "batch_size": 8,
   "num_epochs": 2,
