@@ -1,5 +1,5 @@
 """
-Testing
+Main entrypoint for training
 """
 import os
 import sys
@@ -13,35 +13,8 @@ from trainer import Trainer, get_data_loader
 from utils import set_seed, load_params_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
-from dataloader.MGN_dataloader import MGNSeqDataloader
-from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
-
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
-
-
-def test_generate(model: MultivariateTimeLLM, cfg):
-    ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
-                          resolution=cfg['resolution'],
-                          patch_size=cfg['patch_size'],
-                          stride=cfg['stride'],
-                          seq_len=cfg['seq_len'],
-                          seq_interval=cfg['seq_interval'])
-    N_patch = ds.N_patch
-
-    if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=1, num_procs=1)
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=1)
-
-    trainer.model.eval()
-
-    # Get batch and run through model
-    states, diffs, bc_mask, position_ids = dl.get_batch()
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=0)
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=2)
 
 
 def run_train_epoch(dataloader, trainer: Trainer, optimizer):
@@ -119,7 +92,17 @@ if __name__ == '__main__':
         epoch_iterator.set_description(f"Training (Epoch: {epoch_idx+1} | Loss: {train_log_metrics['train/train_loss']})")
         epoch_iterator.refresh()
 
+        # Save model checkpoint
+        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0 and epoch_idx > 0:
+            checkpoint_file_path = os.path.join(training_params['checkpoint_save_path'],
+                                                f'llm4multivariatets_step_{epoch_idx}.pth')
+
+            checkpoint = {'params': training_params,
+                          'state_dict': trainer.model.state_dict(),
+                          'optimizer': optimizer.state_dict()}
+
+            logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
+            torch.save(checkpoint, checkpoint_file_path)
+
     # Close wandb
     wandb.finish()
-
-    test_generate(model, training_params)

@@ -6,102 +6,57 @@ import sys
 import argparse
 import logging
 import torch
-from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
 
-from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
+from utils import set_seed, load_params_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
-from dataloader.simple_dataloader import MGNDataloader
-from dataloader.mesh_utils import plot_full_patches
+from dataloader.MGN_dataloader import MGNSeqDataloader
+from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def rmse_loss(pred_state, true_state):
-    """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
-    assert pred_state.shape == true_state.shape
-    pred_state = pred_state.to(torch.float32)
-    true_state = true_state.to(torch.float32)
-
-    mse_loss = torch.mean((pred_state - true_state) ** 2, dim=(0, 2, 3, 4, 5))
-
-    return torch.sqrt(mse_loss)
-
-
 def test_generate(model: MultivariateTimeLLM, cfg):
-    bs = cfg['batch_size']
-    ds = MGNDataloader(load_dir=cfg['load_dir'],
-                       resolution=cfg['resolution'],
-                       patch_size=cfg['patch_size'],
-                       stride=cfg['stride'],
-                       seq_len=cfg['seq_len'],
-                       seq_interval=cfg['seq_interval'],
-                       step_per_ep=bs)
+    ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
+                          resolution=cfg['resolution'],
+                          patch_size=cfg['patch_size'],
+                          stride=cfg['stride'],
+                          seq_len=cfg['seq_len'],
+                          seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
-    dl = DataLoader(ds, batch_size=bs, pin_memory=True)
+    if cfg['multiprocess']:
+        dl = ParallelDataGenerator(ds, bs=1, num_procs=1)
+        dl.run()
+    else:
+        dl = SingleDataloader(ds, bs=1)
 
     model.eval()
 
     # Get batch and run through model
-    batch_data = next(iter(dl))
-    true_states, true_diffs = batch_data[0], batch_data[1]
-    pred_states, pred_diffs = model.generate(batch_data, N_patch)
-
-    # Split into steps
-    pred_states = pred_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_states = true_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_diffs = true_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16)
-
-    loss = rmse_loss(pred_states, true_states)
-    print(loss)
-
-    # Plotting
-    plot_step = -1
-    batch_num = 1
-
-    # Plot diffs
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        img_1 = true_diffs[batch_num, plot_step, :, i]
-        img_2 = pred_diffs[batch_num, plot_step, :, i]
-
-        # Initial image
-        plot_full_patches(img_1, (15, 4), ax[0])
-        # Predictions
-        plot_full_patches(img_2, (15, 4), ax[1])
-
-    fig.tight_layout()
-    fig.show()
-
-    # Plot states
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        img_1 = true_states[batch_num, plot_step, :, i]
-        img_2 = pred_states[batch_num, plot_step, :, i]
-
-        # Initial image
-        plot_full_patches(img_1, (15, 4), ax[0])
-        # Predictions
-        plot_full_patches(img_2, (15, 4), ax[1])
-    fig.tight_layout()
-    fig.show()
-
-    print(f'{pred_states.shape = }, {true_states.shape = }')
+    states, diffs, bc_mask, position_ids = dl.get_batch()
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=0)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
+    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=2)
 
 
-def main(args):
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_path',
+                        default="configs/inferenc1.json",
+                        # required=True,
+                        help='Path to the json config for inference')
+
+    args = parser.parse_args(sys.argv[1:])
+
     set_seed()
-    inference_params = load_yaml_from_file(args.config_path)
+    inference_params = load_params_from_file(args.config_path)
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
-    checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
-    logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
+    checkpoint_file_path = os.path.join(inference_params['checkpoint_save_path'],
+                                        f'llm4multivariatets_step_{inference_params["step_to_load"]}.pth')
 
     if not os.path.exists(checkpoint_file_path):
         raise ValueError(f"Checkpoint file not found at {checkpoint_file_path}")
@@ -119,13 +74,3 @@ def main(args):
 
     # Run test_generate
     test_generate(model, inference_params)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path',
-                        default="configs/inference1.yaml",
-                        help='Path to the json config for inference')
-
-    args = parser.parse_args(sys.argv[1:])
-    main(args)
