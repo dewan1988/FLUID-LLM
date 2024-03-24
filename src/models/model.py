@@ -68,8 +68,9 @@ class MultivariateTimeLLM(nn.Module):
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
                                                 self.llm_config.dropout,
-                                                1e-5,  # self.llm_config.layer_norm_epsilon,
-                                                self.llm_config.max_position_embeddings)
+                                                config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
+                                                self.llm_config.max_position_embeddings,
+                                                use_self_attn=config['use_patches_self_attention'])
         self.input_embeddings.to(precision)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
@@ -104,6 +105,9 @@ class MultivariateTimeLLM(nn.Module):
 
         # Pass through frozen LLM
         backbone_out = self.backbone(inputs_embeds=x_enc).last_hidden_state
+
+        print(backbone_out.shape)
+        exit(1)
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_out.shape
