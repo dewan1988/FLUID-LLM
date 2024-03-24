@@ -91,9 +91,7 @@ class MultivariateTimeLLM(nn.Module):
         # Freeze backbone parameters
         freeze_model(self.backbone)
 
-        if self.config['freeze_llm']:
-            freeze_model(self.backbone)
-        else:
+        if not self.config['freeze_llm']:
             config = LoraConfig(**self.config['lora_config'])
             self.backbone = get_peft_model(self.backbone, config)
             self.backbone.print_trainable_parameters()
