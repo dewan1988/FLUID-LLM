@@ -42,7 +42,7 @@ class MultivariateTimeLLM(nn.Module):
             torch_dtype=precision,
             load_in_4bit=config['llm_4bit_loading'],
             device_map=device_map,
-            attn_implementation="flash_attention_2"
+            attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
         )
 
         c_print(f'LLM config: {llm_config}', color='green')
