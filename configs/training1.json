@@ -1,7 +1,7 @@
 {
   "task_name": "cylinder_task",
   "llm_backbone": "facebook/opt-125m",
-  "llm_layers": 7,
+  "llm_layers": 4,
   "llm_4bit_loading": false,
   "freeze_llm": false,
   "lora_config": {
@@ -11,15 +11,15 @@
     "bias": "none"
   },
   "half_precision": true,
+  "flash_attention": false,
   "batch_size": 8,
   "num_epochs": 200,
   "epoch_size": 100,
   "learning_rate": 5e-4,
   "weight_decay": 0,
   "optimizer": "adam",
-
   "loss_function": "smape",
-  "multiprocess": true,
+  "multiprocess": false,
   "num_workers": 8,
   "load_dir": "./ds/MGN/cylinder_dataset",
   "patch_size": [16, 16],
