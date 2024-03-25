@@ -27,7 +27,6 @@ def parse_numerical_data(proto, meta):
             dtype = np.int64
         elif field['dtype'] == 'int32':
             dtype = np.int32
-
         else:
             raise ValueError(f"Unsupported dtype: {field['dtype']}")
         data = np.frombuffer(proto[key][0], dtype=dtype).reshape(field['shape'])

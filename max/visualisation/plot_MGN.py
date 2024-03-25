@@ -1,8 +1,35 @@
 """Plots a sample from MeshGraphNets."""
 
 import pickle
+from matplotlib import pyplot as plt
+from matplotlib import tri as mtri
+import numpy as np
 
-from mesh_utils import plot_mesh, plot_mesh_smooth
+
+def plot_mesh(pos, faces, val):
+    """Plots triangular mesh from positions of nodes and triangles defined using faces."""
+    triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
+
+    plt.figure(figsize=(10, 4))
+    plt.tripcolor(triang, val)  # or contourf
+    plt.ylim([0., 0.5])
+    plt.axis("equal")
+
+    # plt.axis("off")
+    plt.tight_layout()
+
+    plt.show()
+
+
+def plot_mesh_smooth(pos, val, faces, grid_res):
+    """Plots a 2D image from positions of nodes and values of the nodes."""
+    grid_z, _ = to_grid(pos, val, faces, grid_res)
+    plt.figure(figsize=(12, 4))
+    plt.imshow(grid_z.T, extent=(np.min(pos[:, 0]), np.max(pos[:, 0]), np.min(pos[:, 1]), np.max(pos[:, 1])),
+               origin='lower', cmap='viridis')
+
+    plt.tight_layout()
+    plt.show()
 
 
 def main():
