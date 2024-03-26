@@ -6,7 +6,7 @@
   "freeze_llm": false,
   "lora_config": {
     "r": 16,
-    "lora_alpha": 256,
+    "lora_alpha": 64,
     "lora_dropout": 0.1,
     "bias": "none"
   },
@@ -16,12 +16,12 @@
   "pos_embedding_type": "pos",
   "use_patches_self_attention": false,
   "batch_size": 8,
-  "num_epochs": 50,
+  "num_epochs": 200,
   "epoch_size": 100,
   "learning_rate": 5e-4,
   "weight_decay": 0,
   "optimizer": "adam",
-  "loss_function": "smape",
+  "loss_function": "mae",
   "multiprocess": true,
   "num_workers": 8,
   "load_dir": "./ds/MGN/cylinder_dataset",
@@ -31,7 +31,7 @@
   "seq_interval": 2,
   "resolution": 240,
   "plot_patches": true,
-  "enable_wandb": false,
+  "enable_wandb": true,
   "save_model_each": 5,
   "checkpoint_save_path": "model_checkpoints"
 }

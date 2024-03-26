@@ -22,7 +22,7 @@ def test_generate(model: MultivariateTimeLLM, cfg):
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
                           stride=cfg['stride'],
-                          seq_len=20,
+                          seq_len=cfg['seq_len'],
                           seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
