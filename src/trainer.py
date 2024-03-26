@@ -7,7 +7,7 @@ import torch
 from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from utils import get_available_device, get_trainable_parameters
-from losses import get_loss_fn
+from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 
 
@@ -37,7 +37,7 @@ class Trainer:
 
         self.params = params
         self.model = model
-        self.loss_fn = get_loss_fn(params['loss_function'])
+        self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
         self.precision = precision
         self.device = device

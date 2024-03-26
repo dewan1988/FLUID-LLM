@@ -148,9 +148,10 @@ class MAELoss(nn.Module):
 
 
 class CombinedLoss(nn.Module):
-    def __init__(self, loss_fns):
+    def __init__(self, loss_fns, weighting):
         super(CombinedLoss, self).__init__()
-        self.loss_fns = nn.ModuleList([get_loss_fn(loss_fn) for loss_fn in loss_fns])
+        self.loss_fns = nn.ModuleList([self.get_loss_fn(loss_fn) for loss_fn in loss_fns])
+        self.weighting = weighting
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -162,16 +163,12 @@ class CombinedLoss(nn.Module):
         :return: Loss value
         """
         loss = 0
-        for loss_fn in self.loss_fns:
-            loss += loss_fn(preds, target, mask)
+        for loss_fn, weighting in zip(self.loss_fns, self.weighting):
+            loss += loss_fn(preds, target, mask) * weighting
 
         return loss
 
-
-def get_loss_fn(loss_fn):
-    if isinstance(loss_fn, list):
-        return CombinedLoss(loss_fn)
-    else:
+    def get_loss_fn(self, loss_fn):
         if loss_fn == "mse":
             return MSELoss()
         elif loss_fn == "rmse":
