@@ -64,7 +64,7 @@ if __name__ == '__main__':
     if training_params['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
 
-    wandb.init(project="llm4multivariatets", entity="velkoz")
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
     wandb.config.update(training_params)
 
     # Get the model

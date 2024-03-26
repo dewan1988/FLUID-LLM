@@ -16,7 +16,7 @@
   "pos_embedding_type": "pos",
   "use_patches_self_attention": false,
   "batch_size": 8,
-  "num_epochs": 200,
+  "num_epochs": 50,
   "epoch_size": 100,
   "learning_rate": 5e-4,
   "weight_decay": 0,
@@ -31,7 +31,7 @@
   "seq_interval": 2,
   "resolution": 240,
   "plot_patches": true,
-  "enable_wandb": true,
+  "enable_wandb": false,
   "save_model_each": 5,
   "checkpoint_save_path": "model_checkpoints"
 }

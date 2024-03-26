@@ -1,6 +1,6 @@
 {
   "checkpoint_save_path": "model_checkpoints",
-  "step_to_load": 1,
+  "step_to_load": 195,
   "multiprocess": true,
   "num_workers": 1,
   "load_dir": "./ds/MGN/cylinder_dataset",

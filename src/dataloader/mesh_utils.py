@@ -82,6 +82,25 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     plt.tight_layout()
     plt.show()
 
+def plot_full_patches(state, N_patch: tuple, ax):
+    """ Plot patches as a single image"""
+    x_count, y_count = N_patch
+    x_px, y_px = state.shape[2], state.shape[1]
+
+    state = state.detach().float().cpu().numpy()
+    full_img = np.zeros((y_count * y_px, x_count * x_px))
+    for i in range(y_count):
+        for j in range(x_count):
+            start_row = i * y_px
+            start_col = j * x_px
+            end_row = start_row + y_px
+            end_col = start_col + x_px
+
+            full_img[start_row:end_row, start_col:end_col] = state[i + j * y_count].T
+
+    ax.imshow(full_img)
+    ax.axis('off')
+
 
 @lru_cache(maxsize=5)
 def grid_pos(x_min, x_max, y_min, y_max, grid_res):
