@@ -1,4 +1,5 @@
 import json
+import yaml
 import os
 import pickle
 import torch
@@ -89,5 +90,20 @@ def load_params_from_file(file_path):
             params = json.load(file)
         except Exception as e:
             logging.error(e)
+
+    return params
+
+
+def load_yaml_from_file(file_path):
+    if not os.path.exists(file_path):
+        raise ValueError(f'Path to config {file_path} does not exist.')
+
+    logging.info(f"Loading parameters from: {file_path}")
+    with open(file_path, 'r') as file:
+        try:
+            params = yaml.safe_load(file)
+        except Exception as e:
+            logging.error(e)
+            exit(e)
 
     return params

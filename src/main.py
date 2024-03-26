@@ -10,7 +10,7 @@ import wandb
 from tqdm import trange, tqdm
 
 from trainer import Trainer, get_data_loader
-from utils import set_seed, load_params_from_file, get_available_device
+from utils import set_seed, load_yaml_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
 logging.basicConfig(level=logging.INFO,
@@ -50,14 +50,14 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path',
-                        default="configs/training1.json",
+                        default="configs/training1.yaml",
                         # required=True,
                         help='Path to the json config for training')
 
     args = parser.parse_args(sys.argv[1:])
 
     set_seed()
-    training_params = load_params_from_file(args.config_path)
+    training_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
 
     # Wandb
