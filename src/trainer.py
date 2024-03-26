@@ -3,31 +3,32 @@ Module defining a trainer for a LLM on a given dataset.
 """
 
 import torch
-from torch.utils.data import DataLoader
-from dataloader.simple_dataloader import MGNDataloader
+
+from dataloader.MGN_dataloader import MGNSeqDataloader
+from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from utils import get_available_device, get_trainable_parameters
-from losses import CombinedLoss
+from losses import get_loss_fn
 from models.model import MultivariateTimeLLM
 
 
 def get_data_loader(config):
-    ds = MGNDataloader(load_dir=config['load_dir'],
-                       resolution=config['resolution'],
-                       patch_size=config['patch_size'],
-                       stride=config['stride'],
-                       seq_len=config['seq_len'],
-                       seq_interval=config['seq_interval'],
-                       step_per_ep=config['epoch_size'] * config['batch_size']
-                       )
+    ds = MGNSeqDataloader(load_dir=config['load_dir'],
+                          resolution=config['resolution'],
+                          patch_size=config['patch_size'],
+                          stride=config['stride'],
+                          seq_len=config['seq_len'],
+                          seq_interval=config['seq_interval'])
 
-    dl = DataLoader(ds, batch_size=config['batch_size'], num_workers=config['num_workers'], prefetch_factor=2, pin_memory=True)
+    if config['multiprocess']:
+        dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'], epoch_size=config['epoch_size'])
+        dl.run()
+    else:
+        dl = SingleDataloader(ds, bs=config['batch_size'], epoch_size=config['epoch_size'])
+
     return dl
 
 
 class Trainer:
-    optimizer: torch.optim.Optimizer
-    scheduler: torch.optim.lr_scheduler.LRScheduler
-
     def __init__(self, params, model: MultivariateTimeLLM, precision, device=get_available_device()):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
@@ -36,16 +37,14 @@ class Trainer:
 
         self.params = params
         self.model = model
-        self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
+        self.loss_fn = get_loss_fn(params['loss_function'])
 
         self.precision = precision
         self.device = device
 
-        self.prepare_optimizers()
-
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
-        loss, all_losses = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
-        return loss, all_losses
+        loss = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
+        return {"loss": loss}
 
     def prepare_optimizers(self):
         params = self.model.parameters()
@@ -59,7 +58,7 @@ class Trainer:
         elif optimizer_type == "adam":
             optimizer = torch.optim.Adam(list(params),
                                          lr=self.params['learning_rate'],
-                                         weight_decay=self.params['weight_decay'])
+                                         weight_decay=self.params['weight_decay'], eps=1e-7)
         elif optimizer_type == "sgd":
             optimizer = torch.optim.SGD(list(params),
                                         lr=self.params['learning_rate'],
@@ -67,10 +66,7 @@ class Trainer:
         else:
             raise ValueError(f"Unknown optimizer type: {optimizer_type}")
 
-        self.optimizer = optimizer
-        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer,
-                                                         step_size=self.params['schedule_epoch'],
-                                                         gamma=self.params['schedule_gamma'])
+        return optimizer
 
     def run_train_step(self, states, diffs, bc_mask, position_ids):
         """
@@ -82,20 +78,17 @@ class Trainer:
 
         states, diffs = states.to(self.precision), diffs.to(self.precision)
         states, diffs, position_ids, bc_mask = states.to(self.device), diffs.to(self.device), position_ids.to(self.device), bc_mask.to(self.device)
-        # Rescale diffs
-        diffs = diffs * self.params['diff_scale_factor']
 
         # Forward pass
         backbone_out, preds = self.model(states, position_ids)
 
         # Calculate loss
-        loss, all_losses = self.calculate_loss(preds, diffs, bc_mask)
+        loss = self.calculate_loss(preds, diffs, bc_mask)
 
         # Calculate metrics
-        log_metrics = {"train_loss": loss.detach().item()}
-        log_metrics.update(all_losses)
+        log_metrics = {"train_loss": loss["loss"].detach().item()}
 
-        return loss, log_metrics
+        return loss["loss"], log_metrics
 
     @torch.no_grad()
     def run_eval_step(self, batch):
@@ -115,5 +108,5 @@ class Trainer:
 
         # Calculate metrics
         log_metrics = {"eval_loss": loss["loss"].detach().item()}
-
+        
         return log_metrics
