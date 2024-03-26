@@ -22,8 +22,6 @@ class MultivariateTimeLLM(nn.Module):
 
         self.config = config
         self.task_name = config['task_name']
-        self.top_k = 5
-        self.d_llm = 4096
 
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
@@ -158,32 +156,31 @@ class MultivariateTimeLLM(nn.Module):
                 history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
         # Plotting
-        if self.config['plot_patches']:
-            from matplotlib import pyplot as plt
-            init_patch = 2 * N_patch
+        from matplotlib import pyplot as plt
+        init_patch = 8 * N_patch
 
-            # Plot diffs
-            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-            for i, ax in enumerate(axs):
-                img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
-                img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
+        # Plot diffs
+        fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+        for i, ax in enumerate(axs):
+            img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
+            img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
 
-                # Initial image
-                plot_full_patches(img_1, (15, 4), ax[0])
-                # Predictions
-                plot_full_patches(img_2, (15, 4), ax[1])
-            fig.tight_layout()
-            fig.show()
+            # Initial image
+            plot_full_patches(img_1, (15, 4), ax[0])
+            # Predictions
+            plot_full_patches(img_2, (15, 4), ax[1])
+        fig.tight_layout()
+        fig.show()
 
-            # Plot states
-            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-            for i, ax in enumerate(axs):
-                img_1 = states[batch_num, init_patch:init_patch + N_patch, i]
-                img_2 = history_states[batch_num, init_patch:init_patch + N_patch, i]
+        # Plot states
+        fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+        for i, ax in enumerate(axs):
+            img_1 = states[batch_num, init_patch:init_patch + N_patch, i]
+            img_2 = history_states[batch_num, init_patch:init_patch + N_patch, i]
 
-                # Initial image
-                plot_full_patches(img_1, (15, 4), ax[0])
-                # Predictions
-                plot_full_patches(img_2, (15, 4), ax[1])
-            fig.tight_layout()
-            fig.show()
+            # Initial image
+            plot_full_patches(img_1, (15, 4), ax[0])
+            # Predictions
+            plot_full_patches(img_2, (15, 4), ax[1])
+        fig.tight_layout()
+        fig.show()

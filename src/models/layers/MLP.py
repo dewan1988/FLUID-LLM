@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 class MLP(nn.Module):
     """ MLP Decoder"""
 
@@ -7,6 +8,8 @@ class MLP(nn.Module):
         super().__init__()
         if act == "relu":
             self.act = nn.ReLU()
+        if act == "leakyrelu":
+            self.act = nn.LeakyReLU()
         elif act == "tanh":
             self.act = nn.Tanh()
         elif act == "sigmoid":

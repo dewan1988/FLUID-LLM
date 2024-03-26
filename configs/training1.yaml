@@ -23,14 +23,14 @@ encoder_params:
     type: MLP
     num_layers: 2
     hidden_dim: 512
-    activation: linear    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
     type: MLP
-    num_layers: 1
+    num_layers: 2
     hidden_dim: 512
-    activation: linear    # relu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Training params
 batch_size: 8
@@ -39,8 +39,8 @@ epoch_size: 100
 learning_rate: 5.0e-4
 weight_decay: 0
 optimizer: adam
-loss_function: ['mae', 'mse']
-loss_weighting: [0.5, 10]
+loss_function: ['mse']
+loss_weighting: [10]
 
 # Dataloader params
 multiprocess: true
