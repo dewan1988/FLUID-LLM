@@ -145,3 +145,42 @@ class MAELoss(nn.Module):
         non_zero_elements = mask.sum()
         mse_loss_val = mae / non_zero_elements
         return mse_loss_val
+
+
+class CombinedLoss(nn.Module):
+    def __init__(self, loss_fns):
+        super(CombinedLoss, self).__init__()
+        self.loss_fns = nn.ModuleList([get_loss_fn(loss_fn) for loss_fn in loss_fns])
+
+    def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
+        """
+        Combined loss function.
+
+        :param preds: Forecast values. Shape: batch, time
+        :param target: Target values. Shape: batch, time
+        :param mask: 0/1 mask. Shape: batch, time
+        :return: Loss value
+        """
+        loss = 0
+        for loss_fn in self.loss_fns:
+            loss += loss_fn(preds, target, mask)
+
+        return loss
+
+
+def get_loss_fn(loss_fn):
+    if isinstance(loss_fn, list):
+        return CombinedLoss(loss_fn)
+    else:
+        if loss_fn == "mse":
+            return MSELoss()
+        elif loss_fn == "rmse":
+            return RMSELoss()
+        elif loss_fn == "mae":
+            return MAELoss()
+        elif loss_fn == "mape":
+            return MAPELoss()
+        elif loss_fn == "smape":
+            return SMAPELoss()
+        else:
+            raise ValueError(f"Unknown loss function: {loss_fn}")
