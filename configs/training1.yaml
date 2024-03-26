@@ -25,7 +25,7 @@ epoch_size: 100
 learning_rate: 5.0e-4
 weight_decay: 0
 optimizer: adam
-loss_function: mae
+loss_function: ['mae', 'mse']
 
 # Dataloader params
 multiprocess: true
@@ -38,6 +38,6 @@ seq_interval: 2
 resolution: 240
 
 # Logging params
-enable_wandb: true
+enable_wandb: false
 save_model_each: 5
 checkpoint_save_path: model_checkpoints

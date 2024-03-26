@@ -7,7 +7,7 @@ import argparse
 import logging
 import torch
 
-from utils import set_seed, load_params_from_file, get_available_device
+from utils import set_seed, load_yaml_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -38,14 +38,13 @@ def test_generate(model: MultivariateTimeLLM, cfg):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path',
-                        default="configs/inference1.json",
-                        # required=True,
+                        default="configs/inference1.yaml",
                         help='Path to the json config for inference')
 
     args = parser.parse_args(sys.argv[1:])
 
     set_seed()
-    inference_params = load_params_from_file(args.config_path)
+    inference_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint

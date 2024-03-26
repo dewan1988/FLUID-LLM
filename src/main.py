@@ -51,7 +51,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path',
                         default="configs/training1.yaml",
-                        # required=True,
                         help='Path to the json config for training')
 
     args = parser.parse_args(sys.argv[1:])
