@@ -22,29 +22,23 @@ def test_generate(model: MultivariateTimeLLM, cfg):
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
                           stride=cfg['stride'],
-                          seq_len=cfg['seq_len'],
+                          seq_len=20,
                           seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
-    if cfg['multiprocess']:
-        dl = ParallelDataGenerator(ds, bs=1, num_procs=1)
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=1)
+    dl = SingleDataloader(ds, bs=5)
 
     model.eval()
 
     # Get batch and run through model
-    states, diffs, bc_mask, position_ids = dl.get_batch()
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=0)
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=1)
-    model.generate(states, diffs, bc_mask, position_ids, N_patch, show_num=2)
+    batch_data = dl.get_batch()
+    model.generate(batch_data, N_patch)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path',
-                        default="configs/inferenc1.json",
+                        default="configs/inference1.json",
                         # required=True,
                         help='Path to the json config for inference')
 

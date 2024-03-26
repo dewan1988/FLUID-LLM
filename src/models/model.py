@@ -7,7 +7,7 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
-from dataloader.mesh_utils import plot_patches
+from dataloader.mesh_utils import plot_patches, plot_full_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
@@ -113,44 +113,75 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, states, diffs, bc_mask, position_ids, N_patch, show_num=2, batch_num=0):
+    def generate(self, batch_data, N_patch, batch_num=1):
+        states, diffs, bc_mask, position_ids = batch_data
         states, diffs = states.to(self.precision), diffs.to(self.precision)
         states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
             self.device_map)
 
-        # Start with initial patches, and extrapolate for 1 patch
-        init_patch = N_patch * 5
+        # Keep track of predictions
+        history_states = states[:, :N_patch]
+        history_diffs = torch.zeros_like(diffs[:, :N_patch])  # Init with one timestep
+        # Start with history patches, and extrapolate for 1 patch
+        for state_no in range(states.shape[1] // N_patch - 1):
+            print(f'{state_no = }')
 
-        # Model reconstructs autoregressively
-        pred_diffs = []
-        for i in range(N_patch):
-            pos_id = position_ids[:, :init_patch + i + 1]
-            seq_states = states[:, :init_patch + i + 1]
-            # Need patch and mask at t-1
-            # last_patch = seq_states[:, -N_patch:-N_patch + 1]
-            # mask = bc_mask[:, init_patch + i: init_patch + i + 1]
+            for i in range(N_patch):
+                next_patch = N_patch * (state_no + 1) + i
+                last_state_patch = N_patch * state_no + i
 
-            with torch.no_grad():
-                _, pred_diff = self(seq_states, pos_id)
-            pred_diff = pred_diff[:, -1:]
+                pos_id = position_ids[:, :next_patch + 1]
 
-            # new_state = next_state(last_patch, pred_diff, mask)
-            # seq_states = torch.cat([seq_states, new_state], dim=1)
+                # Generate current patch using diffs
+                cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
+                cur_state = cur_state.unsqueeze(1)
+                history_states = torch.cat([history_states, cur_state], dim=1)
 
-            pred_diffs.append(pred_diff)
+                # Sliding history for long context
+                if state_no > 8:
+                    in_hist = history_states[:, -9 * N_patch - i - 1:]
+                    pos_id = pos_id[:, -9 * N_patch - i - 1:].clone()
+                    pos_id[:, :, 2] = pos_id[:, :, 2] - (state_no - 8)
+                else:
+                    in_hist = history_states
 
-        pred_diffs = torch.concatenate(pred_diffs, dim=1)
+                # Predict next diff
+                with torch.no_grad():
+                    _, pred_diff = self(in_hist, pos_id)
+                pred_diff = pred_diff[:, -1:]
+                # Mask off boundary
+                mask = bc_mask[:, last_state_patch: last_state_patch + 1]
+                pred_diff[mask] = 0.
+
+                history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
         # Plotting
         if self.config['plot_patches']:
-            img_1 = diffs[batch_num, init_patch:init_patch + N_patch, show_num]  # seq_states[0, init_patch - N_patch:init_patch, 0]
+            from matplotlib import pyplot as plt
+            init_patch = 2 * N_patch
 
-            img_2 = pred_diffs[batch_num, :, show_num]  # seq_states[0, init_patch:init_patch + N_patch, 0]
-            mask = bc_mask[batch_num, init_patch:init_patch + N_patch, show_num]
-            img_2[mask] = 0
+            # Plot diffs
+            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+            for i, ax in enumerate(axs):
+                img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
+                img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
 
-            # Initial image
-            plot_patches(img_1, (15, 4))
+                # Initial image
+                plot_full_patches(img_1, (15, 4), ax[0])
+                # Predictions
+                plot_full_patches(img_2, (15, 4), ax[1])
+            fig.tight_layout()
+            fig.show()
 
-            # Predictions
-            plot_patches(img_2, (15, 4))
+            # Plot states
+            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+            for i, ax in enumerate(axs):
+                img_1 = states[batch_num, init_patch:init_patch + N_patch, i]
+                img_2 = history_states[batch_num, init_patch:init_patch + N_patch, i]
+
+                # Initial image
+                plot_full_patches(img_1, (15, 4), ax[0])
+                # Predictions
+                plot_full_patches(img_2, (15, 4), ax[1])
+            fig.tight_layout()
+            fig.show()
