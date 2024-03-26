@@ -9,8 +9,8 @@ from cprint import c_print
 
 from dataloader.mesh_utils import plot_patches, plot_full_patches
 from utils import freeze_model, unfreeze_model
-from models.layers.input_embeddings import InputEmbeddings
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
+from models.layers.input_embeddings import InputEmbeddings
 from models.layers.patch_decoder import PatchDecoder
 
 transformers.logging.set_verbosity_error()
@@ -65,16 +65,18 @@ class MultivariateTimeLLM(nn.Module):
         self.N, self.M = config["patch_size"]
         self.patch_in_dim = self.N * self.M * 3
 
+        # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
+                                                self.config['encoder_params'],
                                                 self.llm_config.dropout,
-                                                config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
+                                                self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings,
                                                 pos_embedding_type=config['pos_embedding_type'],
                                                 use_self_attn=config['use_patches_self_attention'])
         self.input_embeddings.to(precision)
 
-        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
+        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.config['decoder_params'])
         self.output_layer.to(precision)
 
         # Adjust the backbone for time series task

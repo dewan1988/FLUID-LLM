@@ -1,6 +1,6 @@
 task_name: cylinder_task
 
-# LLM Params
+# LLM params
 llm_backbone: facebook/opt-125m
 llm_layers: 7
 llm_4bit_loading: false
@@ -14,9 +14,23 @@ half_precision: true
 flash_attention: true
 input_emb_layer_norm_eps: 1.0e-05
 
-# Encoder params
+#  Positional embedding params
 pos_embedding_type: pos
 use_patches_self_attention: false
+
+# Encoder params
+encoder_params:
+    type: MLP
+    num_layers: 2
+    hidden_dim: 512
+    activation: relu    # relu, gelu, tanh, sigmoid, linear
+
+# Decoder params
+decoder_params:
+    type: MLP
+    num_layers: 2
+    hidden_dim: 512
+    activation: relu    # relu, gelu, tanh, sigmoid, linear
 
 # Training params
 batch_size: 8
@@ -38,6 +52,8 @@ seq_interval: 2
 resolution: 240
 
 # Logging params
-enable_wandb: false
+enable_wandb: true
 save_model_each: 5
 checkpoint_save_path: model_checkpoints
+
+
