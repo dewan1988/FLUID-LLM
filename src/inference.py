@@ -6,15 +6,18 @@ import sys
 import argparse
 import logging
 import torch
+import matplotlib.pyplot as plt
 
 from utils import set_seed, load_yaml_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
+from dataloader.mesh_utils import plot_full_patches
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
+
 
 def rmse_loss(pred_state, true_state):
     """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
@@ -49,6 +52,13 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     loss = rmse_loss(pred_state, true_state)
     print(loss)
 
+    # fig, axs = plt.subplots(2, 1, figsize=(20, 8))
+    # plot_step = pred_state[0, 8, :, 0]
+    # plot_true = true_state[0, 8, :, 0]
+    # print(f'{pred_state.shape = }, {plot_step.shape = }')
+    # plot_full_patches(plot_step, (15, 4), axs[0])
+    # plot_full_patches(plot_true, (15, 4), axs[1])
+    # plt.show()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
