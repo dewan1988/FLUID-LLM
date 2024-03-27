@@ -34,13 +34,13 @@ decoder_params:
 
 # Training params
 batch_size: 8
-num_epochs: 200
+num_epochs: 201
 epoch_size: 100
-learning_rate: 5.0e-4
+learning_rate: 7.0e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0.2, 10]
+loss_weighting: [0.3, 10]
 
 # Dataloader params
 multiprocess: true
@@ -54,7 +54,7 @@ resolution: 240
 
 # Logging params
 enable_wandb: true
-save_model_each: 5
+save_model_each: 10
 checkpoint_save_path: model_checkpoints
 
 

@@ -155,35 +155,4 @@ class MultivariateTimeLLM(nn.Module):
 
                 history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
-
-        # Plotting
-        from matplotlib import pyplot as plt
-        init_patch = 8 * N_patch
-
-        # Plot diffs
-        fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-        for i, ax in enumerate(axs):
-            img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
-            img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
-
-            # Initial image
-            plot_full_patches(img_1, (15, 4), ax[0])
-            # Predictions
-            plot_full_patches(img_2, (15, 4), ax[1])
-        fig.tight_layout()
-        fig.show()
-
-        # Plot states
-        fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-        for i, ax in enumerate(axs):
-            img_1 = states[batch_num, init_patch:init_patch + N_patch, i]
-            img_2 = history_states[batch_num, init_patch:init_patch + N_patch, i]
-
-            # Initial image
-            plot_full_patches(img_1, (15, 4), ax[0])
-            # Predictions
-            plot_full_patches(img_2, (15, 4), ax[1])
-        fig.tight_layout()
-        fig.show()
-
-        return history_states
+        return history_states, history_diffs

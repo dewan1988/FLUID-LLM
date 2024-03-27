@@ -8,7 +8,7 @@ import logging
 import torch
 import matplotlib.pyplot as plt
 
-from utils import set_seed, load_yaml_from_file, get_available_device
+from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from models.model import MultivariateTimeLLM
 
 from dataloader.MGN_dataloader import MGNSeqDataloader
@@ -46,35 +46,51 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     true_state = batch_data[0]
 
     # Split into steps
-    pred_state = pred_state.view(bs, -1, N_patch, 3, 16, 16)
-    true_state = true_state.view(bs, -1, N_patch, 3, 16, 16)
+    pred_states = pred_state.view(bs, -1, N_patch, 3, 16, 16)
+    true_states = true_state.view(bs, -1, N_patch, 3, 16, 16)
 
-    loss = rmse_loss(pred_state, true_state)
+    loss = rmse_loss(pred_states, true_states)
     print(loss)
 
-    # fig, axs = plt.subplots(2, 1, figsize=(20, 8))
-    # plot_step = pred_state[0, 8, :, 0]
-    # plot_true = true_state[0, 8, :, 0]
-    # print(f'{pred_state.shape = }, {plot_step.shape = }')
-    # plot_full_patches(plot_step, (15, 4), axs[0])
-    # plot_full_patches(plot_true, (15, 4), axs[1])
-    # plt.show()
+    # Plotting
+    plot_step = 8
+    batch_num = 1
+    # # Plot diffs
+    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    # for i, ax in enumerate(axs):
+    #     img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
+    #     img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
+    #
+    #     # Initial image
+    #     plot_full_patches(img_1, (15, 4), ax[0])
+    #     # Predictions
+    #     plot_full_patches(img_2, (15, 4), ax[1])
+    # fig.tight_layout()
+    # fig.show()
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path',
-                        default="configs/inference1.yaml",
-                        help='Path to the json config for inference')
+    # Plot states
+    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    for i, ax in enumerate(axs):
+        img_1 = true_states[batch_num, plot_step, :, i]
+        img_2 = pred_states[batch_num, plot_step, :, i]
 
-    args = parser.parse_args(sys.argv[1:])
+        # Initial image
+        plot_full_patches(img_1, (15, 4), ax[0])
+        # Predictions
+        plot_full_patches(img_2, (15, 4), ax[1])
+    fig.tight_layout()
+    fig.show()
 
+
+def main(args):
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    checkpoint_file_path = os.path.join(inference_params['checkpoint_save_path'],
-                                        f'llm4multivariatets_step_{inference_params["step_to_load"]}.pth')
+    load_path = get_save_folder(inference_params['checkpoint_save_path'])
+    checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
+    logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
     if not os.path.exists(checkpoint_file_path):
         raise ValueError(f"Checkpoint file not found at {checkpoint_file_path}")
@@ -92,3 +108,13 @@ if __name__ == '__main__':
 
     # Run test_generate
     test_generate(model, inference_params)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_path',
+                        default="configs/inference1.yaml",
+                        help='Path to the json config for inference')
+
+    args = parser.parse_args(sys.argv[1:])
+    main(args)

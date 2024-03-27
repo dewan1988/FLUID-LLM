@@ -10,7 +10,7 @@ import wandb
 from tqdm import trange, tqdm
 
 from trainer import Trainer, get_data_loader
-from utils import set_seed, load_yaml_from_file, get_available_device
+from utils import set_seed, load_yaml_from_file, get_available_device, make_save_folder, save_cfg
 from models.model import MultivariateTimeLLM
 
 logging.basicConfig(level=logging.INFO,
@@ -33,7 +33,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
         optimizer.step()
 
-        dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx+1} | Loss: {log_metrics_dict['train_loss']:.3g})")
+        dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g})")
         dataloader_iterator.refresh()
 
         # Keep track of metrics
@@ -47,14 +47,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
     return metrics_agg
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path',
-                        default="configs/training1.yaml",
-                        help='Path to the json config for training')
-
-    args = parser.parse_args(sys.argv[1:])
-
+def main(args):
     set_seed()
     training_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
@@ -66,18 +59,21 @@ if __name__ == '__main__':
     wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
     wandb.config.update(training_params)
 
+    # Make save folder and save config
+    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
+    logging.info(f"Saving checkpoints to: {save_path}")
+    save_cfg(save_path, training_params)  # WandB saves it, but make another copy anyway.
+
     # Get the model
     precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
     model = MultivariateTimeLLM(training_params, device_map=get_available_device(), precision=precision)
 
     # Get the train data loader
     train_dataloader = get_data_loader(training_params)
-
     trainer = Trainer(params=training_params,
                       model=model,
                       precision=precision,
                       device=get_available_device())
-
     optimizer = trainer.prepare_optimizers()
 
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
@@ -88,13 +84,12 @@ if __name__ == '__main__':
 
         wandb.log(train_log_metrics, step=epoch_idx)
 
-        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx+1} | Loss: {train_log_metrics['train/train_loss']})")
+        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']})")
         epoch_iterator.refresh()
 
         # Save model checkpoint
         if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0 and epoch_idx > 0:
-            checkpoint_file_path = os.path.join(training_params['checkpoint_save_path'],
-                                                f'llm4multivariatets_step_{epoch_idx}.pth')
+            checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 
             checkpoint = {'params': training_params,
                           'state_dict': trainer.model.state_dict(),
@@ -105,3 +100,16 @@ if __name__ == '__main__':
 
     # Close wandb
     wandb.finish()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_path',
+                        default="configs/training1.yaml",
+                        help='Path to the json config for training')
+    parser.add_argument('--save_folder',
+                        help='Path to save model checkpoints. Defaults to time', default=None)
+
+    args = parser.parse_args(sys.argv[1:])
+    main(args)
+
