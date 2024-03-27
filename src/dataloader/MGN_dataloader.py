@@ -64,16 +64,16 @@ class MGNDataloader:
 
         # Patch mask with state
         to_patch = np.concatenate([state, mask[None, :, :]], axis=0)
-        to_patch = torch.from_numpy(to_patch).float()
+        to_patch = torch.from_numpy(to_patch).float()[None,]
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(self._patch, to_patch)
             patches = future.result()
 
-        # patches = self._patch(to_patch)
-        state, mask = patches[:-1], patches[-1]
-
-        return state, mask.bool()
+        state, mask = patches[:, :-1], patches[:, -1]
+        state, mask = state[0], mask[0]
+        state = torch.permute(state, (3, 0, 1, 2))
+        return state, None, mask.bool(), None
 
     def _get_step(self, triang, tri_index, grid_x, grid_y, save_data, step_num):
         """
@@ -99,7 +99,6 @@ class MGNDataloader:
         Patches a batch of images.
         Returns a tensor of shape (bs, C, patch_h, patch_w, num_patches)
         """
-
         bs, C, _, _ = states.shape
         ph, pw = self.patch_size
         # states = states.unsqueeze(0)
@@ -249,14 +248,15 @@ def plot_all_patches():
 
     seq_dl = MGNSeqDataloader(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
                               seq_len=10, seq_interval=2)
+    seq_dl = MGNDataloader(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset",
+                           resolution=240, patch_size=patch_size, stride=stride,
+                           )
 
     for _ in range(5):
         st = time.time()
         state, diffs, mask, pos_id = seq_dl.ds_get()
         print(f"Time to get sequence: {time.time() - st:.3g}s")
 
-    print(state.shape)
-    print(mask.shape)
     x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
 
     p_shows = state
@@ -268,25 +268,25 @@ def plot_all_patches():
 
             min, max = seq_dl.ds_min_max[0]
 
-            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+            axes[i, j].imshow(p_show[:, :, 0], vmin=min*1.5, vmax=max*1.5)
             axes[i, j].axis('off')
     plt.tight_layout()
     plt.show()
 
-    p_shows = diffs
-
-    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
-    for i in range(y_count):
-        for j in range(x_count):
-            p_show = p_shows[i + j * y_count].numpy()
-            p_show = np.transpose(p_show, (2, 1, 0))
-
-            min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
-
-            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
-            axes[i, j].axis('off')
-    plt.tight_layout()
-    plt.show()
+    # p_shows = diffs
+    #
+    # fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    # for i in range(y_count):
+    #     for j in range(x_count):
+    #         p_show = p_shows[i + j * y_count].numpy()
+    #         p_show = np.transpose(p_show, (2, 1, 0))
+    #
+    #         min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
+    #
+    #         axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+    #         axes[i, j].axis('off')
+    # plt.tight_layout()
+    # plt.show()
 
 
 if __name__ == '__main__':

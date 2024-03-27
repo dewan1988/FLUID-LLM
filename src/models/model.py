@@ -121,7 +121,7 @@ class MultivariateTimeLLM(nn.Module):
 
         # Keep track of predictions
         history_states = states[:, :N_patch]
-        history_diffs = torch.zeros_like(diffs[:, :N_patch])  # Init with one timestep
+        history_diffs = diffs[:, :N_patch]  # Init with one timestep
         # Start with history patches, and extrapolate for 1 patch
         for state_no in range(states.shape[1] // N_patch - 1):
             print(f'{state_no = }')
@@ -155,6 +155,7 @@ class MultivariateTimeLLM(nn.Module):
 
                 history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
+
         # Plotting
         from matplotlib import pyplot as plt
         init_patch = 8 * N_patch
@@ -184,3 +185,5 @@ class MultivariateTimeLLM(nn.Module):
             plot_full_patches(img_2, (15, 4), ax[1])
         fig.tight_layout()
         fig.show()
+
+        return history_states

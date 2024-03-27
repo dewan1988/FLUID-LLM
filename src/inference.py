@@ -16,8 +16,15 @@ from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataload
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
+def rmse_loss(pred_state, true_state):
+    """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
+    mse_loss = torch.mean((pred_state - true_state) ** 2, dim=(0, 2, 3, 4, 5))
+
+    return torch.sqrt(mse_loss)
+
 
 def test_generate(model: MultivariateTimeLLM, cfg):
+    bs = cfg['batch_size']
     ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
@@ -26,13 +33,21 @@ def test_generate(model: MultivariateTimeLLM, cfg):
                           seq_interval=cfg['seq_interval'])
     N_patch = ds.N_patch
 
-    dl = SingleDataloader(ds, bs=5)
+    dl = SingleDataloader(ds, bs=bs)
 
     model.eval()
 
     # Get batch and run through model
     batch_data = dl.get_batch()
-    model.generate(batch_data, N_patch)
+    pred_state = model.generate(batch_data, N_patch).cpu()
+    true_state = batch_data[0]
+
+    # Split into steps
+    pred_state = pred_state.view(bs, -1, N_patch, 3, 16, 16)
+    true_state = true_state.view(bs, -1, N_patch, 3, 16, 16)
+
+    loss = rmse_loss(pred_state, true_state)
+    print(loss)
 
 
 if __name__ == '__main__':
