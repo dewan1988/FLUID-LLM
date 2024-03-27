@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
 import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
@@ -45,19 +45,19 @@ class MultivariateTimeLLM(nn.Module):
 
         c_print(f'LLM config: {llm_config}', color='green')
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            config['llm_backbone'],
-            trust_remote_code=True,
-            local_files_only=False
-        )
-
-        # Set the pad token as the EOS token if it exists, otherwise add a new pad token
-        if self.tokenizer.eos_token:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        else:
-            pad_token = '[PAD]'
-            self.tokenizer.add_special_tokens({'pad_token': pad_token})
-            self.tokenizer.pad_token = pad_token
+        # self.tokenizer = AutoTokenizer.from_pretrained(
+        #     config['llm_backbone'],
+        #     trust_remote_code=True,
+        #     local_files_only=False
+        # )
+        #
+        # # Set the pad token as the EOS token if it exists, otherwise add a new pad token
+        # if self.tokenizer.eos_token:
+        #     self.tokenizer.pad_token = self.tokenizer.eos_token
+        # else:
+        #     pad_token = '[PAD]'
+        #     self.tokenizer.add_special_tokens({'pad_token': pad_token})
+        #     self.tokenizer.pad_token = pad_token
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
         self.N, self.M = config["patch_size"]
@@ -113,15 +113,17 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, batch_data, N_patch, batch_num=1):
+    def generate(self, batch_data, N_patch):
         states, diffs, bc_mask, position_ids = batch_data
-        states, diffs = states.to(self.precision), diffs.to(self.precision)
-        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
-            self.device_map)
 
-        # Keep track of predictions
-        history_states = states[:, :N_patch]
-        history_diffs = diffs[:, :N_patch]  # Init with one timestep
+        init_state_fp32 = states[:, :N_patch].to(torch.float32).to(self.device_map)
+        init_history_fp32 = diffs[:, :N_patch].to(torch.float32).to(self.device_map)
+
+        position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
+
+        # Keep track of predictions (in fp32)
+        history_states = init_state_fp32
+        history_diffs = init_history_fp32  # Init with one timestep
         # Start with history patches, and extrapolate for 1 patch
         for state_no in range(states.shape[1] // N_patch - 1):
             print(f'{state_no = }')
@@ -133,7 +135,15 @@ class MultivariateTimeLLM(nn.Module):
                 pos_id = position_ids[:, :next_patch + 1]
 
                 # Generate current patch using diffs
-                cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
+                # cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
+                # cur_state = cur_state.unsqueeze(1)
+                # history_states = torch.cat([history_states, cur_state], dim=1)
+
+                # Generate current patch using diffs
+                # More numerically stable version by adding on all histories to init_state_fp32
+                want_idx = torch.arange(i, next_patch, N_patch).to(self.device_map)
+                past_diffs = history_diffs[:, want_idx].sum(dim=1, )
+                cur_state = init_state_fp32[:, i] + past_diffs
                 cur_state = cur_state.unsqueeze(1)
                 history_states = torch.cat([history_states, cur_state], dim=1)
 
@@ -147,12 +157,16 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    _, pred_diff = self(in_hist, pos_id)
+                    _, pred_diff = self(in_hist.to(self.precision), pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary
                 mask = bc_mask[:, last_state_patch: last_state_patch + 1]
                 pred_diff[mask] = 0.
 
+                pred_diff = pred_diff.to(torch.float32)
                 history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
+
+                # pred_diff = diffs[:, next_patch: next_patch + 1].to(torch.float32)
+                # history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
         return history_states, history_diffs

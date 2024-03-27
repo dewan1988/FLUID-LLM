@@ -21,6 +21,10 @@ logging.basicConfig(level=logging.INFO,
 
 def rmse_loss(pred_state, true_state):
     """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
+    assert pred_state.shape == true_state.shape
+    pred_state = pred_state.to(torch.float32)
+    true_state = true_state.to(torch.float32)
+
     mse_loss = torch.mean((pred_state - true_state) ** 2, dim=(0, 2, 3, 4, 5))
 
     return torch.sqrt(mse_loss)
@@ -42,18 +46,21 @@ def test_generate(model: MultivariateTimeLLM, cfg):
 
     # Get batch and run through model
     batch_data = dl.get_batch()
-    pred_state = model.generate(batch_data, N_patch).cpu()
-    true_state = batch_data[0]
+    true_states, true_diffs = batch_data[0], batch_data[1]
+    # model.precision = torch.float32
+    pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
     # Split into steps
-    pred_states = pred_state.view(bs, -1, N_patch, 3, 16, 16)
-    true_states = true_state.view(bs, -1, N_patch, 3, 16, 16)
+    pred_states = pred_states.view(bs, -1, N_patch, 3, 16, 16).cpu()
+    true_states = true_states.view(bs, -1, N_patch, 3, 16, 16).to(torch.float32)
+    pred_diffs = pred_diffs.view(bs, -1, N_patch, 3, 16, 16).cpu()
+    true_diffs = true_diffs.view(bs, -1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)
 
     # Plotting
-    plot_step = 8
+    plot_step = 0
     batch_num = 1
     # # Plot diffs
     # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
@@ -80,6 +87,8 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         plot_full_patches(img_2, (15, 4), ax[1])
     fig.tight_layout()
     fig.show()
+
+    print(f'{pred_states.shape = }, {true_states.shape = }')
 
 
 def main(args):
