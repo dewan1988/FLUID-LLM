@@ -7,6 +7,7 @@ import random
 import logging
 import numpy as np
 from datetime import datetime
+import shutil
 
 from transformers import AutoTokenizer, AutoModel
 
@@ -110,9 +111,8 @@ def load_yaml_from_file(file_path):
     return params
 
 
-def save_cfg(save_path, cfg: dict):
-    with open(f'{save_path}/config.yaml', 'w') as file:
-        yaml.dump(cfg, file)
+def save_cfg(cfg_path, save_path):
+    shutil.copy(cfg_path, f'{save_path}/')
 
 
 def make_save_folder(save_dir, save_name=None):

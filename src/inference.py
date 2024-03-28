@@ -60,20 +60,22 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     print(loss)
 
     # Plotting
-    plot_step = 0
+    plot_step = -1
     batch_num = 1
-    # # Plot diffs
-    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    # for i, ax in enumerate(axs):
-    #     img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
-    #     img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
-    #
-    #     # Initial image
-    #     plot_full_patches(img_1, (15, 4), ax[0])
-    #     # Predictions
-    #     plot_full_patches(img_2, (15, 4), ax[1])
-    # fig.tight_layout()
-    # fig.show()
+
+    # Plot diffs
+    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    for i, ax in enumerate(axs):
+        img_1 = true_diffs[batch_num, plot_step, :, i]
+        img_2 = pred_diffs[batch_num, plot_step, :, i]
+
+        # Initial image
+        plot_full_patches(img_1, (15, 4), ax[0])
+        # Predictions
+        plot_full_patches(img_2, (15, 4), ax[1])
+
+    fig.tight_layout()
+    fig.show()
 
     # Plot states
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))

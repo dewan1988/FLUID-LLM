@@ -62,7 +62,7 @@ def main(args):
     # Make save folder and save config
     save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
     logging.info(f"Saving checkpoints to: {save_path}")
-    save_cfg(save_path, training_params)  # WandB saves it, but make another copy anyway.
+    save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
     # Get the model
     precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
