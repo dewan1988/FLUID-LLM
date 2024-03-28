@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def run_train_epoch(dataloader, trainer: Trainer, optimizer):
+def run_train_epoch(dataloader, trainer: Trainer):
     trainer.model.train()
 
     metrics_per_epoch = []
@@ -28,10 +28,10 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
         # Backpropagation
-        optimizer.zero_grad()
+        trainer.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
-        optimizer.step()
+        trainer.optimizer.step()
 
         dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g})")
         dataloader_iterator.refresh()
@@ -39,11 +39,14 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
 
+    trainer.scheduler.step()
+
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
     metrics_agg = {f"train/{metric_name}": sum(d[metric_name]
                                                for d in metrics_per_epoch) / len(metrics_per_epoch)
                    for metric_name in metrics_names}
+    metrics_agg['train/LR'] = trainer.optimizer.param_groups[0]['lr']
     return metrics_agg
 
 
@@ -74,13 +77,11 @@ def main(args):
                       model=model,
                       precision=precision,
                       device=get_available_device())
-    optimizer = trainer.prepare_optimizers()
 
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
-                                            trainer=trainer,
-                                            optimizer=optimizer)
+                                            trainer=trainer)
 
         wandb.log(train_log_metrics, step=epoch_idx)
 
@@ -93,7 +94,7 @@ def main(args):
 
             checkpoint = {'params': training_params,
                           'state_dict': trainer.model.state_dict(),
-                          'optimizer': optimizer.state_dict()}
+                          'optimizer': trainer.optimizer.state_dict()}
 
             logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
             torch.save(checkpoint, checkpoint_file_path)

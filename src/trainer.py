@@ -29,6 +29,9 @@ def get_data_loader(config):
 
 
 class Trainer:
+    optimizer: torch.optim.Optimizer
+    scheduler: torch.optim.lr_scheduler.LRScheduler
+
     def __init__(self, params, model: MultivariateTimeLLM, precision, device=get_available_device()):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
@@ -41,6 +44,8 @@ class Trainer:
 
         self.precision = precision
         self.device = device
+
+        self.prepare_optimizers()
 
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
         loss = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
@@ -58,7 +63,7 @@ class Trainer:
         elif optimizer_type == "adam":
             optimizer = torch.optim.Adam(list(params),
                                          lr=self.params['learning_rate'],
-                                         weight_decay=self.params['weight_decay'], eps=1e-7)
+                                         weight_decay=self.params['weight_decay'])
         elif optimizer_type == "sgd":
             optimizer = torch.optim.SGD(list(params),
                                         lr=self.params['learning_rate'],
@@ -66,7 +71,10 @@ class Trainer:
         else:
             raise ValueError(f"Unknown optimizer type: {optimizer_type}")
 
-        return optimizer
+        self.optimizer = optimizer
+        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer,
+                                                    step_size=self.params['schedule_epoch'],
+                                                    gamma=self.params['schedule_gamma'])
 
     def run_train_step(self, states, diffs, bc_mask, position_ids):
         """
@@ -108,5 +116,5 @@ class Trainer:
 
         # Calculate metrics
         log_metrics = {"eval_loss": loss["loss"].detach().item()}
-        
+
         return log_metrics
