@@ -55,13 +55,6 @@ def main(args):
     training_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
 
-    # Wandb
-    if training_params['enable_wandb'] is False:
-        os.environ['WANDB_MODE'] = 'disabled'
-
-    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
-    wandb.config.update(training_params)
-
     # Make save folder and save config
     save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
     logging.info(f"Saving checkpoints to: {save_path}")
@@ -77,6 +70,13 @@ def main(args):
                       model=model,
                       precision=precision,
                       device=get_available_device())
+
+    # Wandb
+    if training_params['enable_wandb'] is False:
+        os.environ['WANDB_MODE'] = 'disabled'
+
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
+    wandb.config.update(training_params)
 
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):

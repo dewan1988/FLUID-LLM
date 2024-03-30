@@ -10,6 +10,11 @@ class PositionalEmbeddings(nn.Module):
         self.y_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
         self.time_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
 
+        # Zero init embeddings
+        nn.init.zeros_(self.x_embeddings.weight)
+        nn.init.zeros_(self.y_embeddings.weight)
+        nn.init.zeros_(self.time_embeddings.weight)
+
     def forward(self, x, position_ids):
         x_embeddings = self.x_embeddings(position_ids[..., 0])
         y_embeddings = self.y_embeddings(position_ids[..., 1])
