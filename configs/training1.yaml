@@ -1,13 +1,13 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-125m
-llm_layers: 7
+llm_backbone: facebook/opt-350m
+llm_layers: 10
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
   r: 16
-  lora_alpha: 16
+  lora_alpha: 32
   lora_dropout: 0.1
   bias: none
 half_precision: true
@@ -38,13 +38,13 @@ decoder_params:
 batch_size: 8
 num_epochs: 201
 epoch_size: 100
-learning_rate: 5.e-4
+learning_rate: 7.e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0.3, 10]
-schedule_epoch: 150
-schedule_gamma: 0.5
+loss_weighting: [0.025, 10]
+schedule_epoch: 30
+schedule_gamma: 0.75
 
 # Dataloader params
 multiprocess: true
