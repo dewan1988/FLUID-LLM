@@ -10,7 +10,7 @@ class PatchDecoder(nn.Module):
 
         if params['type'] == 'MLP':
             hid_dim, num_layers, act = params["hidden_dim"], params["num_layers"], params["activation"]
-            self.decoder = MLP(in_dim=llm_dim, out_dim=out_dim, hid_dim=hid_dim, num_layers=num_layers, act=act)
+            self.decoder = MLP(in_dim=llm_dim, out_dim=out_dim, hid_dim=hid_dim, num_layers=num_layers, act=act, zero_last=True)
         else:
             raise ValueError(f"Unknown patch embedding type: {params['type']}")
 

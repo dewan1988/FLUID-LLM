@@ -1,6 +1,6 @@
 # Load location
 checkpoint_save_path: model_checkpoints
-step_to_load: 40
+step_to_load: 200
 
 # DL param
 multiprocess: true
@@ -8,7 +8,7 @@ num_workers: 1
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
 stride: [16, 16]
-seq_len: 20
+seq_len: 27
 seq_interval: 2
 resolution: 240
 batch_size: 8

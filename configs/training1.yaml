@@ -1,13 +1,13 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-125m
-llm_layers: 7
+llm_backbone: facebook/opt-350m
+llm_layers: 20
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
   r: 16
-  lora_alpha: 64
+  lora_alpha: 16
   lora_dropout: 0.1
   bias: none
 half_precision: true
@@ -23,26 +23,26 @@ encoder_params:
     type: MLP
     num_layers: 2
     hidden_dim: 512
-    activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
     type: MLP
     num_layers: 2
     hidden_dim: 512
-    activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Training params
 batch_size: 8
 num_epochs: 201
 epoch_size: 100
-learning_rate: 7.0e-4
+learning_rate: 5.e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
 loss_weighting: [0.3, 10]
-schedule_epoch: 50
-schedule_gamma: 0.75
+schedule_epoch: 150
+schedule_gamma: 0.5
 
 # Dataloader params
 multiprocess: true
@@ -56,7 +56,7 @@ resolution: 240
 
 # Logging params
 enable_wandb: true
-save_model_each: 10
+save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
 

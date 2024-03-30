@@ -99,7 +99,7 @@ def main(args):
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'])
+    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-2)
     checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
