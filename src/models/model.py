@@ -71,6 +71,7 @@ class MultivariateTimeLLM(nn.Module):
                                                 self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings,
                                                 pos_embedding_type=config['pos_embedding_type'],
+                                                zero_init_pos_embed=config['zero_init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
         self.input_embeddings.to(precision)
 

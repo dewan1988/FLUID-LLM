@@ -1,8 +1,8 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-350m
-llm_layers: 20
+llm_backbone: facebook/opt-125m
+llm_layers: 7
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
@@ -16,6 +16,7 @@ input_emb_layer_norm_eps: 1.0e-05
 
 #  Positional embedding params
 pos_embedding_type: pos
+zero_init_pos_embed: false
 use_patches_self_attention: false
 
 # Encoder params
@@ -31,6 +32,7 @@ decoder_params:
     num_layers: 2
     hidden_dim: 512
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    zero_last_layer: true
 
 # Training params
 batch_size: 8
