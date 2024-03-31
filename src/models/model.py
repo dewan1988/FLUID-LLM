@@ -10,7 +10,6 @@ from cprint import c_print
 from dataloader.mesh_utils import plot_patches, plot_full_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
-from models.layers.passthrough_embeddings import PassthroughEmbeddings
 from models.layers.patch_decoder import PatchDecoder
 
 transformers.logging.set_verbosity_error()
@@ -85,9 +84,6 @@ class MultivariateTimeLLM(nn.Module):
         self.precision = precision
 
     def _adjust_backbone(self):
-        # Nullify undesired layers
-        self.backbone.embeddings = PassthroughEmbeddings()
-
         # Freeze backbone parameters
         freeze_model(self.backbone)
 
