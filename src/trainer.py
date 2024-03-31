@@ -20,18 +20,20 @@ def get_data_loader(config):
                           seq_interval=config['seq_interval'])
 
     if config['multiprocess']:
-        dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'], epoch_size=config['epoch_size'])
+        dl = ParallelDataGenerator(ds,
+                                   num_procs=config['num_workers'],
+                                   batch_size=config['batch_size'],
+                                   epoch_size=config['epoch_size'])
         dl.run()
     else:
-        dl = SingleDataloader(ds, bs=config['batch_size'], epoch_size=config['epoch_size'])
+        dl = SingleDataloader(ds,
+                              batch_size=config['batch_size'],
+                              epoch_size=config['epoch_size'])
 
     return dl
 
 
 class Trainer:
-    optimizer: torch.optim.Optimizer
-    scheduler: torch.optim.lr_scheduler.LRScheduler
-
     def __init__(self, params, model: MultivariateTimeLLM, device):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
@@ -81,9 +83,6 @@ class Trainer:
         - metrics_to_log (dict): A dictionary with the calculated metrics (detached from the computational graph)
         """
         self.model.train()
-
-        states, diffs = states, diffs
-        states, diffs, position_ids, bc_mask = states.to(self.device), diffs.to(self.device), position_ids.to(self.device), bc_mask.to(self.device)
 
         # Forward pass
         backbone_out, preds = self.model(states, position_ids)

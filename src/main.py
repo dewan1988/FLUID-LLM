@@ -23,19 +23,24 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
     metrics_per_epoch = []
     dataloader_iterator = tqdm(dataloader, desc="Iterating batches", leave=False)
-    for batch_idx, batch in enumerate(dataloader_iterator):
-        with accelerator.accumulate(trainer.model):
+    with accelerator.autocast():
+        for batch_idx, batch in enumerate(dataloader_iterator):
             states, diffs, bc_mask, position_ids = batch
 
-            with accelerator.autocast():
-                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+            states = states.to(accelerator.device)
+            diffs = diffs.to(accelerator.device)
+            bc_mask = bc_mask.to(accelerator.device)
+            position_ids = position_ids.to(accelerator.device)
 
-                # Backpropagation
-                accelerator.backward(loss)
+            loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+            # Backpropagation
+            accelerator.backward(loss)
+
+            if accelerator.sync_gradients:
                 accelerator.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
-                optimizer.step()
-                scheduler.step()
-                optimizer.zero_grad()
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
 
             dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g})")
             dataloader_iterator.refresh()
@@ -63,7 +68,9 @@ def main(args):
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
     # Prepare accelerator
-    accelerator = get_accelerator()
+    accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'])
+    if training_params['use_deepspeed']:
+        accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params['batch_size'] // accelerator.state.num_processes
 
     # Get the model
     model = MultivariateTimeLLM(training_params, device_map=get_available_device())

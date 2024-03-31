@@ -10,7 +10,7 @@ from datetime import datetime
 import shutil
 
 from transformers import AutoTokenizer, AutoModel
-from accelerate import Accelerator
+from accelerate import Accelerator, DeepSpeedPlugin
 
 GLOBAL_SEED = 123
 ACCELERATOR = None
@@ -48,10 +48,14 @@ def get_available_device():
     return accelerator.device
 
 
-def get_accelerator():
+def get_accelerator(use_deepspeed=False):
     global ACCELERATOR
     if not ACCELERATOR:
-        ACCELERATOR = Accelerator()
+        if use_deepspeed:
+            deepspeed_plugin = DeepSpeedPlugin(hf_ds_config='configs/deepspeed_zero2.json')
+            ACCELERATOR = Accelerator(deepspeed_plugin=deepspeed_plugin)
+        else:
+            ACCELERATOR = Accelerator()
 
     return ACCELERATOR
 
