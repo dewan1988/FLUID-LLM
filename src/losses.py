@@ -172,11 +172,11 @@ class CombinedLoss(nn.Module):
         tot_loss = 0
         all_losses = {}
         for loss_fn, weighting in zip(self.loss_fns, self.weighting):
-            l = loss_fn(preds, target, mask)
+            loss_val = loss_fn(preds, target, mask)
 
-            tot_loss += l * weighting
+            tot_loss += loss_val * weighting
 
-            all_losses[str(loss_fn)] = l
+            all_losses[str(loss_fn)] = loss_val
 
         return tot_loss, all_losses
 

@@ -1,22 +1,23 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-350m
-llm_layers: 10
+llm_backbone: huggyllama/llama-7b
+llm_layers: 32
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
-  r: 16
-  lora_alpha: 32
+  r: 8
+  lora_alpha: 16
   lora_dropout: 0.1
   bias: none
 half_precision: true
 flash_attention: true
 input_emb_layer_norm_eps: 1.0e-05
+input_emb_layer_dropout: 0.1
 use_bos_token: true
 
 #  Positional embedding params
-pos_embedding_type: pos
+pos_embedding_type: rope  # "pos", "rope"
 init_pos_embed: "normal"   # "normal", "zero", "scaled"
 use_patches_self_attention: false
 max_num_embed: 24
@@ -38,13 +39,13 @@ decoder_params:
 
 # Training params
 batch_size: 8
-num_epochs: 201
+num_epochs: 100
 epoch_size: 100
-learning_rate: 7.e-4
+learning_rate: 0.01
 weight_decay: 0
 optimizer: adam
-loss_function: ['mae', 'mse']
-loss_weighting: [0.025, 10]
+loss_function: ['mse']
+loss_weighting: [10]
 schedule_epoch: 30
 schedule_gamma: 0.75
 
@@ -59,7 +60,7 @@ seq_interval: 2
 resolution: 240
 
 # Logging params
-enable_wandb: true
+enable_wandb: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

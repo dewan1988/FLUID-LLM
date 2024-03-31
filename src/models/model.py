@@ -13,7 +13,7 @@ transformers.logging.set_verbosity_error()
 
 
 class MultivariateTimeLLM(nn.Module):
-    def __init__(self, config, device_map='cpu', precision=torch.float32):
+    def __init__(self, config, device_map='cpu'):
         super().__init__()
 
         self.config = config
@@ -33,7 +33,6 @@ class MultivariateTimeLLM(nn.Module):
             trust_remote_code=True,
             local_files_only=False,
             config=self.llm_config,
-            torch_dtype=precision,
             load_in_4bit=config['llm_4bit_loading'],
             device_map=device_map,
             attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
@@ -69,17 +68,14 @@ class MultivariateTimeLLM(nn.Module):
                                                 pos_embedding_type=config['pos_embedding_type'],
                                                 init_pos_embed=config['init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
-        self.input_embeddings.to(precision)
 
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.config['decoder_params'])
-        self.output_layer.to(precision)
 
         # Adjust the backbone for time series task
         self._adjust_backbone()
         self.to(device_map)
 
         self.device_map = device_map
-        self.precision = precision
 
     def _adjust_backbone(self):
         # Freeze backbone parameters
@@ -156,7 +152,7 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    _, pred_diff = self(in_hist.to(self.precision), pos_id)
+                    _, pred_diff = self(in_hist, pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary
                 mask = bc_mask[:, last_state_patch: last_state_patch + 1]

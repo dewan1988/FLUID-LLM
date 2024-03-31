@@ -32,7 +32,7 @@ class Trainer:
     optimizer: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler
 
-    def __init__(self, params, model: MultivariateTimeLLM, precision, device):
+    def __init__(self, params, model: MultivariateTimeLLM, device):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
         """
@@ -42,7 +42,6 @@ class Trainer:
         self.model = model
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
-        self.precision = precision
         self.device = device
 
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
@@ -83,7 +82,7 @@ class Trainer:
         """
         self.model.train()
 
-        states, diffs = states.to(self.precision), diffs.to(self.precision)
+        states, diffs = states, diffs
         states, diffs, position_ids, bc_mask = states.to(self.device), diffs.to(self.device), position_ids.to(self.device), bc_mask.to(self.device)
 
         # Forward pass
@@ -104,7 +103,7 @@ class Trainer:
 
         states, diffs, bc_mask, position_ids = batch
 
-        states, diffs = states.to(self.precision), diffs.to(self.precision)
+        states, diffs = states, diffs
         states, diffs, position_ids, bc_mask = states.to(self.device), diffs.to(self.device), position_ids.to(
             self.device), bc_mask.to(self.device)
 
