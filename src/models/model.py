@@ -105,7 +105,7 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out * 0.03
+        return backbone_out, decoder_out
 
     @torch.no_grad()
     def generate(self, batch_data, N_patch):

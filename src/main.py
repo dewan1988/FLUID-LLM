@@ -23,8 +23,11 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
     metrics_per_epoch = []
     dataloader_iterator = tqdm(dataloader, desc="Iterating batches", leave=False)
-    with accelerator.autocast():
-        for batch_idx, batch in enumerate(dataloader_iterator):
+    # with accelerator.accumulate(trainer.model):
+    for batch_idx, batch in enumerate(dataloader_iterator):
+        optimizer.zero_grad()
+
+        with accelerator.accumulate(trainer.model):
             states, diffs, bc_mask, position_ids = batch
 
             states = states.to(accelerator.device)
@@ -32,21 +35,22 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             bc_mask = bc_mask.to(accelerator.device)
             position_ids = position_ids.to(accelerator.device)
 
-            loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+            if trainer.params['half_precision']:
+                with torch.cuda.amp.autocast():
+                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+            else:
+                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+
             # Backpropagation
             accelerator.backward(loss)
-
-            if accelerator.sync_gradients:
-                accelerator.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
             optimizer.step()
             scheduler.step()
-            optimizer.zero_grad()
 
             dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g})")
             dataloader_iterator.refresh()
 
-            # Keep track of metrics
-            metrics_per_epoch.append(log_metrics_dict)
+        # Keep track of metrics
+        metrics_per_epoch.append(log_metrics_dict)
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
@@ -61,11 +65,6 @@ def main(args):
     set_seed()
     training_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
-
-    # Make save folder and save config
-    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
-    logging.info(f"Saving checkpoints to: {save_path}")
-    save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
     # Prepare accelerator
     accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'])
@@ -92,6 +91,11 @@ def main(args):
     # Prepare model, optimizer and dataloader for accelerate training
     model, optimizer, train_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
     trainer.model = model
+
+    # Make save folder and save config
+    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
+    logging.info(f"Saving checkpoints to: {save_path}")
+    save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):
