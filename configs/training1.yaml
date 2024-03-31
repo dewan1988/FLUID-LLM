@@ -18,6 +18,7 @@ input_emb_layer_norm_eps: 1.0e-05
 pos_embedding_type: pos
 zero_init_pos_embed: false
 use_patches_self_attention: false
+max_num_embed: 24
 
 # Encoder params
 encoder_params:

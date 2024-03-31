@@ -75,8 +75,8 @@ def main(args):
     if training_params['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
 
-    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
-    wandb.config.update(training_params)
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=training_params)
+    # wandb.config.update(training_params)
 
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):

@@ -1,5 +1,3 @@
-from functools import partial
-
 import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
@@ -7,7 +5,6 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
-from dataloader.mesh_utils import plot_patches, plot_full_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
 from models.layers.input_embeddings import InputEmbeddings
@@ -60,6 +57,7 @@ class MultivariateTimeLLM(nn.Module):
         #     self.tokenizer.pad_token = pad_token
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
+
         self.N, self.M = config["patch_size"]
         self.patch_in_dim = self.N * self.M * 3
 
@@ -69,7 +67,7 @@ class MultivariateTimeLLM(nn.Module):
                                                 self.config['encoder_params'],
                                                 self.llm_config.dropout,
                                                 self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
-                                                self.llm_config.max_position_embeddings,
+                                                self.config['max_num_embed'],
                                                 pos_embedding_type=config['pos_embedding_type'],
                                                 zero_init_pos_embed=config['zero_init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
@@ -104,7 +102,8 @@ class MultivariateTimeLLM(nn.Module):
         x_enc = self.input_embeddings(x, position_ids)
 
         # Pass through frozen LLM
-        backbone_out = self.backbone(inputs_embeds=x_enc).last_hidden_state
+        backbone_out = self.backbone(inputs_embeds=x_enc)
+        backbone_out = backbone_out.hidden_states[-1]
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_out.shape
