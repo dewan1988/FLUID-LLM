@@ -11,13 +11,14 @@ from dataloader.MGN_dataloader import MGNDataloader
 from cprint import c_print
 from utils import set_seed
 
+
 class ParallelDataGenerator:
-    def __init__(self, dataloader: MGNDataloader, bs, num_procs=8, epoch_size=10):
+    def __init__(self, dataloader: MGNDataloader, batch_size, num_procs=8, epoch_size=10):
         self.dataloader = dataloader
-        self.bs = bs
+        self.batch_size = batch_size
         self.epoch_size = epoch_size
 
-        self.queue = mp.Queue(maxsize=bs*2)
+        self.queue = mp.Queue(maxsize=batch_size*2)
         self.stop_signal = mp.Value('i', 0)
         self.num_procs = num_procs
         self.producers = []
@@ -51,7 +52,7 @@ class ParallelDataGenerator:
         """ Combines several data samples into a single batch"""
         batch = []  # Initialize an empty list to store the batch
 
-        while len(batch) < self.bs:
+        while len(batch) < self.batch_size:
             try:
                 data = self.queue.get(timeout=timeout)  # Try to get data from the queue
                 batch.append(data)  # Add the data to the batch
@@ -85,16 +86,15 @@ class ParallelDataGenerator:
 
 class SingleDataloader:
     """ Single threaded dataloader"""
-
-    def __init__(self, dataloader: MGNDataloader, bs, epoch_size=10):
+    def __init__(self, dataloader: MGNDataloader, batch_size, epoch_size=10):
         self.dataloader = dataloader
-        self.bs = bs
+        self.batch_size = batch_size
         self.epoch_size = epoch_size
 
     def get_batch(self):
         """ Combines several data samples into a single batch"""
         batch = []
-        for _ in range(self.bs):
+        for _ in range(self.batch_size):
             data = self.dataloader.ds_get()
             batch.append(data)
         batch = [torch.stack(tensors) for tensors in zip(*batch)]

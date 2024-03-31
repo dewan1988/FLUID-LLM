@@ -12,6 +12,7 @@ lora_config:
   bias: none
 half_precision: true
 flash_attention: true
+use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
 use_bos_token: true
