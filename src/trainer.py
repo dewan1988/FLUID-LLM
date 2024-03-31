@@ -29,7 +29,7 @@ def get_data_loader(config):
 
 
 class Trainer:
-    def __init__(self, params, model: MultivariateTimeLLM, precision, device=get_available_device()):
+    def __init__(self, params, model: MultivariateTimeLLM, precision, device):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
         """
