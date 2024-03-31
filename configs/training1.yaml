@@ -1,0 +1,66 @@
+task_name: cylinder_task
+
+# LLM params
+llm_backbone: facebook/opt-350m
+llm_layers: 10
+llm_4bit_loading: false
+freeze_llm: false
+lora_config:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.1
+  bias: none
+half_precision: true
+flash_attention: true
+input_emb_layer_norm_eps: 1.0e-05
+use_bos_token: true
+
+#  Positional embedding params
+pos_embedding_type: pos
+init_pos_embed: "normal"   # "normal", "zero", "scaled"
+use_patches_self_attention: false
+max_num_embed: 24
+
+# Encoder params
+encoder_params:
+    type: MLP
+    num_layers: 2
+    hidden_dim: 512
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+
+# Decoder params
+decoder_params:
+    type: MLP
+    num_layers: 2
+    hidden_dim: 512
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    zero_last_layer: true
+
+# Training params
+batch_size: 8
+num_epochs: 201
+epoch_size: 100
+learning_rate: 7.e-4
+weight_decay: 0
+optimizer: adam
+loss_function: ['mae', 'mse']
+loss_weighting: [0.025, 10]
+schedule_epoch: 30
+schedule_gamma: 0.75
+
+# Dataloader params
+multiprocess: true
+num_workers: 8
+load_dir: ./ds/MGN/cylinder_dataset
+patch_size: [16, 16]
+stride: [16, 16]
+seq_len: 10
+seq_interval: 2
+resolution: 240
+
+# Logging params
+enable_wandb: true
+save_model_each: 20
+checkpoint_save_path: model_checkpoints
+
+

@@ -93,19 +93,7 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     print(f'{pred_states.shape = }, {true_states.shape = }')
 
 
-def main(args):
-    set_seed()
-    inference_params = load_yaml_from_file(args.config_path)
-    logging.info(f"Parameters for inference: {inference_params}")
-
-    # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
-    checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
-    logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
-
-    if not os.path.exists(checkpoint_file_path):
-        raise ValueError(f"Checkpoint file not found at {checkpoint_file_path}")
-
+def load_model(checkpoint_file_path):
     checkpoint = torch.load(checkpoint_file_path)
     checkpoints_params = checkpoint['params']
     checkpoint_state_dict = checkpoint['state_dict']
@@ -116,9 +104,40 @@ def main(args):
 
     # Load weights
     model.load_state_dict(checkpoint_state_dict)
+    return model
 
-    # Run test_generate
-    test_generate(model, inference_params)
+
+def analyse_weight(p):
+    # w = p.input_embeddings.patch_embeddings.encoder.layers[1].weight
+    w = p.input_embeddings.position_embeddings.x_embeddings.weight
+    w = w.to(torch.float32)
+    w = w[:7]
+
+    sum = w.sum().item()
+    std = w.std().item()
+    norm = w.norm().item()
+    print(f'{sum = :.4g}, {std = :.4g} {norm = :.4g}')
+
+
+def main(args):
+    set_seed()
+    inference_params = load_yaml_from_file(args.config_path)
+    logging.info(f"Parameters for inference: {inference_params}")
+
+    # Load the checkpoint
+    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
+
+    checkpoint_file_path = f'{load_path}/step_{0}.pth'
+    model = load_model(checkpoint_file_path)
+    analyse_weight(model)
+
+    checkpoint_file_path = f'{load_path}/step_{20}.pth'
+    model = load_model(checkpoint_file_path)
+    analyse_weight(model)
+
+    exit(4)
+
+    analyse_weight(p)
 
 
 if __name__ == '__main__':

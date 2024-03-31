@@ -1,16 +1,23 @@
 from torch import nn
+from models.layers.MLP import MLP
 
 
 class PatchDecoder(nn.Module):
     """Patch decoder layer to project from feature space to patch space."""
 
-    def __init__(self, llm_dim, out_dim, hid_dim=256):
+    def __init__(self, llm_dim, out_dim, params):
         super().__init__()
 
-        # self.dec_in = nn.Linear(llm_dim, hid_dim)
-        self.dec_out = nn.Linear(llm_dim, out_dim)
+        if params['type'] == 'MLP':
+            hid_dim, num_layers, act = params["hidden_dim"], params["num_layers"], params["activation"]
+            zero_last_layer = params["zero_last_layer"]
+
+            self.decoder = MLP(in_dim=llm_dim, out_dim=out_dim, hid_dim=hid_dim,
+                               num_layers=num_layers, act=act, zero_last=zero_last_layer)
+        else:
+            raise ValueError(f"Unknown patch embedding type: {params['type']}")
+
 
     def forward(self, x):
-        # x = self.dec_in(x)
-        z = self.dec_out(x)
-        return z
+        patches = self.decoder(x)
+        return patches

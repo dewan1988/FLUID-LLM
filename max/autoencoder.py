@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from dataloader.MGN_dataloader import MGNDataloader
 from dataloader.parallel_dataloader import ParallelDataGenerator
+from src.utils import set_seed
 
 
 class AutoencoderCNN(nn.Module):
@@ -71,7 +72,7 @@ def train_autoencoder():
 
     ds = MGNDataloader(load_dir="../ds/MGN/cylinder_dataset",
                        resolution=512, patch_size=(32, 32), stride=(32, 32))
-    dataloader = ParallelDataGenerator(ds, num_producers=4, queue_maxsize=8)
+    dataloader = ParallelDataGenerator(ds, bs=4, num_procs=2)
     dataloader.run()
 
     st = time.time()
@@ -128,4 +129,5 @@ def train_autoencoder():
 
 
 if __name__ == "__main__":
+    set_seed()
     train_autoencoder()

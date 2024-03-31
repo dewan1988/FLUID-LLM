@@ -1,10 +1,13 @@
 import json
+import yaml
 import os
 import pickle
 import torch
 import random
 import logging
 import numpy as np
+from datetime import datetime
+import shutil
 
 from transformers import AutoTokenizer, AutoModel
 from accelerate import Accelerator
@@ -95,3 +98,53 @@ def load_params_from_file(file_path):
             logging.error(e)
 
     return params
+
+
+def load_yaml_from_file(file_path):
+    if not os.path.exists(file_path):
+        raise ValueError(f'Path to config {file_path} does not exist.')
+
+    logging.info(f"Loading parameters from: {file_path}")
+    with open(file_path, 'r') as file:
+        try:
+            params = yaml.safe_load(file)
+        except Exception as e:
+            logging.error(e)
+            exit(e)
+
+    return params
+
+
+def save_cfg(cfg_path, save_path):
+    shutil.copy(cfg_path, f'{save_path}/')
+
+
+def make_save_folder(save_dir, save_name=None):
+    """ Make save folder. If no name is given, create a folder with the current date and time."""
+    if save_name is None:
+        save_name = datetime.now().strftime("%m-%d_%H-%M-%S")
+
+    save_path = f'{save_dir}/{save_name}'
+    if os.path.exists(save_path):
+        raise ValueError(f"Folder {save_path} already exists.")
+
+    os.mkdir(save_path)
+
+    return save_path
+
+
+def get_save_folder(save_dir, load_name=None, load_no=-1):
+    """ Return save folder. Either by save folder name, or date order."""
+    if load_name is not None:
+        save_path = f'{save_dir}/{load_name}'
+        if not os.path.exists(save_path):
+            raise ValueError(f"Folder {save_path} does not exist.")
+        return save_path
+
+    # Get nth folder in directory
+    all_items = os.listdir(save_dir)
+    folders = [item for item in all_items if os.path.isdir(os.path.join(save_dir, item))]
+    folders = sorted(folders)
+
+    return os.path.join(save_dir, folders[load_no])
+

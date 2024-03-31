@@ -1,13 +1,10 @@
-from functools import partial
-
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
 import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 
-from dataloader.mesh_utils import plot_patches, plot_full_patches
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.patch_decoder import PatchDecoder
@@ -21,8 +18,6 @@ class MultivariateTimeLLM(nn.Module):
 
         self.config = config
         self.task_name = config['task_name']
-        self.top_k = 5
-        self.d_llm = 4096
 
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
@@ -46,34 +41,37 @@ class MultivariateTimeLLM(nn.Module):
 
         c_print(f'LLM config: {llm_config}', color='green')
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            config['llm_backbone'],
-            trust_remote_code=True,
-            local_files_only=False
-        )
+        if config['use_bos_token']:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                config['llm_backbone'],
+                trust_remote_code=True,
+                local_files_only=False
+            )
 
-        # Set the pad token as the EOS token if it exists, otherwise add a new pad token
-        if self.tokenizer.eos_token:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        else:
-            pad_token = '[PAD]'
-            self.tokenizer.add_special_tokens({'pad_token': pad_token})
-            self.tokenizer.pad_token = pad_token
+            # Get the BOS token
+            BOS_id = self.tokenizer.bos_token_id
+            embeddings = self.backbone.get_input_embeddings()
+            BOS_embed = embeddings(torch.tensor(BOS_id).to(device_map)).clone()
+            self.BOS_embed = torch.nn.Parameter(BOS_embed)
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
+
         self.N, self.M = config["patch_size"]
         self.patch_in_dim = self.N * self.M * 3
 
+        # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
+                                                self.config['encoder_params'],
                                                 config['input_emb_layer_dropout'],
-                                                config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
-                                                self.llm_config.max_position_embeddings,
+                                                self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
+                                                self.config['max_num_embed'],
                                                 pos_embedding_type=config['pos_embedding_type'],
+                                                init_pos_embed=config['init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
         self.input_embeddings.to(precision)
 
-        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim)
+        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.config['decoder_params'])
         self.output_layer.to(precision)
 
         # Adjust the backbone for time series task
@@ -97,9 +95,14 @@ class MultivariateTimeLLM(nn.Module):
 
         # Encode with patch embedder
         x_enc = self.input_embeddings(x, position_ids)
-
-        # Pass through frozen LLM
-        backbone_out = self.backbone(inputs_embeds=x_enc).last_hidden_state
+        if self.config['use_bos_token']:
+            x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(batch_size, -1, -1), x_enc], dim=1)
+            backbone_out = self.backbone(inputs_embeds=x_enc)
+            backbone_out = backbone_out.last_hidden_state[:, 1:]
+        else:
+            # Pass through frozen LLM
+            backbone_out = self.backbone(inputs_embeds=x_enc)
+            backbone_out = backbone_out.last_hidden_state
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_out.shape
@@ -109,15 +112,17 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
-    def generate(self, batch_data, N_patch, batch_num=1):
+    def generate(self, batch_data, N_patch):
         states, diffs, bc_mask, position_ids = batch_data
-        states, diffs = states.to(self.precision), diffs.to(self.precision)
-        states, diffs, position_ids, bc_mask = states.to(self.device_map), diffs.to(self.device_map), position_ids.to(self.device_map), bc_mask.to(
-            self.device_map)
 
-        # Keep track of predictions
-        history_states = states[:, :N_patch]
-        history_diffs = torch.zeros_like(diffs[:, :N_patch])  # Init with one timestep
+        init_state_fp32 = states[:, :N_patch].to(torch.float32).to(self.device_map)
+        init_history_fp32 = diffs[:, :N_patch].to(torch.float32).to(self.device_map)
+
+        position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
+
+        # Keep track of predictions (in fp32)
+        history_states = init_state_fp32
+        history_diffs = init_history_fp32  # Init with one timestep
         # Start with history patches, and extrapolate for 1 patch
         for state_no in range(states.shape[1] // N_patch - 1):
             print(f'{state_no = }')
@@ -129,7 +134,15 @@ class MultivariateTimeLLM(nn.Module):
                 pos_id = position_ids[:, :next_patch + 1]
 
                 # Generate current patch using diffs
-                cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
+                # cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
+                # cur_state = cur_state.unsqueeze(1)
+                # history_states = torch.cat([history_states, cur_state], dim=1)
+
+                # Generate current patch using diffs
+                # More numerically stable version by adding on all histories to init_state_fp32
+                want_idx = torch.arange(i, next_patch, N_patch).to(self.device_map)
+                past_diffs = history_diffs[:, want_idx].sum(dim=1, )
+                cur_state = init_state_fp32[:, i] + past_diffs
                 cur_state = cur_state.unsqueeze(1)
                 history_states = torch.cat([history_states, cur_state], dim=1)
 
@@ -143,41 +156,16 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    _, pred_diff = self(in_hist, pos_id)
+                    _, pred_diff = self(in_hist.to(self.precision), pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary
                 mask = bc_mask[:, last_state_patch: last_state_patch + 1]
                 pred_diff[mask] = 0.
 
+                pred_diff = pred_diff.to(torch.float32)
                 history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
-        # Plotting
-        if self.config['plot_patches']:
-            from matplotlib import pyplot as plt
-            init_patch = 2 * N_patch
+                # pred_diff = diffs[:, next_patch: next_patch + 1].to(torch.float32)
+                # history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
 
-            # Plot diffs
-            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-            for i, ax in enumerate(axs):
-                img_1 = diffs[batch_num, init_patch:init_patch + N_patch, i]
-                img_2 = history_diffs[batch_num, init_patch:init_patch + N_patch, i]
-
-                # Initial image
-                plot_full_patches(img_1, (15, 4), ax[0])
-                # Predictions
-                plot_full_patches(img_2, (15, 4), ax[1])
-            fig.tight_layout()
-            fig.show()
-
-            # Plot states
-            fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-            for i, ax in enumerate(axs):
-                img_1 = states[batch_num, init_patch:init_patch + N_patch, i]
-                img_2 = history_states[batch_num, init_patch:init_patch + N_patch, i]
-
-                # Initial image
-                plot_full_patches(img_1, (15, 4), ax[0])
-                # Predictions
-                plot_full_patches(img_2, (15, 4), ax[1])
-            fig.tight_layout()
-            fig.show()
+        return history_states, history_diffs
