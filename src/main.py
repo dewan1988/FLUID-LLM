@@ -38,6 +38,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
 
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
+        exit(1)
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
