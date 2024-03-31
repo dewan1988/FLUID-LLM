@@ -11,8 +11,9 @@ class InputEmbeddings(nn.Module):
     """Input embeddings layer adapter for time series data."""
 
     def __init__(self, patch_dim, llm_dim, enc_params: dict, hidden_dropout_prob,
-                 layer_norm_eps, max_pos_embeddings, pos_embedding_type="rope", use_self_attn=True,
-                 zero_init_pos_embed=False):
+                 layer_norm_eps, max_pos_embeddings, init_pos_embed,
+                 pos_embedding_type="rope", use_self_attn=True,
+                 ):
         super().__init__()
 
         # Patch embedding
@@ -22,7 +23,7 @@ class InputEmbeddings(nn.Module):
         if pos_embedding_type == "rope":
             self.position_embeddings = Rotary3DPositionalEmbeddings(llm_dim)
         elif pos_embedding_type == "pos":
-            self.position_embeddings = PositionalEmbeddings(llm_dim, max_pos_embeddings, zero_init_pos_embed)
+            self.position_embeddings = PositionalEmbeddings(llm_dim, max_pos_embeddings, init_pos_embed)
         else:
             raise ValueError(f"Unknown positional embedding type: {pos_embedding_type}")
 
@@ -35,7 +36,9 @@ class InputEmbeddings(nn.Module):
 
     def forward(self, x, position_ids):
         """
-        Here x.shape = (seq_len, num_patches, C, H, W)
+        x.shape = (seq_len, num_patches, 3, H, W)
+
+        return shape = (seq_len, num_patches, llm_dim)
         """
         inputs_embeds = self.patch_embeddings(x)
 

@@ -48,8 +48,8 @@ class Trainer:
         self.prepare_optimizers()
 
     def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
-        loss = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
-        return {"loss": loss}
+        loss, all_losses = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
+        return loss, all_losses
 
     def prepare_optimizers(self):
         params = self.model.parameters()
@@ -91,12 +91,13 @@ class Trainer:
         backbone_out, preds = self.model(states, position_ids)
 
         # Calculate loss
-        loss = self.calculate_loss(preds, diffs, bc_mask)
+        loss, all_losses = self.calculate_loss(preds, diffs, bc_mask)
 
         # Calculate metrics
-        log_metrics = {"train_loss": loss["loss"].detach().item()}
+        log_metrics = {"train_loss": loss.detach().item()}
+        log_metrics.update(all_losses)
 
-        return loss["loss"], log_metrics
+        return loss, log_metrics
 
     @torch.no_grad()
     def run_eval_step(self, batch):

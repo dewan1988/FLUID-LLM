@@ -13,10 +13,11 @@ lora_config:
 half_precision: true
 flash_attention: true
 input_emb_layer_norm_eps: 1.0e-05
+use_bos_token: true
 
 #  Positional embedding params
 pos_embedding_type: pos
-zero_init_pos_embed: false
+init_pos_embed: "normal"   # "normal", "zero", "scaled"
 use_patches_self_attention: false
 max_num_embed: 24
 

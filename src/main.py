@@ -89,7 +89,7 @@ def main(args):
         epoch_iterator.refresh()
 
         # Save model checkpoint
-        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0 and epoch_idx > 0:
+        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0:
             checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 
             checkpoint = {'params': training_params,

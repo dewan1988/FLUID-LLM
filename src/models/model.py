@@ -42,19 +42,18 @@ class MultivariateTimeLLM(nn.Module):
 
         c_print(f'LLM config: {llm_config}', color='green')
 
-        # self.tokenizer = AutoTokenizer.from_pretrained(
-        #     config['llm_backbone'],
-        #     trust_remote_code=True,
-        #     local_files_only=False
-        # )
-        #
-        # # Set the pad token as the EOS token if it exists, otherwise add a new pad token
-        # if self.tokenizer.eos_token:
-        #     self.tokenizer.pad_token = self.tokenizer.eos_token
-        # else:
-        #     pad_token = '[PAD]'
-        #     self.tokenizer.add_special_tokens({'pad_token': pad_token})
-        #     self.tokenizer.pad_token = pad_token
+        if config['use_bos_token']:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                config['llm_backbone'],
+                trust_remote_code=True,
+                local_files_only=False
+            )
+
+            # Get the BOS token
+            BOS_id = self.tokenizer.bos_token_id
+            embeddings = self.backbone.get_input_embeddings()
+            BOS_embed = embeddings(torch.tensor(BOS_id).to(device_map)).clone()
+            self.BOS_embed = torch.nn.Parameter(BOS_embed)
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
 
@@ -69,7 +68,7 @@ class MultivariateTimeLLM(nn.Module):
                                                 self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
                                                 self.config['max_num_embed'],
                                                 pos_embedding_type=config['pos_embedding_type'],
-                                                zero_init_pos_embed=config['zero_init_pos_embed'],
+                                                init_pos_embed=config['init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
         self.input_embeddings.to(precision)
 
@@ -100,10 +99,14 @@ class MultivariateTimeLLM(nn.Module):
 
         # Encode with patch embedder
         x_enc = self.input_embeddings(x, position_ids)
-
-        # Pass through frozen LLM
-        backbone_out = self.backbone(inputs_embeds=x_enc)
-        backbone_out = backbone_out.hidden_states[-1]
+        if self.config['use_bos_token']:
+            x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(batch_size, -1, -1), x_enc], dim=1)
+            backbone_out = self.backbone(inputs_embeds=x_enc)
+            backbone_out = backbone_out.hidden_states[-1][:, 1:]
+        else:
+            # Pass through frozen LLM
+            backbone_out = self.backbone(inputs_embeds=x_enc)
+            backbone_out = backbone_out.hidden_states[-1]
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_out.shape

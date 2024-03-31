@@ -33,6 +33,9 @@ class MSELoss(nn.Module):
         mse_loss_val = loss / non_zero_elements
         return mse_loss_val
 
+    def __repr__(self):
+        return "MSE"
+
 
 class RMSELoss(nn.Module):
     def __init__(self):
@@ -146,6 +149,9 @@ class MAELoss(nn.Module):
         mse_loss_val = mae / non_zero_elements
         return mse_loss_val
 
+    def __repr__(self):
+        return "MAE"
+
 
 class CombinedLoss(nn.Module):
     def __init__(self, loss_fns, weighting):
@@ -162,11 +168,17 @@ class CombinedLoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        loss = 0
-        for loss_fn, weighting in zip(self.loss_fns, self.weighting):
-            loss += loss_fn(preds, target, mask) * weighting
 
-        return loss
+        tot_loss = 0
+        all_losses = {}
+        for loss_fn, weighting in zip(self.loss_fns, self.weighting):
+            l = loss_fn(preds, target, mask)
+
+            tot_loss += l * weighting
+
+            all_losses[str(loss_fn)] = l
+
+        return tot_loss, all_losses
 
     def get_loss_fn(self, loss_fn):
         if loss_fn == "mse":
