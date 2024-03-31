@@ -33,6 +33,9 @@ class MSELoss(nn.Module):
         mse_loss_val = loss / non_zero_elements
         return mse_loss_val
 
+    def __repr__(self):
+        return "MSE"
+
 
 class RMSELoss(nn.Module):
     def __init__(self):
@@ -146,11 +149,15 @@ class MAELoss(nn.Module):
         mse_loss_val = mae / non_zero_elements
         return mse_loss_val
 
+    def __repr__(self):
+        return "MAE"
+
 
 class CombinedLoss(nn.Module):
-    def __init__(self, loss_fns):
+    def __init__(self, loss_fns, weighting):
         super(CombinedLoss, self).__init__()
-        self.loss_fns = nn.ModuleList([get_loss_fn(loss_fn) for loss_fn in loss_fns])
+        self.loss_fns = nn.ModuleList([self.get_loss_fn(loss_fn) for loss_fn in loss_fns])
+        self.weighting = weighting
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -161,17 +168,19 @@ class CombinedLoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        loss = 0
-        for loss_fn in self.loss_fns:
-            loss += loss_fn(preds, target, mask)
 
-        return loss
+        tot_loss = 0
+        all_losses = {}
+        for loss_fn, weighting in zip(self.loss_fns, self.weighting):
+            loss_val = loss_fn(preds, target, mask)
 
+            tot_loss += loss_val * weighting
 
-def get_loss_fn(loss_fn):
-    if isinstance(loss_fn, list):
-        return CombinedLoss(loss_fn)
-    else:
+            all_losses[str(loss_fn)] = loss_val
+
+        return tot_loss, all_losses
+
+    def get_loss_fn(self, loss_fn):
         if loss_fn == "mse":
             return MSELoss()
         elif loss_fn == "rmse":
