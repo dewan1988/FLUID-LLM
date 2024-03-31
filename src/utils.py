@@ -10,8 +10,10 @@ from datetime import datetime
 import shutil
 
 from transformers import AutoTokenizer, AutoModel
+from accelerate import Accelerator
 
 GLOBAL_SEED = 123
+ACCELERATOR = None
 logging.basicConfig(level=logging.INFO,
                     format='[utils:%(levelname)s] %(message)s')
 
@@ -42,14 +44,16 @@ def get_trainable_parameters(model):
 
 
 def get_available_device():
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "cpu"  # Many issues with MPS so will force CPU here for now
-    else:
-        device = "cpu"
+    accelerator = get_accelerator()
+    return accelerator.device
 
-    return device
+
+def get_accelerator():
+    global ACCELERATOR
+    if not ACCELERATOR:
+        ACCELERATOR = Accelerator()
+
+    return ACCELERATOR
 
 
 def get_huggingface_model(model_name, args=None):

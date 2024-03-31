@@ -7,17 +7,18 @@ import argparse
 import logging
 import torch
 import wandb
+from accelerate import Accelerator
 from tqdm import trange, tqdm
 
 from trainer import Trainer, get_data_loader
-from utils import set_seed, load_params_from_file, get_available_device
+from utils import set_seed, load_params_from_file, get_available_device, get_accelerator
 from models.model import MultivariateTimeLLM
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def run_train_epoch(dataloader, trainer: Trainer, optimizer):
+def run_train_epoch(dataloader, trainer: Trainer, optimizer, accelerator: Accelerator):
     trainer.model.train()
 
     metrics_per_epoch = []
@@ -25,20 +26,21 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer):
     for batch_idx, batch in enumerate(dataloader_iterator):
         states, diffs, bc_mask, position_ids = batch
 
-        loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+        with accelerator.autocast():
+            loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
-        optimizer.step()
+            # Backpropagation
+            optimizer.zero_grad()
+            accelerator.backward(loss)
+            torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), max_norm=1.0)
+            optimizer.step()
 
         dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx+1} | Loss: {log_metrics_dict['train_loss']:.3g})")
         dataloader_iterator.refresh()
 
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
-        exit(1)
+        #exit(1)
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
@@ -65,8 +67,7 @@ if __name__ == '__main__':
     if training_params['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
 
-    wandb.init(project="llm4multivariatets", entity="adrianbzgteam")
-    wandb.config.update(training_params)
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=training_params)
 
     # Get the model
     precision = torch.bfloat16 if training_params['half_precision'] else torch.float32
@@ -82,11 +83,16 @@ if __name__ == '__main__':
 
     optimizer = trainer.prepare_optimizers()
 
+    # Prepare model, optimizer and dataloader for training
+    accelerator = get_accelerator()
+    model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, train_dataloader)
+
     epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):
         train_log_metrics = run_train_epoch(dataloader=train_dataloader,
                                             trainer=trainer,
-                                            optimizer=optimizer)
+                                            optimizer=optimizer,
+                                            accelerator=accelerator)
 
         wandb.log(train_log_metrics, step=epoch_idx)
 
@@ -95,6 +101,7 @@ if __name__ == '__main__':
 
         # Save model checkpoint
         if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0 and epoch_idx > 0:
+            accelerator.wait_for_everyone()
             checkpoint_file_path = os.path.join(training_params['checkpoint_save_path'],
                                                 f'llm4multivariatets_step_{epoch_idx}.pth')
 
@@ -103,7 +110,7 @@ if __name__ == '__main__':
                           'optimizer': optimizer.state_dict()}
 
             logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
-            torch.save(checkpoint, checkpoint_file_path)
+            accelerator.save_model(checkpoint, checkpoint_file_path)
 
     # Close wandb
     wandb.finish()

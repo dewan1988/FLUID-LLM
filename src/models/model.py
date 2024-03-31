@@ -66,7 +66,7 @@ class MultivariateTimeLLM(nn.Module):
 
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
-                                                self.llm_config.dropout,
+                                                config['input_emb_layer_dropout'],
                                                 config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
                                                 self.llm_config.max_position_embeddings,
                                                 pos_embedding_type=config['pos_embedding_type'],
