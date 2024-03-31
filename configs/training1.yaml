@@ -62,7 +62,7 @@ resolution: 240
 
 # Logging params
 enable_wandb: false
-save_model_each: 20
+save_model_each: 10
 checkpoint_save_path: model_checkpoints
 
 
