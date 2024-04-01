@@ -3,28 +3,26 @@ Module defining a trainer for a LLM on a given dataset.
 """
 
 import torch
-
-from dataloader.MGN_dataloader import MGNSeqDataloader
-from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
+from torch.utils.data import DataLoader
+# from dataloader.MGN_dataloader import MGNSeqDataloader
+# from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
+from dataloader.simple_dataloader import MGNDataloader
 from utils import get_available_device, get_trainable_parameters
 from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 
 
 def get_data_loader(config):
-    ds = MGNSeqDataloader(load_dir=config['load_dir'],
-                          resolution=config['resolution'],
-                          patch_size=config['patch_size'],
-                          stride=config['stride'],
-                          seq_len=config['seq_len'],
-                          seq_interval=config['seq_interval'])
+    ds = MGNDataloader(load_dir=config['load_dir'],
+                       resolution=config['resolution'],
+                       patch_size=config['patch_size'],
+                       stride=config['stride'],
+                       seq_len=config['seq_len'],
+                       seq_interval=config['seq_interval'],
+                       step_per_ep=config['epoch_size'] * config['batch_size']
+                       )
 
-    if config['multiprocess']:
-        dl = ParallelDataGenerator(ds, num_procs=config['num_workers'], bs=config['batch_size'], epoch_size=config['epoch_size'])
-        dl.run()
-    else:
-        dl = SingleDataloader(ds, bs=config['batch_size'], epoch_size=config['epoch_size'])
-
+    dl = DataLoader(ds, batch_size=config['batch_size'], num_workers=config['num_workers'], prefetch_factor=2, pin_memory=True)
     return dl
 
 
@@ -73,8 +71,8 @@ class Trainer:
 
         self.optimizer = optimizer
         self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer,
-                                                    step_size=self.params['schedule_epoch'],
-                                                    gamma=self.params['schedule_gamma'])
+                                                         step_size=self.params['schedule_epoch'],
+                                                         gamma=self.params['schedule_gamma'])
 
     def run_train_step(self, states, diffs, bc_mask, position_ids):
         """
@@ -86,6 +84,8 @@ class Trainer:
 
         states, diffs = states.to(self.precision), diffs.to(self.precision)
         states, diffs, position_ids, bc_mask = states.to(self.device), diffs.to(self.device), position_ids.to(self.device), bc_mask.to(self.device)
+        # Rescale diffs
+        diffs = diffs * self.params['diff_scale_factor']
 
         # Forward pass
         backbone_out, preds = self.model(states, position_ids)
