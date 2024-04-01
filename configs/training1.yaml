@@ -2,12 +2,12 @@ task_name: cylinder_task
 
 # LLM params
 llm_backbone: facebook/opt-350m
-llm_layers: 10
+llm_layers: 12
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
-  r: 8
-  lora_alpha: 16
+  r: 16
+  lora_alpha: 32
   lora_dropout: 0.1
   bias: none
 half_precision: true
@@ -15,7 +15,7 @@ flash_attention: true
 use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
-use_bos_token: true
+use_bos_token: false
 diff_scale_factor: 1.   # Scale factor for diffs
 
 #  Positional embedding params
@@ -40,7 +40,7 @@ decoder_params:
     zero_last_layer: true
 
 # Training params
-batch_size: 32
+batch_size: 8
 num_epochs: 100
 epoch_size: 100
 learning_rate: 0.01
