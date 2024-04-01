@@ -47,7 +47,6 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     # Get batch and run through model
     batch_data = dl.get_batch()
     true_states, true_diffs = batch_data[0], batch_data[1]
-    # model.precision = torch.float32
     pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
     # Split into steps

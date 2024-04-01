@@ -1,8 +1,8 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: huggyllama/llama-7b
-llm_layers: 32
+llm_backbone: facebook/opt-350m
+llm_layers: 10
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
@@ -16,6 +16,7 @@ use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
 use_bos_token: true
+diff_scale_factor: 30.   # Scale factor for diffs
 
 #  Positional embedding params
 pos_embedding_type: rope  # "pos", "rope"
@@ -45,13 +46,12 @@ epoch_size: 100
 learning_rate: 0.01
 weight_decay: 0
 optimizer: adam
-loss_function: ['mse']
-loss_weighting: [10]
-schedule_epoch: 30
+loss_function: ['mae', 'mse']
+loss_weighting: [0.01, 1]
+schedule_epoch: 50
 schedule_gamma: 0.75
 
 # Dataloader params
-multiprocess: true
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
@@ -62,7 +62,7 @@ resolution: 240
 
 # Logging params
 enable_wandb: false
-save_model_each: 10
+save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
 
