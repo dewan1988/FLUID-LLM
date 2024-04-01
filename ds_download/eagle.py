@@ -145,7 +145,7 @@ def get_data(path, window_length, mode):
 
 
 def main():
-    mesh_pos, faces, node_type, t, velocity, pressure = get_data("/mnt/StorageDisk/fluid_ds/Eagle/Step/1/1", 990, "test")
+    mesh_pos, faces, node_type, t, velocity, pressure = get_data("/mnt/StorageDisk/fluid_ds/Eagle/Tri/1/1", 990, "test")
 
     print(f'{mesh_pos.shape=}, {mesh_pos.dtype=}')
     # print(f'{faces.shape=}, {faces.dtype=}')
@@ -154,21 +154,6 @@ def main():
     print(f'{pressure.shape=}, {pressure.dtype=}')
     #
     print(faces.max())
-
-    # for step in [0, 10, 20, 30, 40, 50, 60, 70, ]:
-    #     plot_mesh(mesh_pos[step], faces[step], velocity[step, :, 0])
-    faces = faces.astype(np.int16)
-    np.save("/mnt/StorageDisk/fluid_ds/Eagle/Step/1/1/faces.npy", faces)
-    # np.savez_compressed("/mnt/StorageDisk/fluid_ds/Eagle/Step/1/1/faces.npz", faces=faces)
-
-    mesh_pos = mesh_pos.astype(np.float16)
-    velocity = velocity.astype(np.float16)
-    pressure = pressure.astype(np.float16)
-
-    other_info = {'mesh_pos': mesh_pos, 'node_type': node_type, 'velocity': velocity, 'pressure': pressure}
-    np.savez("/mnt/StorageDisk/fluid_ds/Eagle/Step/1/1/other_info.npz", **other_info)
-    np.savez_compressed("/mnt/StorageDisk/fluid_ds/Eagle/Step/1/1/other_info_comp.npz", **other_info)
-
 
 if __name__ == "__main__":
     main()
