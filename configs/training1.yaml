@@ -1,20 +1,20 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-350m
-llm_layers: 10
+llm_backbone: facebook/opt-125m
+llm_layers: 7
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
   r: 16
-  lora_alpha: 32
+  lora_alpha: 64
   lora_dropout: 0.1
   bias: none
 half_precision: true
 flash_attention: true
 input_emb_layer_norm_eps: 1.0e-05
 use_bos_token: true
-diff_scale_factor: 30.   # Scale factor for diffs
+diff_scale_factor: 1.   # Scale factor for diffs
 
 #  Positional embedding params
 pos_embedding_type: pos
@@ -45,9 +45,9 @@ learning_rate: 7.e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0.001, 10]
-schedule_epoch: 50
-schedule_gamma: 0.75
+loss_weighting: [0.3, 10]
+schedule_epoch: 150
+schedule_gamma: 0.5
 
 # Dataloader params
 num_workers: 8
