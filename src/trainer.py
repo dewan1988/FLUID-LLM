@@ -97,17 +97,14 @@ class Trainer:
             backbone_out, diffs = self.model(states, position_ids)
             preds = states + diffs
         else:
-            state_hat = [states[:, 0][:, None, :]]
+            state_hat = [states[:, 0]]
             seq_len = states.shape[1]
-            print("seq_len", seq_len)
             for t in range(1, seq_len):
-                backbone_out, diffs = self.model(state_hat[-1], position_ids[:, t - 1][:, None, :])
-                next_state_preds = state_hat[-1] + diffs
-                state_hat.append(next_state_preds)
+                backbone_out, diffs = self.model(state_hat[t - 1][:, None, :], position_ids[:, t - 1][:, None, :])
+                next_state_preds = state_hat[t - 1][:, None, :] + diffs
+                state_hat.append(next_state_preds[:, 0, :])
 
-            final_state_hat = torch.stack(state_hat, dim=1)
-            print(final_state_hat.shape)
-            exit(1)
+            preds = torch.stack(state_hat, dim=1)
 
         # Calculate loss
         loss, all_losses = self.calculate_loss(preds, target, bc_mask)
