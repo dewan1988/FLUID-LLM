@@ -84,7 +84,7 @@ class Trainer:
 
         return optimizer, scheduler
 
-    def run_train_step(self, states, target, bc_mask, position_ids):
+    def run_train_step(self, states, target, bc_mask, position_ids, teacher_forcing=True):
         """
         Returns
         - loss (torch.Tensor): The total loss, used for backpropagation
@@ -92,12 +92,22 @@ class Trainer:
         """
         self.model.train()
 
-        # Rescale diffs
-        #diffs = diffs * self.params['diff_scale_factor']
+        if teacher_forcing:
+            # Forward pass
+            backbone_out, diffs = self.model(states, position_ids)
+            preds = states + diffs
+        else:
+            state_hat = [states[:, 0][:, None, :]]
+            seq_len = states.shape[1]
+            print("seq_len", seq_len)
+            for t in range(1, seq_len):
+                backbone_out, diffs = self.model(state_hat[-1], position_ids[:, t - 1][:, None, :])
+                next_state_preds = state_hat[-1] + diffs
+                state_hat.append(next_state_preds)
 
-        # Forward pass
-        backbone_out, diffs = self.model(states, position_ids)
-        preds = states + diffs
+            final_state_hat = torch.stack(state_hat, dim=1)
+            print(final_state_hat.shape)
+            exit(1)
 
         # Calculate loss
         loss, all_losses = self.calculate_loss(preds, target, bc_mask)

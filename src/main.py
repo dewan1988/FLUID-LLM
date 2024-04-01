@@ -37,9 +37,11 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
             if trainer.params['half_precision']:
                 with torch.cuda.amp.autocast():
-                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids,
+                                                                    teacher_forcing=trainer.params['teacher_forcing'])
             else:
-                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
+                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids,
+                                                                teacher_forcing=trainer.params['teacher_forcing'])
 
             # Backpropagation
             accelerator.backward(loss)
