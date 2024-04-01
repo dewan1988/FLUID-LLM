@@ -6,13 +6,14 @@ import sys
 import argparse
 import logging
 import torch
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from models.model import MultivariateTimeLLM
 
-from dataloader.MGN_dataloader import MGNSeqDataloader
-from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
+from dataloader.simple_dataloader import MGNDataloader
 from dataloader.mesh_utils import plot_full_patches
 
 logging.basicConfig(level=logging.INFO,
@@ -32,20 +33,22 @@ def rmse_loss(pred_state, true_state):
 
 def test_generate(model: MultivariateTimeLLM, cfg):
     bs = cfg['batch_size']
-    ds = MGNSeqDataloader(load_dir=cfg['load_dir'],
+    ds = MGNDataloader(load_dir=cfg['load_dir'],
                           resolution=cfg['resolution'],
                           patch_size=cfg['patch_size'],
                           stride=cfg['stride'],
                           seq_len=cfg['seq_len'],
-                          seq_interval=cfg['seq_interval'])
+                          seq_interval=cfg['seq_interval'],
+                          step_per_ep=16)
     N_patch = ds.N_patch
 
-    dl = SingleDataloader(ds, bs=bs)
+    dl = DataLoader(ds, batch_size=16, pin_memory=True)
+
 
     model.eval()
 
     # Get batch and run through model
-    batch_data = dl.get_batch()
+    batch_data = next(iter(dl))
     true_states, true_diffs = batch_data[0], batch_data[1]
     pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
