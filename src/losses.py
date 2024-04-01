@@ -9,7 +9,6 @@ import torch.nn as nn
 class MSELoss(nn.Module):
     def __init__(self):
         super(MSELoss, self).__init__()
-        self.mse_loss = nn.MSELoss(reduction='none')
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -20,18 +19,10 @@ class MSELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
-        # Invert mask so 1 is wanted pixel
         mask = ~mask
-        # Apply mask to input and target
-        input_masked = torch.masked_select(preds, mask)
-        target_masked = torch.masked_select(target, mask)
-
-        loss = self.mse_loss(input_masked, target_masked)
-        loss = loss.sum()
-
-        non_zero_elements = mask.sum()
-        mse_loss_val = loss / non_zero_elements
-        return mse_loss_val
+        rmse = torch.sqrt(((preds * mask - target * mask) ** 2).mean(dim=(-1)))
+        loss = torch.mean(rmse)
+        return loss
 
     def __repr__(self):
         return "MSE"
@@ -168,13 +159,23 @@ class CombinedLoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
+        pressure_preds = preds[:, :, 2, :]
+        pressure_target = target[:, :, 2, :]
+        pressure_mask = mask[:, :, 2, :]
+        velocity_preds = preds[:, :, 0, :]
+        velocity_target = target[:, :, 0, :]
+        velocity_mask = mask[:, :, 0, :]
 
         tot_loss = 0
         all_losses = {}
         for loss_fn, weighting in zip(self.loss_fns, self.weighting):
-            loss_val = loss_fn(preds, target, mask)
+            loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
+            loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
-            tot_loss += loss_val * weighting
+            # Eagle weights pressure by alpha 0.1
+            loss_val = (loss_velocity * weighting) + (loss_pressure * weighting * 0.1)
+
+            tot_loss += loss_val
 
             all_losses[str(loss_fn)] = loss_val
 

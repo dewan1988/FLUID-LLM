@@ -45,6 +45,19 @@ class Trainer:
         loss, all_losses = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
         return loss, all_losses
 
+    def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
+        pressure_preds = preds[:, :, 2, :]
+        pressure_target = target[:, :, 2, :]
+        pressure_mask = ~bc_mask[:, :, 0, :]
+        velocity_preds = preds[:, :, 0, :]
+        velocity_target = target[:, :, 0, :]
+        velocity_mask = ~bc_mask[:, :, 0, :]
+
+        rmse_velocity = torch.sqrt(torch.mean((velocity_preds * velocity_mask - velocity_target * velocity_mask) ** 2)).item()
+        rmse_pressure = torch.sqrt(torch.mean((pressure_preds * pressure_mask - pressure_target * pressure_mask) ** 2)).item()
+
+        return {"train_rmse": rmse_pressure + rmse_velocity}
+
     def prepare_optimizers(self):
         params = self.model.parameters()
         print(f"The model has {get_trainable_parameters(self.model)} trainable parameters")
@@ -71,7 +84,7 @@ class Trainer:
 
         return optimizer, scheduler
 
-    def run_train_step(self, states, diffs, bc_mask, position_ids):
+    def run_train_step(self, states, target, bc_mask, position_ids):
         """
         Returns
         - loss (torch.Tensor): The total loss, used for backpropagation
@@ -80,17 +93,22 @@ class Trainer:
         self.model.train()
 
         # Rescale diffs
-        diffs = diffs * self.params['diff_scale_factor']
+        #diffs = diffs * self.params['diff_scale_factor']
 
         # Forward pass
-        backbone_out, preds = self.model(states, position_ids)
+        backbone_out, diffs = self.model(states, position_ids)
+        preds = states + diffs
 
         # Calculate loss
-        loss, all_losses = self.calculate_loss(preds, diffs, bc_mask)
+        loss, all_losses = self.calculate_loss(preds, target, bc_mask)
 
         # Calculate metrics
+        metrics = self.calculate_metrics(preds, target, bc_mask)
+
+        # Log metrics
         log_metrics = {"train_loss": loss.detach().item()}
         log_metrics.update(all_losses)
+        log_metrics.update(metrics)
 
         return loss, log_metrics
 
