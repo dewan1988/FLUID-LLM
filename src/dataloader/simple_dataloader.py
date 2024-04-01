@@ -19,18 +19,24 @@ def num_patches(dim_size, kern_size, stride, padding=0):
     return (dim_size + 2 * padding - kern_size) // stride + 1
 
 
-class MGNDataloader(Dataset):
+class MGNDataset(Dataset):
     """ Load a single timestep from the dataset."""
 
-    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, step_per_ep, seq_interval=1, pad=True):
+    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, seq_interval=1,
+                 pad=True, mode="train"):
+        super(MGNDataset, self).__init__()
+
+        assert mode in ["train", "valid", "test"]
+
+        self.mode = mode
         self.load_dir = load_dir
         self.resolution = resolution
         self.patch_size = patch_size
         self.stride = stride
         self.pad = pad
-        self.step_per_ep = step_per_ep
         self.seq_len = seq_len
         self.seq_interval = seq_interval
+        self.max_step_num = 600 - self.seq_len * self.seq_interval
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
@@ -48,7 +54,18 @@ class MGNDataloader(Dataset):
         self.N_patch = self.N_x_patch * self.N_y_patch
 
     def __getitem__(self, idx):
-        return self.ds_get()
+        """
+        Returns as all patches as a single sequence for file with index idx, ready to be encoded by the LLM as a single element of batch.
+        Return:
+             state.shape = ((seq_len - 1) * num_patches, 3, H, W)
+             diff.shape = ((seq_len - 1)  * num_patches, 3, H, W)
+             patch_idx: [x_idx, y_idx, t_idx] for each patch
+
+        """
+        # Time sampling is random during training, but set to a fix value during test and valid, to ensure repeatability.
+        step_num = random.randint(1, self.max_step_num)
+        step_num = 550 if self.mode in ["test", "valid"] else step_num
+        return self.ds_get(save_file=self.save_files[idx], step_num=step_num)
 
     def ds_get(self, save_file=None, step_num=None):
         """
@@ -148,17 +165,14 @@ class MGNDataloader(Dataset):
 
             Return shape: (seq_len, C+1, H, W)
         """
-        if save_file is not None:
-            save_file = f'save_{save_file}.pkl'
-        else:
+        if save_file is None:
             save_file = random.choice(self.save_files)
 
-        max_step_num = 600 - self.seq_len * self.seq_interval
         if step_num is None:
-            step_num = np.random.randint(0, max_step_num)
-        if step_num > max_step_num:
-            c_print(f"Step number {step_num} too high, setting to max step number {max_step_num}", 'red')
-            raise ValueError()
+            step_num = np.random.randint(0, self.max_step_num)
+        if step_num > self.max_step_num:
+            c_print(f"Step number {step_num} too high, setting to max step number {self.max_step_num}", 'red')
+            step_num = self.max_step_num
 
         triang, tri_index, grid_x, grid_y, save_data = self._load_step(save_file)
 
@@ -203,7 +217,7 @@ class MGNDataloader(Dataset):
         return states, diffs, masks.bool()
 
     def __len__(self):
-        return self.step_per_ep
+        return len(self.save_files)
 
 
 def plot_all_patches():
@@ -211,8 +225,8 @@ def plot_all_patches():
     step_num = 100
     patch_size, stride = (16, 16), (16, 16)
 
-    seq_dl = MGNDataloader(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
-                           seq_len=10, seq_interval=2, step_per_ep=60)
+    seq_dl = MGNDataset(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
+                        seq_len=10, seq_interval=2)
 
     ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
 
