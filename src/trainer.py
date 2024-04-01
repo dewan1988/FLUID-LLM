@@ -4,23 +4,27 @@ Module defining a trainer for a LLM on a given dataset.
 
 import torch
 from torch.utils.data import DataLoader
-from dataloader.simple_dataloader import MGNDataloader
+from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
 from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 
 
-def get_data_loader(config):
-    ds = MGNDataloader(load_dir=config['load_dir'],
-                       resolution=config['resolution'],
-                       patch_size=config['patch_size'],
-                       stride=config['stride'],
-                       seq_len=config['seq_len'],
-                       seq_interval=config['seq_interval'],
-                       step_per_ep=config['epoch_size'] * config['batch_size']
-                       )
+def get_data_loader(config, mode="train"):
+    ds = MGNDataset(load_dir=config['load_dir'],
+                    resolution=config['resolution'],
+                    patch_size=config['patch_size'],
+                    stride=config['stride'],
+                    seq_len=config['seq_len'],
+                    seq_interval=config['seq_interval'],
+                    mode=mode
+                    )
 
-    dl = DataLoader(ds, batch_size=config['batch_size'], num_workers=config['num_workers'], prefetch_factor=2, pin_memory=True)
+    dl = DataLoader(ds,
+                    batch_size=config['batch_size'],
+                    num_workers=config['num_workers'],
+                    prefetch_factor=2,
+                    pin_memory=True)
     return dl
 
 

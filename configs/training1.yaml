@@ -16,7 +16,7 @@ use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
 use_bos_token: true
-diff_scale_factor: 30.   # Scale factor for diffs
+diff_scale_factor: 1.   # Scale factor for diffs
 
 #  Positional embedding params
 pos_embedding_type: rope  # "pos", "rope"
@@ -40,7 +40,7 @@ decoder_params:
     zero_last_layer: true
 
 # Training params
-batch_size: 8
+batch_size: 32
 num_epochs: 100
 epoch_size: 100
 learning_rate: 0.01
