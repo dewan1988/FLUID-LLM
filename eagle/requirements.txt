@@ -1,0 +1,6 @@
+numpy
+matplotlib
+tdqm
+numba
+torch
+torch-scatter
