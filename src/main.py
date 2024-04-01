@@ -24,6 +24,7 @@ def run_train_epoch(dataloader, trainer: Trainer):
     dataloader_iterator = tqdm(dataloader, desc="Iterating batches", leave=False)
     for batch_idx, batch in enumerate(dataloader_iterator):
         states, diffs, bc_mask, position_ids = batch
+        diffs *= trainer.params['diff_scale_factor']
 
         loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids)
 
