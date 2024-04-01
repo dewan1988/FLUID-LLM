@@ -46,8 +46,8 @@ epoch_size: 100
 learning_rate: 0.01
 weight_decay: 0
 optimizer: adam
-loss_function: ['mae', 'mse']
-loss_weighting: [0.01, 1]
+loss_function: ['mse']
+loss_weighting: [1]
 schedule_epoch: 50
 schedule_gamma: 0.75
 

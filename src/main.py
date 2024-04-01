@@ -46,7 +46,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             optimizer.step()
             scheduler.step()
 
-            dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g})")
+            dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
             dataloader_iterator.refresh()
 
         # Keep track of metrics
@@ -107,7 +107,7 @@ def main(args):
 
         wandb.log(train_log_metrics, step=epoch_idx)
 
-        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']})")
+        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']} | RMSE: {train_log_metrics['train/train_rmse']})")
         epoch_iterator.refresh()
 
         # Save model checkpoint

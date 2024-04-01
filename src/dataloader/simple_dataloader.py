@@ -203,18 +203,19 @@ class MGNDataset(Dataset):
         masks = torch.permute(masks, [0, 3, 1, 2])
 
         # Compute diffs and discard last state that has no diff
-        diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        #diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        target = states[1:]
         states = states[:-1]
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
         states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        diffs = diffs.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
         # Reshape mask. All masks are the same
         masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
 
-        return states, diffs, masks.bool()
+        return states, target, masks.bool()
 
     def __len__(self):
         return len(self.save_files)
