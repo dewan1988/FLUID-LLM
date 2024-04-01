@@ -4,8 +4,6 @@ Module defining a trainer for a LLM on a given dataset.
 
 import torch
 from torch.utils.data import DataLoader
-# from dataloader.MGN_dataloader import MGNSeqDataloader
-# from dataloader.parallel_dataloader import ParallelDataGenerator, SingleDataloader
 from dataloader.simple_dataloader import MGNDataloader
 from utils import get_available_device, get_trainable_parameters
 from losses import CombinedLoss

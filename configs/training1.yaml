@@ -50,7 +50,6 @@ schedule_epoch: 50
 schedule_gamma: 0.75
 
 # Dataloader params
-multiprocess: true
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
