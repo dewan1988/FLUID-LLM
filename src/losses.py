@@ -31,6 +31,7 @@ class MSELoss(nn.Module):
 class RMSELoss(nn.Module):
     def __init__(self):
         super(RMSELoss, self).__init__()
+        self.loss_fn = nn.MSELoss()
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -44,12 +45,10 @@ class RMSELoss(nn.Module):
         # Invert mask so 1 is wanted pixel
         mask = ~mask
 
-        # Apply mask to input and target
-        input_masked = torch.masked_select(preds, mask)
-        target_masked = torch.masked_select(target, mask)
+        loss = self.loss_fn(target * mask, preds * mask)
 
         # Calculate RMSE
-        loss = torch.sqrt(torch.mean((input_masked - target_masked) ** 2))
+        loss = torch.sqrt(loss)
         return loss
 
 
