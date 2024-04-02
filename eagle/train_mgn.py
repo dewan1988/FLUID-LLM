@@ -32,7 +32,7 @@ def evaluate():
     print(args)
     length = 400
     dataset = EagleDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False)
-    wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
+    # wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
@@ -156,7 +156,7 @@ def validate(model, dataloader, epoch=0, vizu=False):
         model.apply_noise = True
     results = total_loss / cpt
     print(f"=== EPOCH {epoch + 1} ===\n{results}")
-    wandb.log(results, commit=True)
+    # wandb.log(results, commit=True)
     return results
 
 

@@ -158,7 +158,7 @@ class MGNDataloader(Dataset):
             step_num = np.random.randint(0, max_step_num)
         if step_num > max_step_num:
             c_print(f"Step number {step_num} too high, setting to max step number {max_step_num}", 'red')
-            step_num = max_step_num
+            raise ValueError()
 
         triang, tri_index, grid_x, grid_y, save_data = self._load_step(save_file)
 

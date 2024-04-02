@@ -8,10 +8,10 @@ import numba
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--max_cluster_size', type=int, default=20)
+parser.add_argument('--max_cluster_size', type=int, default=10)
 args = parser.parse_args()
 
-PATH = "/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset"
+PATH = "../ds/MGN/cylinder_dataset"
 
 
 class FluentDataset:
