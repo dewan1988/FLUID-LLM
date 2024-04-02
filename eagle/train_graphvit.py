@@ -12,7 +12,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
-parser.add_argument('--lr', default=3e-4, type=float, help="Learning rate")
+parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
@@ -21,7 +21,7 @@ parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes p
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--batchsize', default=8, type=int, help="Batch size")
-parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='INSERT_NAME2', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 BATCHSIZE = args.batchsize
@@ -87,7 +87,6 @@ def get_loss(velocity, pressure, output, state_hat, target, mask):
     pressure_hat = state_hat[:, 1:, :, 2:]
     rmse_pressure = torch.sqrt(((pressure * mask - pressure_hat * mask) ** 2).mean(dim=(-1)))
     loss_pressure = torch.mean(rmse_pressure)
-
     loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask,
                                                                                   output[..., 2:] * mask)
     loss = loss
@@ -188,8 +187,8 @@ def main():
         error = validate(model, valid_dataloader, epoch=epoch)
         if error < memory:
             memory = error
-            os.makedirs(f"./eagle/trained_models/graphvit/", exist_ok=True)
-            torch.save(model.state_dict(), f"./eagle/trained_models/graphvit/{name}.nn")
+            os.makedirs(f"./Eagle/trained_models/graphvit/", exist_ok=True)
+            torch.save(model.state_dict(), f"./Eagle/trained_models/graphvit/{name}.nn")
             print("Saved!")
     validate(model, valid_dataloader)
 

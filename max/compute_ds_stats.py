@@ -63,10 +63,8 @@ def main():
             state_vars[j].append(s.var().item())
             diff_vars[j].append(d.var().item())
 
-    print()
     for i in range(3):
-        print(f"Coordinate {i}")
-
+        print("Coordinate ")
         print(f"State {i}: {state_aggs[i][1]: .4g}, {get_var(state_aggs[i]):.4g}")
         print(f"Diff {i}: {diff_aggs[i][1]:.4g}, {get_var(diff_aggs[i]):.4g}")
 
