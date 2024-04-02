@@ -239,7 +239,7 @@ def main():
     for i in range(len(dataloader)):
         print(f"Processing {i} ({args.max_cluster_size}):")
         save_name = dataloader.dataloc[i].split("/")[-1][:-4]
-        path = os.path.join(PATH, f"constrained_kmeans_{save_name}.npy")
+        path = os.path.join(PATH, f"constrained_kmeans__{args.max_cluster_size}_{save_name}.npy")
 
         x = dataloader[i]
 

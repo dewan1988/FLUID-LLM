@@ -92,7 +92,7 @@ class EagleMGNDataset(Dataset):
                 clusters = torch.arange(mesh_pos.shape[1] + 1).view(1, -1, 1).repeat(velocity.shape[0], 1, 1)
             else:
                 save_name = cluster_path.split("/")[-1][:-4]
-                clusters = np.load(os.path.join(self.fn, f"constrained_kmeans_{save_name}.npy"),
+                clusters = np.load(os.path.join(self.fn, f"constrained_kmeans__{self.n_cluster}_{save_name}.npy"),
                                    mmap_mode='r')[t:t + self.window_length].copy()
                 clusters = torch.from_numpy(clusters).long()
 

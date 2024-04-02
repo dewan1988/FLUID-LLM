@@ -11,8 +11,8 @@ from tqdm import tqdm
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=100, type=int, help="Number of epochs, set to 0 to evaluate")
-parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
+parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
+parser.add_argument('--lr', default=3e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
@@ -87,6 +87,7 @@ def get_loss(velocity, pressure, output, state_hat, target, mask):
     pressure_hat = state_hat[:, 1:, :, 2:]
     rmse_pressure = torch.sqrt(((pressure * mask - pressure_hat * mask) ** 2).mean(dim=(-1)))
     loss_pressure = torch.mean(rmse_pressure)
+
     loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask,
                                                                                   output[..., 2:] * mask)
     loss = loss

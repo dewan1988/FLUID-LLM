@@ -74,7 +74,7 @@ def collate(X):
 
 def evaluate():
     print(args)
-    length = 98
+    length = 50
     dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length,
                               with_cluster=True, n_cluster=args.n_cluster, normalize=True, with_cells=True)
 
@@ -128,7 +128,7 @@ def evaluate():
             error_velocity = error_velocity + rmse_velocity
             error_pressure = error_pressure + rmse_pressure
 
-            plot_preds(mesh_pos, velocity_hat, velocity, 0)
+            plot_preds(mesh_pos, velocity_hat, velocity, 48)
             print(f'{rmse_velocity = }')
             exit(5)
 

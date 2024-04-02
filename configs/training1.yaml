@@ -2,7 +2,7 @@ task_name: cylinder_task
 
 # LLM params
 llm_backbone: facebook/opt-125m
-llm_layers: 7
+llm_layers: 12
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
@@ -59,7 +59,7 @@ seq_interval: 2
 resolution: 240
 
 # Logging params
-enable_wandb: true
+enable_wandb: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
