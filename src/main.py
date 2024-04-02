@@ -5,6 +5,9 @@ import os
 import sys
 import argparse
 import logging
+from statistics import mean
+
+import numpy as np
 import torch
 import wandb
 from accelerate import Accelerator
@@ -48,7 +51,8 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             optimizer.step()
             scheduler.step()
 
-            dataloader_iterator.set_description(f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
+            dataloader_iterator.set_description(
+                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
             dataloader_iterator.refresh()
 
         # Keep track of metrics
@@ -57,7 +61,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
     metrics_agg = {f"train/{metric_name}": sum(d[metric_name]
-                                               for d in metrics_per_epoch) / len(metrics_per_epoch)
+                                               for d in metrics_per_epoch) / len(dataloader_iterator)
                    for metric_name in metrics_names}
     metrics_agg['train/LR'] = optimizer.param_groups[0]['lr']
     return metrics_agg
@@ -71,7 +75,8 @@ def main(args):
     # Prepare accelerator
     accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'])
     if training_params['use_deepspeed']:
-        accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params['batch_size'] // accelerator.state.num_processes
+        accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params[
+                                                                                                    'batch_size'] // accelerator.state.num_processes
 
     # Get the model
     model = MultivariateTimeLLM(training_params, device_map=get_available_device())
@@ -109,11 +114,13 @@ def main(args):
 
         wandb.log(train_log_metrics, step=epoch_idx)
 
-        epoch_iterator.set_description(f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']} | RMSE: {train_log_metrics['train/train_rmse']})")
+        epoch_iterator.set_description(
+            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']} | RMSE: {train_log_metrics['train/train_rmse']})")
         epoch_iterator.refresh()
 
         # Save model checkpoint
-        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0 and epoch_idx > 0:
+        if training_params['save_model_each'] > 0 and epoch_idx % training_params[
+            'save_model_each'] == 0 and epoch_idx > 0:
             accelerator.wait_for_everyone()
             checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 
@@ -138,4 +145,3 @@ if __name__ == '__main__':
 
     args = parser.parse_args(sys.argv[1:])
     main(args)
-

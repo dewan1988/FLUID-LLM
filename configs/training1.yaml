@@ -28,23 +28,23 @@ max_num_embed: 24
 encoder_params:
     type: MLP
     num_layers: 2
-    hidden_dim: 512
+    hidden_dim: 256
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
     type: MLP
     num_layers: 2
-    hidden_dim: 512
+    hidden_dim: 256
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
     zero_last_layer: true
 
 # Training params
-batch_size: 16
+batch_size: 8
 teacher_forcing: true
 num_epochs: 100
 epoch_size: 100
-learning_rate: 0.01
+learning_rate: 0.001
 weight_decay: 0
 optimizer: adam
 loss_function: ['mse']
