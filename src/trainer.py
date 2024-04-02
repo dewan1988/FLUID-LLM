@@ -53,10 +53,15 @@ class Trainer:
         velocity_target = target[:, :, 0, :]
         velocity_mask = ~bc_mask[:, :, 0, :]
 
-        rmse_velocity = torch.sqrt(torch.mean((velocity_preds * velocity_mask - velocity_target * velocity_mask) ** 2)).item()
-        rmse_pressure = torch.sqrt(torch.mean((pressure_preds * pressure_mask - pressure_target * pressure_mask) ** 2)).item()
+        rmse_velocity = torch.sqrt((velocity_preds * velocity_mask - velocity_target * velocity_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
+        rmse_pressure = torch.sqrt((pressure_preds * pressure_mask - pressure_target * pressure_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
 
-        return {"train_rmse": rmse_pressure + rmse_velocity}
+        rmse_velocity = (torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
+                                                                           device=rmse_velocity.device)).mean(0)
+        rmse_pressure = (torch.cumsum(rmse_pressure, dim=0) / torch.arange(1, rmse_pressure.shape[0] + 1,
+                                                                           device=rmse_pressure.device)).mean(0)
+
+        return {"train_rmse": rmse_pressure.item() + rmse_velocity.item()}
 
     def prepare_optimizers(self):
         params = self.model.parameters()
