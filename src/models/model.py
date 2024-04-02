@@ -23,7 +23,7 @@ class MultivariateTimeLLM(nn.Module):
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
         if config['llm_layers'] > llm_config.num_hidden_layers:
-            raise ValueError(f"Requested number of layers is greater than the model's {llm_config.num_hidden_layers}!")
+            raise ValueError(f"Requested number of layers ({config['llm_layers']}) is greater than the model's ({llm_config.num_hidden_layers})!")
 
         llm_config.num_hidden_layers = config['llm_layers'] if config['llm_layers'] > 0 else llm_config.num_hidden_layers
         llm_config.output_attentions = True
