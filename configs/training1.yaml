@@ -1,7 +1,7 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-6b, huggyllama/llama-7b
+llm_backbone: facebook/opt-2.7b  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
 llm_layers: 0
 llm_4bit_loading: false
 freeze_llm: false
@@ -42,7 +42,7 @@ decoder_params:
 # Training params
 batch_size: 8
 teacher_forcing: true
-num_epochs: 100
+num_epochs: 200
 epoch_size: 100
 learning_rate: 0.001
 weight_decay: 0
@@ -62,7 +62,7 @@ seq_interval: 1
 resolution: 240
 
 # Logging params
-enable_wandb: false
+enable_wandb: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

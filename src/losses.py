@@ -171,13 +171,11 @@ class CombinedLoss(nn.Module):
             loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
             loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
-            # Eagle weights pressure by alpha 0.1
-            eagle_alpha = 0.1 # 0.1
-            loss_val = (loss_velocity * weighting) + (loss_pressure * weighting * eagle_alpha)
+            loss_val = (loss_velocity * weighting) + (loss_pressure * weighting)
 
             tot_loss += loss_val
 
-            all_losses[str(loss_fn)] = loss_val
+            all_losses[str(loss_fn)] = loss_val.item()
 
         return tot_loss, all_losses
 
