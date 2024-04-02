@@ -9,6 +9,7 @@ import torch.nn as nn
 class MSELoss(nn.Module):
     def __init__(self):
         super(MSELoss, self).__init__()
+        self.loss_fn = nn.MSELoss()
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -20,8 +21,7 @@ class MSELoss(nn.Module):
         :return: Loss value
         """
         mask = ~mask
-        rmse = torch.sqrt(((preds * mask - target * mask) ** 2).mean(dim=(-1)))
-        loss = torch.mean(rmse)
+        loss = self.loss_fn(target * mask, preds * mask)
         return loss
 
     def __repr__(self):
@@ -173,7 +173,7 @@ class CombinedLoss(nn.Module):
             loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
             # Eagle weights pressure by alpha 0.1
-            eagle_alpha = 1. # 0.1
+            eagle_alpha = 0.1 # 0.1
             loss_val = (loss_velocity * weighting) + (loss_pressure * weighting * eagle_alpha)
 
             tot_loss += loss_val
