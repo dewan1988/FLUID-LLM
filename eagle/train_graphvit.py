@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
+parser.add_argument('--epoch', default=100, type=int, help="Number of epochs, set to 0 to evaluate")
 parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
@@ -21,7 +21,7 @@ parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes p
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--batchsize', default=8, type=int, help="Batch size")
-parser.add_argument('--name', default='INSERT_NAME2', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 BATCHSIZE = args.batchsize

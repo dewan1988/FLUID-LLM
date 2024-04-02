@@ -37,7 +37,7 @@ def evaluate():
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
 
-    model.load_state_dict(torch.load(f"../trained_models/meshgraphnet/{args.name}.nn", map_location=device))
+    model.load_state_dict(torch.load(f"./eagle/trained_models/meshgraphnet/{args.name}.nn", map_location=device))
 
     with torch.no_grad():
         model.eval()
@@ -46,7 +46,7 @@ def evaluate():
         error_velocity = torch.zeros(length - 1).to(device)
         error_pressure = torch.zeros(length - 1).to(device)
 
-        os.makedirs(f"../Results/meshgraphnet", exist_ok=True)
+        os.makedirs(f"./eagle/Results/meshgraphnet", exist_ok=True)
         for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
             mesh_pos = x["mesh_pos"].to(device)
             edges = x['edges'].to(device).long()
@@ -77,9 +77,9 @@ def evaluate():
         error_velocity = error_velocity / len(dataloader)
         error_pressure = error_pressure / len(dataloader)
 
-        np.savetxt(f"../Results/meshgraphnet/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(),
+        np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(),
                    delimiter=",")
-        np.savetxt(f"../Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
+        np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
                    delimiter=",")
 
 
@@ -212,8 +212,8 @@ def main():
         error = validate(model, valid_dataloader, epoch=epoch)
         if error < memory:
             memory = error
-            os.makedirs(f"../trained_models/meshgraphnet/", exist_ok=True)
-            torch.save(model.state_dict(), f"../trained_models/meshgraphnet/{args.name}.nn")
+            os.makedirs(f"./eagle/trained_models/meshgraphnet/", exist_ok=True)
+            torch.save(model.state_dict(), f"./eagle/trained_models/meshgraphnet/{args.name}.nn")
             print("Saved!")
 
     validate(model, valid_dataloader)

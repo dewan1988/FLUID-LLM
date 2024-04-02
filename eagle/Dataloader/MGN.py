@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from torch.nn.functional import one_hot
 import torch
 import numpy as np
+import pickle
 
 NODE_NORMAL = 0
 NODE_INPUT = 4
@@ -94,6 +95,7 @@ class EagleMGNDataset(Dataset):
                 clusters = np.load(os.path.join(self.fn, f"constrained_kmeans_{save_name}.npy"),
                                    mmap_mode='r')[t:t + self.window_length].copy()
                 clusters = torch.from_numpy(clusters).long()
+
             output['cluster'] = clusters
         return output
 
@@ -153,13 +155,6 @@ def get_data(path, window_length, mode):
     node_type = np.zeros((window_length, num_cells), dtype=np.int64)
 
     return pos, faces, node_type, t, V, P
-
-
-import pickle
-
-
-def load_MGN(t_start, t_end):
-    return pos, faces, node_type, V, P
 
 
 def faces_to_edges(faces):
