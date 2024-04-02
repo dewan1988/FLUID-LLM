@@ -22,7 +22,7 @@ parser.add_argument('--dataset_path', default="../ds/MGN/cylinder_dataset", type
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
-parser.add_argument('--name', default='INSERT_NAME', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='INSERT_NAME2', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,7 +93,7 @@ def evaluate():
         error_velocity = torch.zeros(length - 1).to(device)
         error_pressure = torch.zeros(length - 1).to(device)
 
-        os.makedirs(f"../Results/graphvit", exist_ok=True)
+        os.makedirs(f"./Results/graphvit", exist_ok=True)
         for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
             mesh_pos = x["mesh_pos"].to(device)
             edges = x['edges'].to(device).long()
@@ -128,15 +128,15 @@ def evaluate():
             error_velocity = error_velocity + rmse_velocity
             error_pressure = error_pressure + rmse_pressure
 
-            plot_preds(mesh_pos, velocity_hat, velocity, 48)
-            print(f'{rmse_velocity = }')
-            exit(5)
+            # plot_preds(mesh_pos, velocity_hat, velocity, 48)
+            # print(f'{rmse_velocity = }')
+            # exit(5)
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)
 
-    np.savetxt(f"./Eagle/Results/graphvit/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(), delimiter=",")
-    np.savetxt(f"./Eagle/Results/graphvit/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(), delimiter=",")
+    np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(), delimiter=",")
+    np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(), delimiter=",")
 
 
 def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):

@@ -187,8 +187,8 @@ def main():
         error = validate(model, valid_dataloader, epoch=epoch)
         if error < memory:
             memory = error
-            os.makedirs(f"./Eagle/trained_models/graphvit/", exist_ok=True)
-            torch.save(model.state_dict(), f"./Eagle/trained_models/graphvit/{name}.nn")
+            os.makedirs(f"./eagle/trained_models/graphvit/", exist_ok=True)
+            torch.save(model.state_dict(), f"./eagle/trained_models/graphvit/{name}.nn")
             print("Saved!")
     validate(model, valid_dataloader)
 
