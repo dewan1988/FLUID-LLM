@@ -127,10 +127,10 @@ def evaluate():
 
             error_velocity = error_velocity + rmse_velocity
             error_pressure = error_pressure + rmse_pressure
-
-            plot_preds(mesh_pos, velocity_hat, velocity, 48)
-            print(f'{rmse_velocity = }')
-            exit(5)
+            #
+            # plot_preds(mesh_pos, velocity_hat, velocity, 48)
+            # print(f'{rmse_velocity = }')
+            # exit(5)
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)
