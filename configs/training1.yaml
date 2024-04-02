@@ -2,7 +2,7 @@ task_name: cylinder_task
 
 # LLM params
 llm_backbone: facebook/opt-125m
-llm_layers: 12
+llm_layers: 0
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
@@ -40,15 +40,15 @@ decoder_params:
     zero_last_layer: true
 
 # Training params
-batch_size: 4
-teacher_forcing: false
+batch_size: 16
+teacher_forcing: true
 num_epochs: 100
 epoch_size: 100
 learning_rate: 0.01
 weight_decay: 0
 optimizer: adam
 loss_function: ['mse']
-loss_weighting: [10]
+loss_weighting: [1]
 schedule_epoch: 50
 schedule_gamma: 0.75
 
