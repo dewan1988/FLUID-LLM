@@ -17,7 +17,9 @@ def get_data_loader(config, mode="train"):
                     stride=config['stride'],
                     seq_len=config['seq_len'],
                     seq_interval=config['seq_interval'],
-                    mode=mode
+                    mode=mode,
+                    fit_diffs=config['fit_diffs'],
+                    normalize=False
                     )
 
     dl = DataLoader(ds,
@@ -46,12 +48,15 @@ class Trainer:
         return loss, all_losses
 
     def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
-        pressure_preds = preds[:, :, 2, :]
-        pressure_target = target[:, :, 2, :]
-        pressure_mask = ~bc_mask[:, :, 0, :]
-        velocity_preds = preds[:, :, 0, :]
-        velocity_target = target[:, :, 0, :]
-        velocity_mask = ~bc_mask[:, :, 0, :]
+        """ input.shape = (bs, seq_len*N_patch, 3, 16, 16)
+        """
+        raise NotImplementedError("Properly implement with full sequence generation")
+        pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
+        pressure_target = target[:, :, 2:, :]
+        pressure_mask = ~bc_mask[:, :, 0:, :]
+        velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
+        velocity_target = target[:, :, :2, :]
+        velocity_mask = ~bc_mask[:, :, :2, :]
 
         rmse_velocity = torch.sqrt((velocity_preds * velocity_mask - velocity_target * velocity_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
         rmse_pressure = torch.sqrt((pressure_preds * pressure_mask - pressure_target * pressure_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
@@ -112,15 +117,19 @@ class Trainer:
             preds = torch.stack(state_hat, dim=1)
 
         # Calculate loss
-        loss, all_losses = self.calculate_loss(preds, target, bc_mask)
+        if self.params['fit_diffs']:
+            loss, all_losses = self.calculate_loss(diffs, target, bc_mask)
+        else:
+            loss, all_losses = self.calculate_loss(preds, target, bc_mask)
 
         # Calculate metrics
-        metrics = self.calculate_metrics(preds, target, bc_mask)
+        # with torch.no_grad():
+        # metrics = self.calculate_metrics(preds, target, bc_mask)      # TODO: Implement properly later
 
         # Log metrics
         log_metrics = {"train_loss": loss.detach().item()}
         log_metrics.update(all_losses)
-        log_metrics.update(metrics)
+        # log_metrics.update(metrics)
 
         return loss, log_metrics
 

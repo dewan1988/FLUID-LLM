@@ -64,7 +64,7 @@ class MultivariateTimeLLM(nn.Module):
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
                                                 self.config['encoder_params'],
-                                                self.config['input_emb_layer_dropout'],
+                                                config['input_emb_layer_dropout'],
                                                 self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
                                                 self.config['max_num_embed'],
                                                 pos_embedding_type=config['pos_embedding_type'],
@@ -96,18 +96,18 @@ class MultivariateTimeLLM(nn.Module):
         if self.config['use_bos_token']:
             x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(batch_size, -1, -1), x_enc], dim=1)
             backbone_out = self.backbone(inputs_embeds=x_enc)
-            backbone_out = backbone_out.hidden_states[-1][:, 1:]
+            backbone_out = backbone_out.last_hidden_state[:, 1:]
         else:
             # Pass through frozen LLM
             backbone_out = self.backbone(inputs_embeds=x_enc)
-            backbone_out = backbone_out.hidden_states[-1]
+            backbone_out = backbone_out.last_hidden_state
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_out.shape
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out
+        return backbone_out, decoder_out * 0.03
 
     @torch.no_grad()
     def generate(self, batch_data, N_patch):
@@ -155,7 +155,7 @@ class MultivariateTimeLLM(nn.Module):
                 # Predict next diff
                 with torch.no_grad():
                     _, pred_diff = self(in_hist, pos_id)
-                pred_diff = pred_diff[:, -1:] / self.config['diff_scale_factor']
+                pred_diff = pred_diff[:, -1:]
                 # Mask off boundary
                 mask = bc_mask[:, last_state_patch: last_state_patch + 1]
                 pred_diff[mask] = 0.

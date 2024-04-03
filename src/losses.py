@@ -22,6 +22,7 @@ class MSELoss(nn.Module):
         """
         mask = ~mask
         loss = self.loss_fn(target * mask, preds * mask)
+
         return loss
 
     def __repr__(self):
@@ -50,6 +51,9 @@ class RMSELoss(nn.Module):
         # Calculate RMSE
         loss = torch.sqrt(loss)
         return loss
+
+    def __repr__(self):
+        return "RMSE"
 
 
 class MAPELoss(nn.Module):
@@ -153,17 +157,17 @@ class CombinedLoss(nn.Module):
         """
         Combined loss function.
 
-        :param preds: Forecast values. Shape: batch, time
-        :param target: Target values. Shape: batch, time
-        :param mask: 0/1 mask. Shape: batch, time
+        :param preds: Forecast values. Shape:  (bs, seq_len*N_patch, 3, patch_x, patch_y)
+        :param target: Target values. Shape:  (bs, seq_len*N_patch, 3, patch_x, patch_y)
+        :param mask: 0/1 mask. Shape: (bs, seq_len*N_patch, 3, patch_x, patch_y)
         :return: Loss value
         """
-        pressure_preds = preds[:, :, 2, :]
-        pressure_target = target[:, :, 2, :]
-        pressure_mask = mask[:, :, 2, :]
-        velocity_preds = preds[:, :, 0, :]
-        velocity_target = target[:, :, 0, :]
-        velocity_mask = mask[:, :, 0, :]
+        pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
+        pressure_target = target[:, :, 2:, :]
+        pressure_mask = mask[:, :, 0:, :]
+        velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
+        velocity_target = target[:, :, :2, :]
+        velocity_mask = mask[:, :, :2, :]
 
         tot_loss = 0
         all_losses = {}
@@ -171,9 +175,9 @@ class CombinedLoss(nn.Module):
             loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
             loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
-            loss_val = (loss_velocity * weighting) + (loss_pressure * weighting)
+            loss_val = loss_velocity + loss_pressure
 
-            tot_loss += loss_val
+            tot_loss += loss_val * weighting
 
             all_losses[str(loss_fn)] = loss_val.item()
 
