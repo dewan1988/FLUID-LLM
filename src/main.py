@@ -51,7 +51,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             optimizer.step()
             #
             dataloader_iterator.set_description(
-                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['RMSE']:.3g})")
+                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
             dataloader_iterator.refresh()
 
         # Keep track of metrics
