@@ -33,12 +33,14 @@ def rmse_loss(pred_state, true_state):
 def test_generate(model: MultivariateTimeLLM, cfg):
     bs = cfg['batch_size']
     ds = MGNDataset(load_dir=cfg['load_dir'],
-                       resolution=cfg['resolution'],
-                       patch_size=cfg['patch_size'],
-                       stride=cfg['stride'],
-                       seq_len=cfg['seq_len'],
-                       seq_interval=cfg['seq_interval'],
-                       step_per_ep=bs)
+                    resolution=cfg['resolution'],
+                    patch_size=cfg['patch_size'],
+                    stride=cfg['stride'],
+                    seq_len=cfg['seq_len'],
+                    seq_interval=cfg['seq_interval'],
+                    mode='test',
+                    fit_diffs=True,
+                    normalize=False)
     N_patch = ds.N_patch
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
@@ -48,20 +50,21 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     # Get batch and run through model
     batch_data = next(iter(dl))
     true_states, true_diffs = batch_data[0], batch_data[1]
+
     pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
     # Split into steps
-    pred_states = pred_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_states = true_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_diffs = true_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16)
+    pred_states = pred_states.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    true_states = true_states.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+    pred_diffs = pred_diffs.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    true_diffs = true_diffs.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)
 
     # Plotting
     plot_step = -1
-    batch_num = 1
+    batch_num = 0
 
     # Plot diffs
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
@@ -73,7 +76,6 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         plot_full_patches(img_1, (15, 4), ax[0])
         # Predictions
         plot_full_patches(img_2, (15, 4), ax[1])
-
     fig.tight_layout()
     fig.show()
 
@@ -111,8 +113,7 @@ def main(args):
     checkpoint_state_dict = checkpoint['state_dict']
 
     # Get the model
-    precision = torch.bfloat16 if checkpoints_params['half_precision'] else torch.float32
-    model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device(), precision=precision)
+    model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device())
 
     # Load weights
     model.load_state_dict(checkpoint_state_dict)

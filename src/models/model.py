@@ -36,6 +36,7 @@ class MultivariateTimeLLM(nn.Module):
             local_files_only=False,
             config=self.llm_config,
             load_in_4bit=config['llm_4bit_loading'],
+            torch_dtype=torch.bfloat16,
             device_map=device_map,
             attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
         )
@@ -154,7 +155,8 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    _, pred_diff = self(in_hist, pos_id)
+                    with torch.cuda.amp.autocast():
+                        _, pred_diff = self(in_hist, pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary
                 mask = bc_mask[:, last_state_patch: last_state_patch + 1]

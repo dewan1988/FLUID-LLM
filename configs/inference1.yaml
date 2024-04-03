@@ -3,8 +3,6 @@ checkpoint_save_path: model_checkpoints
 step_to_load: 200
 
 # DL param
-multiprocess: true
-num_workers: 1
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
 stride: [16, 16]

@@ -19,7 +19,7 @@ def get_data_loader(config, mode="train"):
                     seq_interval=config['seq_interval'],
                     mode=mode,
                     fit_diffs=config['fit_diffs'],
-                    normalize=False
+                    normalize=config['normalize_ds']
                     )
 
     dl = DataLoader(ds,
