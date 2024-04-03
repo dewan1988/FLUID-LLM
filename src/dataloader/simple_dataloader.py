@@ -92,9 +92,6 @@ class MGNDataset(Dataset):
 
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
 
-        if self.normalize:
-            states, diffs = self._normalize(states, diffs)
-
         return states, diffs, mask, torch.from_numpy(position_ids)
 
     def _get_step(self, triang, tri_index, grid_x, grid_y, save_data, step_num):
@@ -209,6 +206,9 @@ class MGNDataset(Dataset):
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
 
+        if self.normalize:
+            states = self._normalize(states)
+
         if self.fit_diffs:
             target = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
         else:
@@ -221,21 +221,12 @@ class MGNDataset(Dataset):
         states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
         target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
-        # # Compute diffs and discard last state that has no diff
-        # diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
-        # states = states[:-1]
-        #
-        # # Reshape into a continuous sequence
-        # seq_dim = (self.seq_len - 1) * self.N_patch
-        # states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        # diffs = diffs.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-
         # Reshape mask. All masks are the same
         masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
 
         return states, target, masks.bool()
 
-    def _normalize(self, states, targets):
+    def _normalize(self, states):
 
         # Coordinate
         # State 0:  0.823, 0.3315
@@ -250,7 +241,6 @@ class MGNDataset(Dataset):
         # Diff 2: -0.002683, 0.00208
         # 0.0739, 0.00208
 
-
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351
         s2_mean, s2_var = 0.04763, 0.07536
@@ -262,11 +252,7 @@ class MGNDataset(Dataset):
         states = states - means
         states = states / stds
 
-        if not self.fit_diffs:
-            targets = targets - means
-            targets = targets / stds
-
-        return states, targets
+        return states
 
     def __len__(self):
         return len(self.save_files)
