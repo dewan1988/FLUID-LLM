@@ -30,17 +30,17 @@ def rmse_loss(pred_state, true_state):
     return torch.sqrt(mse_loss)
 
 
-def test_generate(model: MultivariateTimeLLM, cfg):
-    bs = cfg['batch_size']
-    ds = MGNDataset(load_dir=cfg['load_dir'],
-                    resolution=cfg['resolution'],
-                    patch_size=cfg['patch_size'],
-                    stride=cfg['stride'],
-                    seq_len=cfg['seq_len'],
-                    seq_interval=cfg['seq_interval'],
+def test_generate(model: MultivariateTimeLLM, eval_cfg):
+    bs = eval_cfg['batch_size']
+    ds = MGNDataset(load_dir=eval_cfg['load_dir'],
+                    resolution=model.config['resolution'],
+                    patch_size=model.config['patch_size'],
+                    stride=model.config['stride'],
+                    seq_len=eval_cfg['seq_len'],
+                    seq_interval=model.config['seq_interval'],
                     mode='test',
-                    fit_diffs=True,
-                    normalize=False)
+                    fit_diffs=model.config['fit_diffs'],
+                    normalize=model.config['normalize_ds'])
     N_patch = ds.N_patch
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
@@ -54,10 +54,10 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
     # Split into steps
-    pred_states = pred_states.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
-    true_states = true_states.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
-    true_diffs = true_diffs.view(bs, cfg['seq_len'] - 1, N_patch, 3, 16, 16)
+    pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)
@@ -91,8 +91,6 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         plot_full_patches(img_2, (15, 4), ax[1])
     fig.tight_layout()
     fig.show()
-
-    print(f'{pred_states.shape = }, {true_states.shape = }')
 
 
 def main(args):

@@ -108,7 +108,7 @@ class MultivariateTimeLLM(nn.Module):
         decoder_out = self.output_layer(backbone_out)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
-        return backbone_out, decoder_out * 0.03
+        return backbone_out, decoder_out  # * 0.05
 
     @torch.no_grad()
     def generate(self, batch_data, N_patch):
@@ -155,7 +155,7 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    with torch.cuda.amp.autocast():
+                    with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                         _, pred_diff = self(in_hist, pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary

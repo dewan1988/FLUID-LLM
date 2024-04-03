@@ -10,7 +10,8 @@ def get_data_loader(config):
                     stride=config['stride'],
                     seq_len=300,
                     seq_interval=2,
-                    normalize=True
+                    normalize=True,
+                    fit_diffs=True
                     )
     return ds
 
