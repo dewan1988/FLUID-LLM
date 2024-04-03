@@ -9,7 +9,6 @@ import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from models.model import MultivariateTimeLLM
 
@@ -34,16 +33,15 @@ def rmse_loss(pred_state, true_state):
 def test_generate(model: MultivariateTimeLLM, cfg):
     bs = cfg['batch_size']
     ds = MGNDataloader(load_dir=cfg['load_dir'],
-                          resolution=cfg['resolution'],
-                          patch_size=cfg['patch_size'],
-                          stride=cfg['stride'],
-                          seq_len=cfg['seq_len'],
-                          seq_interval=cfg['seq_interval'],
-                          step_per_ep=16)
+                       resolution=cfg['resolution'],
+                       patch_size=cfg['patch_size'],
+                       stride=cfg['stride'],
+                       seq_len=cfg['seq_len'],
+                       seq_interval=cfg['seq_interval'],
+                       step_per_ep=bs)
     N_patch = ds.N_patch
 
-    dl = DataLoader(ds, batch_size=16, pin_memory=True)
-
+    dl = DataLoader(ds, batch_size=bs, pin_memory=True)
 
     model.eval()
 
@@ -53,10 +51,10 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     pred_states, pred_diffs = model.generate(batch_data, N_patch)
 
     # Split into steps
-    pred_states = pred_states.view(bs, -1, N_patch, 3, 16, 16).cpu()
-    true_states = true_states.view(bs, -1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, -1, N_patch, 3, 16, 16).cpu()
-    true_diffs = true_diffs.view(bs, -1, N_patch, 3, 16, 16)
+    pred_states = pred_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
+    true_states = true_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).to(torch.float32)
+    pred_diffs = pred_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
+    true_diffs = true_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)
