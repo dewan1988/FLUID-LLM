@@ -49,14 +49,15 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             # Backpropagation
             accelerator.backward(loss)
             optimizer.step()
-            #scheduler.step()
-
+            #
             dataloader_iterator.set_description(
-                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
+                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['RMSE']:.3g})")
             dataloader_iterator.refresh()
 
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
+
+    scheduler.step()
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
@@ -64,6 +65,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
                                                for d in metrics_per_epoch) / len(dataloader_iterator)
                    for metric_name in metrics_names}
     metrics_agg['train/LR'] = optimizer.param_groups[0]['lr']
+
     return metrics_agg
 
 
@@ -115,12 +117,11 @@ def main(args):
         wandb.log(train_log_metrics, step=epoch_idx)
 
         epoch_iterator.set_description(
-            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']} | RMSE: {train_log_metrics['train/train_rmse']})")
+            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']:.4g} | RMSE: {train_log_metrics['train/RMSE']:.4g})")
         epoch_iterator.refresh()
 
         # Save model checkpoint
-        if training_params['save_model_each'] > 0 and epoch_idx % training_params[
-            'save_model_each'] == 0 and epoch_idx > 0:
+        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0:
             accelerator.wait_for_everyone()
             checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 

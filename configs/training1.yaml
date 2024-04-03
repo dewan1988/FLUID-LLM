@@ -1,13 +1,13 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-2.7b  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
-llm_layers: 0
+llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
+llm_layers: 7
 llm_4bit_loading: false
 freeze_llm: false
 lora_config:
-  r: 8
-  lora_alpha: 16
+  r: 16
+  lora_alpha: 64
   lora_dropout: 0.1
   bias: none
 half_precision: true
@@ -19,7 +19,7 @@ use_bos_token: false
 diff_scale_factor: 1.   # Scale factor for diffs
 
 #  Positional embedding params
-pos_embedding_type: rope  # "pos", "rope"
+pos_embedding_type: pos  # "pos", "rope"
 init_pos_embed: "normal"   # "normal", "zero", "scaled"
 use_patches_self_attention: false
 max_num_embed: 24
@@ -27,28 +27,28 @@ max_num_embed: 24
 # Encoder params
 encoder_params:
     type: MLP
-    num_layers: 3
+    num_layers: 2
     hidden_dim: 512
     activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
     type: MLP
-    num_layers: 3
+    num_layers: 2
     hidden_dim: 512
     activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
-    zero_last_layer: false
+    zero_last_layer: true
 
 # Training params
 batch_size: 8
 teacher_forcing: true
-num_epochs: 200
+num_epochs: 201
 epoch_size: 100
-learning_rate: 0.001
+learning_rate: 0.0007
 weight_decay: 0
 optimizer: adam
-loss_function: ['rmse']
-loss_weighting: [1]
+loss_function: ['rmse', 'mse', 'mae']
+loss_weighting: [0, 10, 0.3]
 schedule_epoch: 50
 schedule_gamma: 0.75
 
@@ -57,8 +57,8 @@ num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
 stride: [16, 16]
-seq_len: 5
-seq_interval: 1
+seq_len: 10
+seq_interval: 2
 resolution: 240
 
 # Logging params
