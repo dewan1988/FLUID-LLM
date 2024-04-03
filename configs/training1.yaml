@@ -15,7 +15,7 @@ flash_attention: true
 use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
-use_bos_token: false
+use_bos_token: true
 diff_scale_factor: 1.   # Scale factor for diffs
 
 #  Positional embedding params
@@ -29,28 +29,29 @@ encoder_params:
     type: MLP
     num_layers: 2
     hidden_dim: 512
-    activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
     type: MLP
     num_layers: 2
     hidden_dim: 512
-    activation: relu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
     zero_last_layer: true
 
 # Training params
+fit_diffs: true
 batch_size: 8
 teacher_forcing: true
 num_epochs: 201
 epoch_size: 100
-learning_rate: 0.0007
+learning_rate: 7.e-4
 weight_decay: 0
 optimizer: adam
-loss_function: ['rmse', 'mse', 'mae']
-loss_weighting: [0, 10, 0.3]
-schedule_epoch: 50
-schedule_gamma: 0.75
+loss_function: ['mae', 'mse']
+loss_weighting: [0.3, 10]
+schedule_epoch: 150
+schedule_gamma: 0.5
 
 # Dataloader params
 num_workers: 8

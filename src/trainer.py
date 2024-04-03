@@ -17,7 +17,9 @@ def get_data_loader(config, mode="train"):
                     stride=config['stride'],
                     seq_len=config['seq_len'],
                     seq_interval=config['seq_interval'],
-                    mode=mode
+                    mode=mode,
+                    fit_diffs=config['fit_diffs'],
+                    normalize=False
                     )
 
     dl = DataLoader(ds,
@@ -115,7 +117,10 @@ class Trainer:
             preds = torch.stack(state_hat, dim=1)
 
         # Calculate loss
-        loss, all_losses = self.calculate_loss(preds, target, bc_mask)
+        if self.params['fit_diffs']:
+            loss, all_losses = self.calculate_loss(diffs, target, bc_mask)
+        else:
+            loss, all_losses = self.calculate_loss(preds, target, bc_mask)
 
         # Calculate metrics
         # with torch.no_grad():

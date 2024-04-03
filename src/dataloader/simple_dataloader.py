@@ -22,7 +22,7 @@ def num_patches(dim_size, kern_size, stride, padding=0):
 class MGNDataset(Dataset):
     """ Load a single timestep from the dataset."""
 
-    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, seq_interval=1,
+    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, fit_diffs: bool, seq_interval=1,
                  pad=True, mode="train", normalize=True):
         super(MGNDataset, self).__init__()
 
@@ -38,6 +38,7 @@ class MGNDataset(Dataset):
         self.seq_interval = seq_interval
         self.max_step_num = 600 - self.seq_len * self.seq_interval
         self.normalize = normalize
+        self.fit_diffs = fit_diffs
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
@@ -208,15 +209,26 @@ class MGNDataset(Dataset):
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
 
-        # Compute diffs and discard last state that has no diff
-        # diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
-        target = states[1:]
+        if self.fit_diffs:
+            target = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        else:
+            target = states[1:]
+        # Compute targets and discard last state that has no diff
         states = states[:-1]
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
         states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
         target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
+
+        # # Compute diffs and discard last state that has no diff
+        # diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        # states = states[:-1]
+        #
+        # # Reshape into a continuous sequence
+        # seq_dim = (self.seq_len - 1) * self.N_patch
+        # states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        # diffs = diffs.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
         # Reshape mask. All masks are the same
         masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
@@ -238,6 +250,7 @@ class MGNDataset(Dataset):
         # Diff 2: -0.002683, 0.00208
         # 0.0739, 0.00208
 
+
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351
         s2_mean, s2_var = 0.04763, 0.07536
@@ -245,13 +258,13 @@ class MGNDataset(Dataset):
         means = torch.tensor([s0_mean, s1_mean, s2_mean]).reshape(1, 3, 1, 1)
         stds = torch.sqrt(torch.tensor([s0_var, s1_var, s2_var]).reshape(1, 3, 1, 1))
 
-        # Subtract mean
+        # Normalise states
         states = states - means
-        targets = targets - means
-
-        # Divide by std
         states = states / stds
-        targets = targets / stds
+
+        if not self.fit_diffs:
+            targets = targets - means
+            targets = targets / stds
 
         return states, targets
 
@@ -260,21 +273,16 @@ class MGNDataset(Dataset):
 
 
 def plot_all_patches():
-    load_no = 1
-    step_num = 100
     patch_size, stride = (16, 16), (16, 16)
 
     seq_dl = MGNDataset(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
-                        seq_len=10, seq_interval=2, normalize=False)
+                        seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
 
     ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
 
-    st = time.time()
     for batch in ds:
         state, diffs, mask, pos_id = batch
-        print(state.mean(), diffs.mean())
-        print(f"Time to get sequence: {time.time() - st:.3g}s")
-        st = time.time()
+        break
 
     x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
 
@@ -292,20 +300,19 @@ def plot_all_patches():
     plt.tight_layout()
     plt.show()
 
-    # p_shows = diffs
-    #
-    # fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
-    # for i in range(y_count):
-    #     for j in range(x_count):
-    #         p_show = p_shows[i + j * y_count].numpy()
-    #         p_show = np.transpose(p_show, (2, 1, 0))
-    #
-    #         min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
-    #
-    #         axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
-    #         axes[i, j].axis('off')
-    # plt.tight_layout()
-    # plt.show()
+    p_shows = diffs[0]
+    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    for i in range(y_count):
+        for j in range(x_count):
+            p_show = p_shows[i + j * y_count].numpy()
+            p_show = np.transpose(p_show, (2, 1, 0))
+
+            min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
+
+            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
+            axes[i, j].axis('off')
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
