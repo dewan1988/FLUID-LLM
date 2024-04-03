@@ -23,7 +23,7 @@ class MGNDataset(Dataset):
     """ Load a single timestep from the dataset."""
 
     def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, seq_interval=1,
-                 pad=True, mode="train"):
+                 pad=True, mode="train", normalize=True):
         super(MGNDataset, self).__init__()
 
         assert mode in ["train", "valid", "test"]
@@ -37,6 +37,7 @@ class MGNDataset(Dataset):
         self.seq_len = seq_len
         self.seq_interval = seq_interval
         self.max_step_num = 600 - self.seq_len * self.seq_interval
+        self.normalize = normalize
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
 
@@ -63,8 +64,8 @@ class MGNDataset(Dataset):
 
         """
         # Time sampling is random during training, but set to a fix value during test and valid, to ensure repeatability.
-        step_num = random.randint(1, self.max_step_num)
-        step_num = 550 if self.mode in ["test", "valid"] else step_num
+        step_num = random.randint(0, self.max_step_num)
+        step_num = 100 if self.mode in ["test", "valid"] else step_num
         return self.ds_get(save_file=self.save_files[idx], step_num=step_num)
 
     def ds_get(self, save_file=None, step_num=None):
@@ -89,6 +90,9 @@ class MGNDataset(Dataset):
         t_idx = arange // self.N_patch
 
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
+
+        if self.normalize:
+            states, diffs = self._normalize(states, diffs)
 
         return states, diffs, mask, torch.from_numpy(position_ids)
 
@@ -167,6 +171,8 @@ class MGNDataset(Dataset):
         """
         if save_file is None:
             save_file = random.choice(self.save_files)
+        elif isinstance(save_file, int):
+            save_file = self.save_files[save_file]
 
         if step_num is None:
             step_num = np.random.randint(0, self.max_step_num)
@@ -203,7 +209,7 @@ class MGNDataset(Dataset):
         masks = torch.permute(masks, [0, 3, 1, 2])
 
         # Compute diffs and discard last state that has no diff
-        #diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        # diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
         target = states[1:]
         states = states[:-1]
 
@@ -217,6 +223,38 @@ class MGNDataset(Dataset):
 
         return states, target, masks.bool()
 
+    def _normalize(self, states, targets):
+
+        # Coordinate
+        # State 0:  0.823, 0.3315
+        # Diff 0: 1.614e-05, 0.000512
+        # 0.195, 0.000515
+        # Coordinate
+        # State 1:  0.0005865, 0.01351
+        # Diff 1: 3.7e-06, 0.0005696
+        # 0.0135, 0.000572
+        # Coordinate
+        # State 2:  0.04763, 0.07536
+        # Diff 2: -0.002683, 0.00208
+        # 0.0739, 0.00208
+
+        s0_mean, s0_var = 0.823, 0.3315
+        s1_mean, s1_var = 0.0005865, 0.01351
+        s2_mean, s2_var = 0.04763, 0.07536
+
+        means = torch.tensor([s0_mean, s1_mean, s2_mean]).reshape(1, 3, 1, 1)
+        stds = torch.sqrt(torch.tensor([s0_var, s1_var, s2_var]).reshape(1, 3, 1, 1))
+
+        # Subtract mean
+        states = states - means
+        targets = targets - means
+
+        # Divide by std
+        states = states / stds
+        targets = targets / stds
+
+        return states, targets
+
     def __len__(self):
         return len(self.save_files)
 
@@ -227,13 +265,14 @@ def plot_all_patches():
     patch_size, stride = (16, 16), (16, 16)
 
     seq_dl = MGNDataset(load_dir="/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset", resolution=240, patch_size=patch_size, stride=stride,
-                        seq_len=10, seq_interval=2)
+                        seq_len=10, seq_interval=2, normalize=False)
 
     ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
 
     st = time.time()
     for batch in ds:
         state, diffs, mask, pos_id = batch
+        print(state.mean(), diffs.mean())
         print(f"Time to get sequence: {time.time() - st:.3g}s")
         st = time.time()
 
