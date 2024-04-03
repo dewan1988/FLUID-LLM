@@ -9,7 +9,7 @@ import torch.nn as nn
 class MSELoss(nn.Module):
     def __init__(self):
         super(MSELoss, self).__init__()
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = nn.MSELoss(reduction='none')
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
@@ -20,10 +20,19 @@ class MSELoss(nn.Module):
         :param mask: 0/1 mask. Shape: batch, time
         :return: Loss value
         """
+        # Invert mask so 1 is wanted pixel
         mask = ~mask
-        loss = self.loss_fn(target * mask, preds * mask)
 
-        return loss
+        # Apply mask to input and target
+        input_masked = torch.masked_select(preds, mask)
+        target_masked = torch.masked_select(target, mask)
+
+        loss = self.loss_fn(input_masked, target_masked)
+        loss = loss.sum()
+
+        non_zero_elements = mask.sum()
+        mse_loss_val = loss / non_zero_elements
+        return mse_loss_val
 
     def __repr__(self):
         return "MSE"
@@ -162,21 +171,22 @@ class CombinedLoss(nn.Module):
         :param mask: 0/1 mask. Shape: (bs, seq_len*N_patch, 3, patch_x, patch_y)
         :return: Loss value
         """
-        pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
-        pressure_target = target[:, :, 2:, :]
-        pressure_mask = mask[:, :, 0:, :]
-        velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
-        velocity_target = target[:, :, :2, :]
-        velocity_mask = mask[:, :, :2, :]
+
+        # pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
+        # pressure_target = target[:, :, 2:, :]
+        # pressure_mask = mask[:, :, 0:, :]
+        # velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
+        # velocity_target = target[:, :, :2, :]
+        # velocity_mask = mask[:, :, :2, :]
 
         tot_loss = 0
         all_losses = {}
         for loss_fn, weighting in zip(self.loss_fns, self.weighting):
-            loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
-            loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
+            # loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
+            # loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
-            loss_val = loss_velocity + loss_pressure
-
+            # loss_val = loss_velocity + loss_pressure
+            loss_val = loss_fn(preds, target, mask)
             tot_loss += loss_val * weighting
 
             all_losses[str(loss_fn)] = loss_val.item()
