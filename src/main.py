@@ -39,7 +39,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             position_ids = position_ids.to(accelerator.device)
 
             if trainer.params['half_precision']:
-                with torch.cuda.amp.autocast():
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                     loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids,
                                                                     teacher_forcing=trainer.params['teacher_forcing'])
             else:
