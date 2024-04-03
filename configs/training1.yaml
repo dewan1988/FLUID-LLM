@@ -45,9 +45,9 @@ batch_size: 8
 teacher_forcing: true
 num_epochs: 201
 epoch_size: 100
-learning_rate: 7.e-4
+learning_rate: 0.001
 weight_decay: 0
-optimizer: adam
+optimizer: adamw
 loss_function: ['rmse']
 loss_weighting: [1]
 schedule_epoch: 150
@@ -63,7 +63,7 @@ seq_interval: 2
 resolution: 240
 
 # Logging params
-enable_wandb: true
+enable_wandb: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

@@ -50,13 +50,12 @@ class Trainer:
     def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
         """ input.shape = (bs, seq_len*N_patch, 3, 16, 16)
         """
-        raise NotImplementedError("Properly implement with full sequence generation")
-        pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
-        pressure_target = target[:, :, 2:, :]
-        pressure_mask = ~bc_mask[:, :, 0:, :]
-        velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
-        velocity_target = target[:, :, :2, :]
-        velocity_mask = ~bc_mask[:, :, :2, :]
+        pressure_preds = preds[:, :, 2, :]
+        pressure_target = target[:, :, 2, :]
+        pressure_mask = ~bc_mask[:, :, 2, :]
+        velocity_preds = preds[:, :, 0, :]
+        velocity_target = target[:, :, 0, :]
+        velocity_mask = ~bc_mask[:, :, 0, :]
 
         rmse_velocity = torch.sqrt((velocity_preds * velocity_mask - velocity_target * velocity_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
         rmse_pressure = torch.sqrt((pressure_preds * pressure_mask - pressure_target * pressure_mask).pow(2).mean(dim=-1)).mean(1).mean(1)
@@ -94,7 +93,7 @@ class Trainer:
 
         return optimizer, scheduler
 
-    def run_train_step(self, states, target, bc_mask, position_ids, teacher_forcing=True):
+    def run_train_step(self, states, target, bc_mask, position_ids, states_shifted, teacher_forcing=True):
         """
         Returns
         - loss (torch.Tensor): The total loss, used for backpropagation
@@ -123,13 +122,14 @@ class Trainer:
             loss, all_losses = self.calculate_loss(preds, target, bc_mask)
 
         # Calculate metrics
-        # with torch.no_grad():
-        # metrics = self.calculate_metrics(preds, target, bc_mask)      # TODO: Implement properly later
+        with torch.no_grad():
+            # Calculate RMSE over the states
+            metrics = self.calculate_metrics(preds, states_shifted, bc_mask)      # TODO: Implement properly later
 
         # Log metrics
         log_metrics = {"train_loss": loss.detach().item()}
         log_metrics.update(all_losses)
-        # log_metrics.update(metrics)
+        log_metrics.update(metrics)
 
         return loss, log_metrics
 
@@ -137,7 +137,7 @@ class Trainer:
     def run_eval_step(self, batch):
         self.model.eval()
 
-        states, diffs, bc_mask, position_ids = batch
+        states, diffs, bc_mask, position_ids, states_shifted = batch
 
         # Forward pass
         backbone_out, preds = self.model(states, position_ids)

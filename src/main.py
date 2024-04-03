@@ -31,7 +31,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
         optimizer.zero_grad()
 
         with accelerator.accumulate(trainer.model):
-            states, diffs, bc_mask, position_ids = batch
+            states, diffs, bc_mask, position_ids, states_shifted = batch
 
             states = states.to(accelerator.device)
             diffs = diffs.to(accelerator.device)
@@ -40,10 +40,10 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
             if trainer.params['half_precision']:
                 with torch.cuda.amp.autocast():
-                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids,
+                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids, states_shifted,
                                                                     teacher_forcing=trainer.params['teacher_forcing'])
             else:
-                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids,
+                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids, states_shifted,
                                                                 teacher_forcing=trainer.params['teacher_forcing'])
 
             # Backpropagation

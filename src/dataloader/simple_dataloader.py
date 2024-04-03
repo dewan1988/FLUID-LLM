@@ -81,7 +81,7 @@ class MGNDataset(Dataset):
 
         to_patches = self._get_full_seq(save_file, step_num)
 
-        states, diffs, mask = self._ds_get_pt(to_patches)
+        states, diffs, mask, states_shifted = self._ds_get_pt(to_patches)
 
         # Get positions / times for each patch
         seq_dim = (self.seq_len - 1) * self.N_patch
@@ -93,9 +93,11 @@ class MGNDataset(Dataset):
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
 
         if self.normalize:
-            states, diffs = self._normalize(states, diffs)
+            states = self._normalize(states)
+            diffs = self._normalize(diffs)
+            states_shifted = self._normalize(states_shifted)
 
-        return states, diffs, mask, torch.from_numpy(position_ids)
+        return states, diffs, mask, torch.from_numpy(position_ids), states_shifted
 
     def _get_step(self, triang, tri_index, grid_x, grid_y, save_data, step_num):
         """
@@ -213,12 +215,15 @@ class MGNDataset(Dataset):
             target = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
         else:
             target = states[1:]
+
         # Compute targets and discard last state that has no diff
+        states_shifted = states[1:]
         states = states[:-1]
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
         states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
+        states_shifted = states_shifted.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
         target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
         # # Compute diffs and discard last state that has no diff
@@ -233,9 +238,9 @@ class MGNDataset(Dataset):
         # Reshape mask. All masks are the same
         masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
 
-        return states, target, masks.bool()
+        return states, target, masks.bool(), states_shifted
 
-    def _normalize(self, states, targets):
+    def _normalize(self, tensor):
 
         # Coordinate
         # State 0:  0.823, 0.3315
@@ -259,14 +264,10 @@ class MGNDataset(Dataset):
         stds = torch.sqrt(torch.tensor([s0_var, s1_var, s2_var]).reshape(1, 3, 1, 1))
 
         # Normalise states
-        states = states - means
-        states = states / stds
+        tensor = tensor - means
+        tensor = tensor / stds
 
-        if not self.fit_diffs:
-            targets = targets - means
-            targets = targets / stds
-
-        return states, targets
+        return tensor
 
     def __len__(self):
         return len(self.save_files)

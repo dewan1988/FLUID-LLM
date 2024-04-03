@@ -111,7 +111,7 @@ class MultivariateTimeLLM(nn.Module):
 
     @torch.no_grad()
     def generate(self, batch_data, N_patch):
-        states, diffs, bc_mask, position_ids = batch_data
+        states, diffs, bc_mask, position_ids, states_shifted = batch_data
 
         init_state_fp32 = states[:, :N_patch].to(torch.float32).to(self.device_map)
         init_history_fp32 = diffs[:, :N_patch].to(torch.float32).to(self.device_map)
