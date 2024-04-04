@@ -66,7 +66,9 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
 
     # """ OLD VERSION"""
+    # st = time.time()
     # pred_states, pred_diffs = model.generate(batch_data, N_patch)
+    # print(f'Time taken: {time.time() - st:.4g}')
     # # Split into steps
     # pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
     # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)

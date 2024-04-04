@@ -4,6 +4,7 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausa
 import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
+from collections import deque
 
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
@@ -97,15 +98,15 @@ class MultivariateTimeLLM(nn.Module):
         if self.config['use_bos_token']:
             x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(batch_size, -1, -1), x_enc], dim=1)
             backbone_out = self.backbone(inputs_embeds=x_enc)
-            backbone_out = backbone_out.last_hidden_state[:, 1:]
+            backbone_preds = backbone_out.last_hidden_state[:, 1:]
         else:
             # Pass through frozen LLM
             backbone_out = self.backbone(inputs_embeds=x_enc)
-            backbone_out = backbone_out.last_hidden_state
+            backbone_preds = backbone_out.last_hidden_state
 
         # Decode hidden state given by the LLM
-        _, seq_len, _ = backbone_out.shape
-        decoder_out = self.output_layer(backbone_out)
+        _, seq_len, _ = backbone_preds.shape
+        decoder_out = self.output_layer(backbone_preds)
         decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
@@ -117,23 +118,9 @@ class MultivariateTimeLLM(nn.Module):
             Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
             Return.shape = (bs, (seq_len+1)*N_patch, 3, 16, 16)"""
 
-        diffs = []
-        for i in range(N_patch):
-            # Next patch to predict. Select elements up to end of tensor.
-            next_patch = -N_patch + i + 1
-            next_patch = next_patch if next_patch != 0 else None
-
-            input_states = states[:, :next_patch].to(self.device_map)
-            input_pos_ids = position_ids[:, :next_patch].to(self.device_map)
-
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                _, pred_diff = self(input_states, input_pos_ids)
-
-            # print(pred_diff[:, -1].shape)
-            diffs.append(pred_diff[:, -1])
-
-        diffs = torch.stack(diffs, dim=1)
-
+        with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+            _, pred_diff = self.forward(states, position_ids)
+        diffs = pred_diff[:, -N_patch:]
         return diffs
 
     def _generate(self, init_states, bc_mask, position_ids, N_patch, N_steps):
@@ -141,22 +128,38 @@ class MultivariateTimeLLM(nn.Module):
         N_patch: Number of patches in each state
         N_steps: Number of steps to predict
 
-        Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
-        all_states.shape = (bs, (seq_len+N_steps)*N_patch, 3, 16, 16)
+        init_states.shape = (bs, init_len*N_patch, 3, 16, 16)
+        all_states.shape = (bs, (init_len+N_steps)*N_patch, 3, 16, 16)
         all_diffs.shape = (bs, N_steps*N_patch, 3, 16, 16)
         """
 
-        all_states = init_states.clone().to(torch.float32)
+        # All states and diffs, including input and predictions for output.
+        init_states = init_states.to(torch.float32)
+        all_states = [init_states]
         all_diffs = []
-        for pred_step in range(N_steps):
-            print(f'{pred_step = }')
-            # Ensure position_id and mask are correct length
-            seq_len = all_states.shape[1] // N_patch
-            seq_pos_ids = position_ids[:, :seq_len * N_patch]
-            # Get relevant masks for patch
-            mask = bc_mask[:, (seq_len - 1) * N_patch: seq_len * N_patch]
+        # Keep a buffer of the last 8 states as model input
+        init_states_t = init_states.view(init_states.shape[0], -1, N_patch, 3, 16, 16)
+        init_len = init_states_t.shape[1]
+        input_buff = deque(maxlen=8)
+        for t in range(init_len):
+            input_buff.append(init_states_t[:, t])
 
-            diffs = self._gen_step(all_states, seq_pos_ids, N_patch)
+        for pred_step in range(init_len, init_len+N_steps):
+            print(f'{pred_step = }')
+            seq_len = len(input_buff)
+            # Get correct position ids
+            end_pos = pred_step * N_patch
+            start_pos = (pred_step - seq_len) * N_patch
+            seq_pos_ids = position_ids[:, start_pos:end_pos].clone()       # shape = [bs, seq_len*N_patch, 3, ...]
+            # Normalise timestep so first state is t=0
+            min_t = seq_pos_ids[:, :, 2].min()
+            seq_pos_ids[:, :, 2] = seq_pos_ids[:, :, 2] - min_t
+
+            # Get masks for current state
+            mask = bc_mask[:, end_pos - N_patch: end_pos]    # shape = [bs, N_patch, 3, ...]
+
+            s = torch.cat(list(input_buff), dim=1)
+            diffs = self._gen_step(s, seq_pos_ids, N_patch)
             diffs[mask] = 0.
 
             # Calculate diffs in fp32
@@ -164,14 +167,15 @@ class MultivariateTimeLLM(nn.Module):
             all_diffs.append(diffs)
 
             # Add on next state
-            next_state = all_states[:, -N_patch:] + diffs
-            all_states = torch.cat([all_states, next_state], dim=1)
+            next_state = input_buff[-1] + diffs
+            all_states.append(next_state)
+            input_buff.append(next_state)
 
+        all_states = torch.cat(all_states, dim=1)
         all_diffs = torch.cat(all_diffs, dim=1)
-
         return all_states, all_diffs
 
-    def eval_gen(self, batch_data, N_patch, start_state=1, pred_steps=4):
+    def eval_gen(self, batch_data, N_patch, pred_steps, start_state=1):
         states, _, bc_mask, position_ids = batch_data
         position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
 
@@ -195,6 +199,7 @@ class MultivariateTimeLLM(nn.Module):
 
         return all_states, all_diffs
 
+    """ OLD VERSION. """
     @torch.no_grad()
     def generate(self, batch_data, N_patch):
         states, diffs, bc_mask, position_ids = batch_data
