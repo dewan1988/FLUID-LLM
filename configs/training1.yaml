@@ -42,14 +42,14 @@ decoder_params:
 # Training params
 batch_size: 8
 teacher_forcing: true
-num_epochs: 101
+num_epochs: 201
 epoch_size: 100
 learning_rate: 7.e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['rmse', 'mae', 'mse']
 loss_weighting: [0., 0.3, 10]
-schedule_epoch: 100
+schedule_epoch: 175
 schedule_gamma: 0.5
 
 # Dataloader params
