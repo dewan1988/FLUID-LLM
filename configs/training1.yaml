@@ -47,8 +47,8 @@ epoch_size: 100
 learning_rate: 7.e-4
 weight_decay: 0
 optimizer: adam
-loss_function: ['rmse', 'mae', 'mse']
-loss_weighting: [0., 0.3, 10]
+loss_function: ['mae', 'mse']
+loss_weighting: [0.3, 10]
 schedule_epoch: 175
 schedule_gamma: 0.5
 
@@ -67,5 +67,6 @@ fit_diffs: true
 enable_wandb: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
+save_on: false
 
 

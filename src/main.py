@@ -51,7 +51,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
             optimizer.step()
             #
             dataloader_iterator.set_description(
-                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['RMSE']:.3g})")
+                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | N_RMSE: {log_metrics_dict['N_RMSE']:.3g})")
             dataloader_iterator.refresh()
 
         # Keep track of metrics
@@ -87,7 +87,7 @@ def main(args):
     train_dataloader = get_data_loader(training_params)
     trainer = Trainer(params=training_params,
                       model=model,
-                      device=get_available_device())
+                      N_patch=train_dataloader.dataset.N_patch)
 
     optimizer, scheduler = trainer.prepare_optimizers()
 
@@ -102,7 +102,7 @@ def main(args):
     trainer.model = model
 
     # Make save folder and save config
-    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
+    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder, save_on=training_params['save_on'])
     logging.info(f"Saving checkpoints to: {save_path}")
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
@@ -117,7 +117,7 @@ def main(args):
         wandb.log(train_log_metrics, step=epoch_idx)
 
         epoch_iterator.set_description(
-            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']:.4g} | RMSE: {train_log_metrics['train/RMSE']:.4g})")
+            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']:.4g} | N_RMSE: {train_log_metrics['train/N_RMSE']:.4g})")
         epoch_iterator.refresh()
 
         # Save model checkpoint

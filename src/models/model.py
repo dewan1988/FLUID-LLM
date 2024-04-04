@@ -128,6 +128,9 @@ class MultivariateTimeLLM(nn.Module):
         N_patch: Number of patches in each state
         N_steps: Number of steps to predict
 
+        Keep 2 buffers, one for all states / diffs, and one for sliding model input.
+        Ensure model input isn't too long and normalise timesteps to start at 0·
+
         init_states.shape = (bs, init_len*N_patch, 3, 16, 16)
         all_states.shape = (bs, (init_len+N_steps)*N_patch, 3, 16, 16)
         all_diffs.shape = (bs, N_steps*N_patch, 3, 16, 16)
@@ -176,6 +179,7 @@ class MultivariateTimeLLM(nn.Module):
         return all_states, all_diffs
 
     def eval_gen(self, batch_data, N_patch, pred_steps, start_state=1):
+        """ Evaluate the model by generating the next steps in the sequence."""
         states, _, bc_mask, position_ids = batch_data
         position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
 
