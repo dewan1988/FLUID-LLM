@@ -8,6 +8,7 @@ import logging
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+import time
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from models.model import MultivariateTimeLLM
@@ -51,13 +52,26 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     batch_data = next(iter(dl))
     true_states, true_diffs = batch_data[0], batch_data[1]
 
-    pred_states, pred_diffs = model.generate(batch_data, N_patch)
+    """ NEW VERSION"""
+    st = time.time()
+    pred_states, pred_diffs = model.eval_gen(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+    print(f"Time taken: {time.time() - st:.4g}")
 
     # Split into steps
-    pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
     true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
+    pred_states = pred_states[:, :-1]
+
     true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
+    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+
+    # """ OLD VERSION"""
+    # pred_states, pred_diffs = model.generate(batch_data, N_patch)
+    # # Split into steps
+    # pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+    # pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)

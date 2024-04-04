@@ -111,6 +111,91 @@ class MultivariateTimeLLM(nn.Module):
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 
     @torch.no_grad()
+    def _gen_step(self, states, position_ids, N_patch):
+        """ Generate next timestep of the sequence given an input sequence.
+            Use last given timestep as initialisation to generate diffs for next step
+            Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
+            Return.shape = (bs, (seq_len+1)*N_patch, 3, 16, 16)"""
+
+        diffs = []
+        for i in range(N_patch):
+            # Next patch to predict. Select elements up to end of tensor.
+            next_patch = -N_patch + i + 1
+            next_patch = next_patch if next_patch != 0 else None
+
+            input_states = states[:, :next_patch].to(self.device_map)
+            input_pos_ids = position_ids[:, :next_patch].to(self.device_map)
+
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                _, pred_diff = self(input_states, input_pos_ids)
+
+            # print(pred_diff[:, -1].shape)
+            diffs.append(pred_diff[:, -1])
+
+        diffs = torch.stack(diffs, dim=1)
+
+        return diffs
+
+    def _generate(self, init_states, bc_mask, position_ids, N_patch, N_steps):
+        """ Given an input step(s), generate the next step(s) using the model.
+        N_patch: Number of patches in each state
+        N_steps: Number of steps to predict
+
+        Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
+        all_states.shape = (bs, (seq_len+N_steps)*N_patch, 3, 16, 16)
+        all_diffs.shape = (bs, N_steps*N_patch, 3, 16, 16)
+        """
+
+        all_states = init_states.clone().to(torch.float32)
+        all_diffs = []
+        for pred_step in range(N_steps):
+            print(f'{pred_step = }')
+            # Ensure position_id and mask are correct length
+            seq_len = all_states.shape[1] // N_patch
+            seq_pos_ids = position_ids[:, :seq_len * N_patch]
+            # Get relevant masks for patch
+            mask = bc_mask[:, (seq_len - 1) * N_patch: seq_len * N_patch]
+
+            diffs = self._gen_step(all_states, seq_pos_ids, N_patch)
+            diffs[mask] = 0.
+
+            # Calculate diffs in fp32
+            diffs = diffs.to(torch.float32)
+            all_diffs.append(diffs)
+
+            # Add on next state
+            next_state = all_states[:, -N_patch:] + diffs
+            all_states = torch.cat([all_states, next_state], dim=1)
+
+        all_diffs = torch.cat(all_diffs, dim=1)
+
+        return all_states, all_diffs
+
+    def eval_gen(self, batch_data, N_patch, start_state=1, pred_steps=4):
+        states, _, bc_mask, position_ids = batch_data
+        position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
+
+        tot_seq_len = bc_mask.shape[1] // N_patch
+        assert pred_steps + start_state - 1 <= tot_seq_len, \
+            f'Prediction steps ({pred_steps}) must be less than total sequence length ({tot_seq_len}) + 1!'
+
+        # Make sure the model can see everything before making the first prediction, duplicate the first state if start=1
+        if start_state == 1:
+            states = torch.cat([states[:, :N_patch], states], dim=1)
+            init_state = states[:, :2 * N_patch].to(self.device_map)
+            bc_mask = torch.cat([bc_mask[:, :N_patch], bc_mask], dim=1)
+            position_ids = torch.cat([position_ids[:, :N_patch], position_ids], dim=1)
+        else:
+            init_state = states[:, :start_state * N_patch].to(self.device_map)
+
+        all_states, all_diffs = self._generate(init_state, bc_mask, position_ids, N_patch, pred_steps)
+
+        if start_state == 1:
+            all_states = all_states[:, N_patch:]
+
+        return all_states, all_diffs
+
+    @torch.no_grad()
     def generate(self, batch_data, N_patch):
         states, diffs, bc_mask, position_ids = batch_data
 
