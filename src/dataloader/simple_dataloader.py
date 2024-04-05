@@ -240,6 +240,7 @@ class MGNDataset(Dataset):
         # State 2:  0.04763, 0.07536
         # Diff 2: -0.002683, 0.00208
         # 0.0739, 0.00208
+        raise NotImplementedError("Normalisation is tricky when x and y velocities have different scale, even though the system is x_y invariant")
 
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351

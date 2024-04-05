@@ -16,7 +16,7 @@ use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
 use_bos_token: true
-diff_scale_factor: 0.03   # Scale factor for diffs
+diff_scale_factor: 0.1   # Scale factor for diffs
 
 #  Positional embedding params
 pos_embedding_type: pos  # "pos", "rope"
@@ -67,6 +67,6 @@ fit_diffs: true
 enable_wandb: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
-save_on: false
+save_on: true
 
 
