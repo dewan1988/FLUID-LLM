@@ -54,7 +54,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
 
     """ NEW VERSION"""
     st = time.time()
-    pred_states, pred_diffs = model.eval_gen(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+    pred_states, pred_diffs = model.gen_seq(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
     print(f"Time taken: {time.time() - st:.4g}")
 
     # Split into steps

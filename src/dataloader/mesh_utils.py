@@ -138,6 +138,7 @@ def get_mesh_interpolation(pos, faces, grid_res=256):
     """ Returns mesh interpolation properties for a given mesh.
         Can be cached for efficiency if mesh is the same.
     """
+
     x_min, y_min = np.min(pos, axis=0)
     x_max, y_max = np.max(pos, axis=0)
     grid_x, grid_y = grid_pos(x_min, x_max, y_min, y_max, grid_res)

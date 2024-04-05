@@ -13,7 +13,7 @@ from cprint import c_print
 from transformers import AutoTokenizer, AutoModel
 from accelerate import Accelerator, DeepSpeedPlugin
 
-GLOBAL_SEED = 123
+GLOBAL_SEED = 1234
 ACCELERATOR = None
 logging.basicConfig(level=logging.INFO,
                     format='[utils:%(levelname)s] %(message)s')
