@@ -59,7 +59,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
-    metrics_agg = {f"train/{metric_name}": sum(d[metric_name]for d in metrics_per_epoch)
+    metrics_agg = {f"train/{metric_name}": sum(d[metric_name] for d in metrics_per_epoch)
                                            / len(dataloader_iterator)
                    for metric_name in metrics_names}
     metrics_agg['train/LR'] = optimizer.param_groups[0]['lr']
