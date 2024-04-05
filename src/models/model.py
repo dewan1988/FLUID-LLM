@@ -44,6 +44,7 @@ class MultivariateTimeLLM(nn.Module):
 
         c_print(f'LLM config: {llm_config}', color='green')
 
+        # BOS token if needed
         if config['use_bos_token']:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 config['llm_backbone'],

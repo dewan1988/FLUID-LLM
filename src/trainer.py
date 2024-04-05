@@ -68,14 +68,16 @@ class Trainer:
 
         N_rmse = v_N_rmse + p_N_rmse
 
-        return N_rmse.item()
+        return N_rmse # .item()
 
-    def run_train_step(self, states, target, bc_mask, position_ids):
+    def run_train_step(self, batch):
         """
         Returns
         - loss (torch.Tensor): The total loss, used for backpropagation
         - metrics_to_log (dict): A dictionary with the calculated metrics (detached from the computational graph)
         """
+        states, target, bc_mask, position_ids = batch
+
         self.model.train()
 
         # Forward pass
@@ -95,7 +97,7 @@ class Trainer:
             N_rmse = self.calculate_metrics(preds, true_state, bc_mask)
 
         # Log metrics
-        log_metrics = {"train_loss": loss.detach().item()}
+        log_metrics = {"train_loss": loss}
         log_metrics.update(all_losses)
         log_metrics['N_RMSE'] = N_rmse
 

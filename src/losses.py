@@ -190,7 +190,7 @@ class CombinedLoss(nn.Module):
             loss_val = loss_fn(preds, target, mask)
             tot_loss += loss_val * weighting
 
-            all_losses[str(loss_fn)] = loss_val.item()
+            all_losses[str(loss_fn)] = loss_val# .item()
 
         return tot_loss, all_losses
 

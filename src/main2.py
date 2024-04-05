@@ -52,6 +52,7 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
                 dataloader_iterator.set_description(
                     f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | N_RMSE: {log_metrics_dict['N_RMSE']:.3g})")
                 dataloader_iterator.refresh()
+
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
 
@@ -59,11 +60,9 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
-    metrics_agg = {f"train/{metric_name}": sum(d[metric_name]for d in metrics_per_epoch)
-                                           / len(dataloader_iterator)
+    metrics_agg = {f"train/{metric_name}": sum(d[metric_name] for d in metrics_per_epoch) / len(dataloader_iterator)
                    for metric_name in metrics_names}
     metrics_agg['train/LR'] = optimizer.param_groups[0]['lr']
-
     return metrics_agg
 
 
