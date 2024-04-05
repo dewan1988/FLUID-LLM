@@ -148,7 +148,7 @@ class MultivariateTimeLLM(nn.Module):
             input_buff.append(init_states_t[:, t])
 
         for pred_step in range(init_len, init_len+N_steps):
-            print(f'{pred_step = }')
+            # print(f'{pred_step = }')
             seq_len = len(input_buff)
             # Get correct position ids
             end_pos = pred_step * N_patch
@@ -178,7 +178,7 @@ class MultivariateTimeLLM(nn.Module):
         all_diffs = torch.cat(all_diffs, dim=1)
         return all_states, all_diffs
 
-    def eval_gen(self, batch_data, N_patch, pred_steps, start_state=1):
+    def gen_seq(self, batch_data, N_patch, pred_steps, start_state=1):
         """ Evaluate the model by generating the next steps in the sequence."""
         states, _, bc_mask, position_ids = batch_data
         position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)

@@ -10,6 +10,7 @@ from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
+from dataloader.mesh_utils import plot_patches
 
 
 def get_data_loader(config, mode="train"):
@@ -44,18 +45,6 @@ class Trainer:
         self.N_patch = N_patch
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
-    def calculate_loss(self, preds: torch.Tensor, diffs: torch.Tensor, bc_mask: torch.Tensor):
-        loss, all_losses = self.loss_fn(preds=preds, target=diffs, mask=bc_mask)
-        return loss, all_losses
-
-    def _calc_n_rmse(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
-        error = (preds - target) * (~bc_mask)
-        mse = error.pow(2).mean(dim=(-1, -2, -3, -4))
-
-        rmse = torch.sqrt(mse)
-        N_rmse = rmse.mean()
-        return N_rmse
-
     def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
         """ input.shape = (bs, seq_len*N_patch, 3, pat)
         """
@@ -81,7 +70,7 @@ class Trainer:
 
         return N_rmse.item()
 
-    def run_train_step(self, states, target, bc_mask, position_ids, teacher_forcing=True):
+    def run_train_step(self, states, target, bc_mask, position_ids):
         """
         Returns
         - loss (torch.Tensor): The total loss, used for backpropagation
@@ -89,19 +78,16 @@ class Trainer:
         """
         self.model.train()
 
-        if teacher_forcing:
-            # Forward pass
-            backbone_out, diffs = self.model(states, position_ids)
-            preds = states + diffs
-        else:
-            raise NotImplementedError
+        # Forward pass
+        _, diffs = self.model(states, position_ids)
+        preds = states + diffs
 
         # Calculate loss
         if self.params['fit_diffs']:
-            loss, all_losses = self.calculate_loss(diffs, target, bc_mask)
+            loss, all_losses = self.loss_fn(preds=diffs, target=target, mask=bc_mask)
             true_state = states + target
         else:
-            loss, all_losses = self.calculate_loss(preds, target, bc_mask)
+            loss, all_losses = self.loss_fn(preds=preds, target=target, mask=bc_mask)
             true_state = states
 
         # Calculate metrics
@@ -113,6 +99,37 @@ class Trainer:
         log_metrics.update(all_losses)
         log_metrics['N_RMSE'] = N_rmse
 
+        return loss, log_metrics
+
+    def run_gen_train_step(self, batch):
+        """ No teacher forcing. Model makes predictions for a sequence, then tries to predict diffs given generated sequence.
+            No grad when making predictions.
+        """
+
+        states, diffs, bc_mask, position_ids = batch
+        bs, tot_patch, channel, px, py = states.shape
+        seq_len = tot_patch // self.N_patch
+
+        # 1) Model makes prediction of the sequence as guide
+        self.model.eval()
+        with torch.no_grad():
+            guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
+
+        # 2) Model tries to predict diffs between generated sequence and next step to true sequence
+        # Reshape to be easier to work with
+        f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
+        f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
+        # Difference to predict
+        f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
+        guide_error = f_guide_error.view(bs, -1, channel, px, py)
+        # Last guide state has no diff to predict anymore. Delete last state
+        guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
+        bc_mask = bc_mask[:, :-self.N_patch]
+        position_ids = position_ids[:, :-self.N_patch]
+
+        # Forward pass like normal
+        self.model.train()
+        loss, log_metrics = self.run_train_step(guide_states, guide_error, bc_mask, position_ids)
         return loss, log_metrics
 
     # @torch.no_grad()
@@ -131,6 +148,14 @@ class Trainer:
     #     log_metrics = {"eval_loss": loss["loss"].detach().item()}
     #
     #     return log_metrics
+
+    def _calc_n_rmse(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
+        error = (preds - target) * (~bc_mask)
+        mse = error.pow(2).mean(dim=(-1, -2, -3, -4))
+
+        rmse = torch.sqrt(mse)
+        N_rmse = rmse.mean()
+        return N_rmse
 
     def prepare_optimizers(self):
         params = self.model.parameters()
