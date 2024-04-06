@@ -22,38 +22,33 @@ logging.basicConfig(level=logging.INFO,
 
 
 def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelerator: Accelerator):
-    trainer.model.train()
-
     metrics_per_epoch = []
     dataloader_iterator = tqdm(dataloader, desc="Iterating batches", leave=False)
     # with accelerator.accumulate(trainer.model):
     for batch_idx, batch in enumerate(dataloader_iterator):
-        optimizer.zero_grad()
+        states, diffs, bc_mask, position_ids = batch
+        states = states.to(accelerator.device)
+        diffs = diffs.to(accelerator.device)
+        bc_mask = bc_mask.to(accelerator.device)
+        position_ids = position_ids.to(accelerator.device)
+        batch = (states, diffs, bc_mask, position_ids)
 
-        with accelerator.accumulate(trainer.model):
-            states, diffs, bc_mask, position_ids, states_shifted = batch
-
-            states = states.to(accelerator.device)
-            diffs = diffs.to(accelerator.device)
-            bc_mask = bc_mask.to(accelerator.device)
-            position_ids = position_ids.to(accelerator.device)
-
+        optimizer.zero_grad(set_to_none=True)
+        with accelerator.accumulate([trainer.model]):
             if trainer.params['half_precision']:
-                with torch.cuda.amp.autocast():
-                    loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids, states_shifted,
-                                                                    teacher_forcing=trainer.params['teacher_forcing'])
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    loss, log_metrics_dict = trainer.run_train_step(batch)
             else:
-                loss, log_metrics_dict = trainer.run_train_step(states, diffs, bc_mask, position_ids, states_shifted,
-                                                                teacher_forcing=trainer.params['teacher_forcing'])
+                loss, log_metrics_dict = trainer.run_train_step(batch)
 
             # Backpropagation
             accelerator.backward(loss)
             optimizer.step()
-            #
-            dataloader_iterator.set_description(
-                f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | RMSE: {log_metrics_dict['train_rmse']:.3g})")
-            dataloader_iterator.refresh()
 
+            if batch_idx % 5 == 0:
+                dataloader_iterator.set_description(
+                    f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics_dict['train_loss']:.3g} | N_RMSE: {log_metrics_dict['N_RMSE']:.3g})")
+                dataloader_iterator.refresh()
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics_dict)
 
@@ -61,12 +56,56 @@ def run_train_epoch(dataloader, trainer: Trainer, optimizer, scheduler, accelera
 
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
-    metrics_agg = {f"train/{metric_name}": sum(d[metric_name]
-                                               for d in metrics_per_epoch) / len(dataloader_iterator)
+    metrics_agg = {f"train/{metric_name}": sum(d[metric_name] for d in metrics_per_epoch)
+                                           / len(dataloader_iterator)
                    for metric_name in metrics_names}
     metrics_agg['train/LR'] = optimizer.param_groups[0]['lr']
 
-    return metrics_agg
+    return metrics_agg, metrics_agg['train/train_loss'], metrics_agg['train/N_RMSE']
+
+
+def train_run(training_params, save_path, train_dataloader, trainer, optimizer, scheduler, accelerator, start_ep=0):
+    epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
+    for epoch_idx, epoch in enumerate(epoch_iterator):
+        train_log_metrics, loss, nrmse = run_train_epoch(dataloader=train_dataloader,
+                                            trainer=trainer,
+                                            optimizer=optimizer,
+                                            scheduler=scheduler,
+                                            accelerator=accelerator)
+
+        wandb.log(train_log_metrics, step=epoch_idx+start_ep)
+
+        epoch_iterator.set_description(
+            f"Training (Epoch: {epoch_idx + 1} | Loss: {loss:.4g} | N_RMSE: {nrmse:.4g})")
+        epoch_iterator.refresh()
+
+        # Save model checkpoint
+        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0:
+            accelerator.wait_for_everyone()
+            checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
+
+            checkpoint = {'params': training_params,
+                          'state_dict': trainer.model.state_dict(),
+                          'optimizer': optimizer.state_dict(),
+                          'scheduler': scheduler.state_dict()}
+
+            logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
+            torch.save(checkpoint, checkpoint_file_path)
+
+
+
+def get_model(training_params, train_dataloader):
+    # Get the model
+    model = MultivariateTimeLLM(training_params, device_map=get_available_device())
+
+    # Get the train data loader
+    trainer = Trainer(params=training_params,
+                      model=model,
+                      N_patch=train_dataloader.dataset.N_patch)
+
+    optimizer, scheduler = trainer.prepare_optimizers()
+
+    return model, optimizer, scheduler, trainer
 
 
 def main(args):
@@ -80,21 +119,13 @@ def main(args):
         accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params[
                                                                                                     'batch_size'] // accelerator.state.num_processes
 
-    # Get the model
-    model = MultivariateTimeLLM(training_params, device_map=get_available_device())
-
-    # Get the train data loader
     train_dataloader = get_data_loader(training_params)
-    trainer = Trainer(params=training_params,
-                      model=model,
-                      device=get_available_device())
 
-    optimizer, scheduler = trainer.prepare_optimizers()
+    model, optimizer, scheduler, trainer = get_model(training_params, train_dataloader)
 
     # Wandb
     if training_params['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
-
     wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=training_params)
 
     # Prepare model, optimizer and dataloader for accelerate training
@@ -102,35 +133,11 @@ def main(args):
     trainer.model = model
 
     # Make save folder and save config
-    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder)
+    save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder, save_on=training_params['save_on'])
     logging.info(f"Saving checkpoints to: {save_path}")
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
-    epoch_iterator = trange(training_params["num_epochs"], desc="Training", position=0, leave=True)
-    for epoch_idx, epoch in enumerate(epoch_iterator):
-        train_log_metrics = run_train_epoch(dataloader=train_dataloader,
-                                            trainer=trainer,
-                                            optimizer=optimizer,
-                                            scheduler=scheduler,
-                                            accelerator=accelerator)
-
-        wandb.log(train_log_metrics, step=epoch_idx)
-
-        epoch_iterator.set_description(
-            f"Training (Epoch: {epoch_idx + 1} | Loss: {train_log_metrics['train/train_loss']:.4g} | RMSE: {train_log_metrics['train/train_rmse']:.4g})")
-        epoch_iterator.refresh()
-
-        # Save model checkpoint
-        if training_params['save_model_each'] > 0 and epoch_idx % training_params['save_model_each'] == 0:
-            accelerator.wait_for_everyone()
-            checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
-
-            checkpoint = {'params': training_params,
-                          'state_dict': trainer.model.state_dict(),
-                          'optimizer': optimizer.state_dict()}
-
-            logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
-            torch.save(checkpoint, checkpoint_file_path)
+    train_run(training_params, save_path, train_dataloader, trainer, optimizer, scheduler, accelerator)
 
     # Close wandb
     wandb.finish()

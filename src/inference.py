@@ -8,6 +8,7 @@ import logging
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+import time
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from models.model import MultivariateTimeLLM
@@ -30,15 +31,17 @@ def rmse_loss(pred_state, true_state):
     return torch.sqrt(mse_loss)
 
 
-def test_generate(model: MultivariateTimeLLM, cfg):
-    bs = cfg['batch_size']
-    ds = MGNDataset(load_dir=cfg['load_dir'],
-                       resolution=cfg['resolution'],
-                       patch_size=cfg['patch_size'],
-                       stride=cfg['stride'],
-                       seq_len=cfg['seq_len'],
-                       seq_interval=cfg['seq_interval'],
-                       step_per_ep=bs)
+def test_generate(model: MultivariateTimeLLM, eval_cfg):
+    bs = eval_cfg['batch_size']
+    ds = MGNDataset(load_dir=eval_cfg['load_dir'],
+                    resolution=model.config['resolution'],
+                    patch_size=model.config['patch_size'],
+                    stride=model.config['stride'],
+                    seq_len=eval_cfg['seq_len'],
+                    seq_interval=model.config['seq_interval'],
+                    mode='test',
+                    fit_diffs=model.config['fit_diffs'],
+                    normalize=model.config['normalize_ds'])
     N_patch = ds.N_patch
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
@@ -48,20 +51,36 @@ def test_generate(model: MultivariateTimeLLM, cfg):
     # Get batch and run through model
     batch_data = next(iter(dl))
     true_states, true_diffs = batch_data[0], batch_data[1]
-    pred_states, pred_diffs = model.generate(batch_data, N_patch)
+
+    """ NEW VERSION"""
+    st = time.time()
+    pred_states, pred_diffs = model.gen_seq(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+    print(f"Time taken: {time.time() - st:.4g}")
 
     # Split into steps
-    pred_states = pred_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_states = true_states.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_diffs = pred_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16).cpu()
-    true_diffs = true_diffs.view(bs, cfg['seq_len']-1, N_patch, 3, 16, 16)
+    true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+    pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
+    pred_states = pred_states[:, :-1]
+
+    true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
+    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+
+    # """ OLD VERSION"""
+    # st = time.time()
+    # pred_states, pred_diffs = model.generate(batch_data, N_patch)
+    # print(f'Time taken: {time.time() - st:.4g}')
+    # # Split into steps
+    # pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+    # pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)
 
     # Plotting
     plot_step = -1
-    batch_num = 1
+    batch_num = 0
 
     # Plot diffs
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
@@ -73,7 +92,6 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         plot_full_patches(img_1, (15, 4), ax[0])
         # Predictions
         plot_full_patches(img_2, (15, 4), ax[1])
-
     fig.tight_layout()
     fig.show()
 
@@ -89,8 +107,6 @@ def test_generate(model: MultivariateTimeLLM, cfg):
         plot_full_patches(img_2, (15, 4), ax[1])
     fig.tight_layout()
     fig.show()
-
-    print(f'{pred_states.shape = }, {true_states.shape = }')
 
 
 def main(args):
@@ -111,8 +127,7 @@ def main(args):
     checkpoint_state_dict = checkpoint['state_dict']
 
     # Get the model
-    precision = torch.bfloat16 if checkpoints_params['half_precision'] else torch.float32
-    model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device(), precision=precision)
+    model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device())
 
     # Load weights
     model.load_state_dict(checkpoint_state_dict)

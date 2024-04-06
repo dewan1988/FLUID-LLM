@@ -8,11 +8,12 @@ import logging
 import numpy as np
 from datetime import datetime
 import shutil
+from cprint import c_print
 
 from transformers import AutoTokenizer, AutoModel
 from accelerate import Accelerator, DeepSpeedPlugin
 
-GLOBAL_SEED = 123
+GLOBAL_SEED = 1234
 ACCELERATOR = None
 logging.basicConfig(level=logging.INFO,
                     format='[utils:%(levelname)s] %(message)s')
@@ -123,16 +124,22 @@ def save_cfg(cfg_path, save_path):
     shutil.copy(cfg_path, f'{save_path}/')
 
 
-def make_save_folder(save_dir, save_name=None):
+def make_save_folder(save_dir, save_name: str, save_on: bool):
     """ Make save folder. If no name is given, create a folder with the current date and time."""
+
+    if not save_on:
+        c_print("Warning: Save is off. Dumping save files to /tmp.", color='red')
+        save_dir = '/tmp'
+        save_name = 'LLM4TS_data_dump'
+
     if save_name is None:
         save_name = datetime.now().strftime("%m-%d_%H-%M-%S")
 
     save_path = f'{save_dir}/{save_name}'
     if os.path.exists(save_path):
-        raise ValueError(f"Folder {save_path} already exists.")
+        c_print(f"Warning: Folder {save_path} already exists.", color='red')
 
-    os.mkdir(save_path)
+    os.makedirs(save_path, exist_ok=True)
 
     return save_path
 

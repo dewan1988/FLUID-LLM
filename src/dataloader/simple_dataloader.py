@@ -81,7 +81,7 @@ class MGNDataset(Dataset):
 
         to_patches = self._get_full_seq(save_file, step_num)
 
-        states, diffs, mask, states_shifted = self._ds_get_pt(to_patches)
+        states, diffs, mask = self._ds_get_pt(to_patches)
 
         # Get positions / times for each patch
         seq_dim = (self.seq_len - 1) * self.N_patch
@@ -92,12 +92,7 @@ class MGNDataset(Dataset):
 
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
 
-        if self.normalize:
-            states = self._normalize(states)
-            diffs = self._normalize(diffs)
-            states_shifted = self._normalize(states_shifted)
-
-        return states, diffs, mask, torch.from_numpy(position_ids), states_shifted
+        return states, diffs, mask, torch.from_numpy(position_ids)
 
     def _get_step(self, triang, tri_index, grid_x, grid_y, save_data, step_num):
         """
@@ -211,36 +206,27 @@ class MGNDataset(Dataset):
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
 
+        if self.normalize:
+            states = self._normalize(states)
+
         if self.fit_diffs:
             target = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
         else:
             target = states[1:]
-
         # Compute targets and discard last state that has no diff
-        states_shifted = states[1:]
         states = states[:-1]
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
         states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        states_shifted = states_shifted.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
         target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-
-        # # Compute diffs and discard last state that has no diff
-        # diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
-        # states = states[:-1]
-        #
-        # # Reshape into a continuous sequence
-        # seq_dim = (self.seq_len - 1) * self.N_patch
-        # states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        # diffs = diffs.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
 
         # Reshape mask. All masks are the same
         masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
 
-        return states, target, masks.bool(), states_shifted
+        return states, target, masks.bool()
 
-    def _normalize(self, tensor):
+    def _normalize(self, states):
 
         # Coordinate
         # State 0:  0.823, 0.3315
@@ -254,7 +240,7 @@ class MGNDataset(Dataset):
         # State 2:  0.04763, 0.07536
         # Diff 2: -0.002683, 0.00208
         # 0.0739, 0.00208
-
+        raise NotImplementedError("Normalisation is tricky when x and y velocities have different scale, even though the system is x_y invariant")
 
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351
@@ -264,10 +250,10 @@ class MGNDataset(Dataset):
         stds = torch.sqrt(torch.tensor([s0_var, s1_var, s2_var]).reshape(1, 3, 1, 1))
 
         # Normalise states
-        tensor = tensor - means
-        tensor = tensor / stds
+        states = states - means
+        states = states / stds
 
-        return tensor
+        return states
 
     def __len__(self):
         return len(self.save_files)

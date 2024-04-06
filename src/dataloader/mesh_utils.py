@@ -71,6 +71,8 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     # state.clamp_(0, 1)
     state = state.detach().float().cpu().numpy()
     v_min, v_max = state.min(), state.max()
+    # Normalize state to [0, 1]
+    state = (state - v_min) / (v_max - v_min)
     print(f'min: {v_min:.2g}, max: {v_max:.2g}, mean: {state.mean():.2g}, std: {state.std():.2g}')
 
     fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
@@ -136,6 +138,7 @@ def get_mesh_interpolation(pos, faces, grid_res=256):
     """ Returns mesh interpolation properties for a given mesh.
         Can be cached for efficiency if mesh is the same.
     """
+
     x_min, y_min = np.min(pos, axis=0)
     x_max, y_max = np.max(pos, axis=0)
     grid_x, grid_y = grid_pos(x_min, x_max, y_min, y_max, grid_res)

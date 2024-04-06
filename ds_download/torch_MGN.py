@@ -5,8 +5,8 @@ import json
 import os
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torchdata.datapipes.iter import FileLister, FileOpener
+import pickle
 
 
 def check_repeat(arr):
@@ -44,8 +44,11 @@ def parse_numerical_data(proto, meta):
 
 
 def main():
-    dataset_path = '/mnt/hdd1/fluid_ds/meshgraphnets/cylinder'
+    ds_name = 'cylinder'
+    dataset_path = f'/mnt/hdd1/fluid_ds/meshgraphnets/{ds_name}'
     split_name = 'train'
+    save_path = f'./ds/MGN/{ds_name}_dataset/{split_name}2/'
+
     with open(os.path.join(dataset_path, 'meta.json'), 'r') as fp:
         meta = json.load(fp)
 
@@ -74,6 +77,15 @@ def main():
         # Convert cells to int16
         if torch.all(save_stats['cells'] >= np.iinfo(np.int16).min) and torch.all(save_stats['cells'] <= np.iinfo(np.int16).max):
             save_stats['cells'] = save_stats['cells'].to(torch.int16)
+
+        # Convert save_stats to numpy
+        save_stats = {k: v.numpy() for k, v in save_stats.items()}
+
+        with open(f"{save_path}/save_{i}.pkl", 'wb') as f:
+            pickle.dump(save_stats, f)
+
+        # print(save_path)
+        # exit(5)
 
 
 if __name__ == "__main__":
