@@ -125,7 +125,8 @@ def main(args):
 
             checkpoint = {'params': training_params,
                           'state_dict': trainer.model.state_dict(),
-                          'optimizer': optimizer.state_dict()}
+                          'optimizer': optimizer.state_dict(),
+                          'scheduler': scheduler.state_dict()}
 
             logging.info(f"Saving model checkpoint at epoch {epoch_idx} to {checkpoint_file_path}")
             torch.save(checkpoint, checkpoint_file_path)
