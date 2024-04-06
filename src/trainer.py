@@ -68,7 +68,7 @@ class Trainer:
 
         N_rmse = v_N_rmse + p_N_rmse
 
-        return N_rmse # .item()
+        return N_rmse  # .item()
 
     def run_train_step(self, batch):
         """
@@ -131,7 +131,11 @@ class Trainer:
 
         # Forward pass like normal
         self.model.train()
-        loss, log_metrics = self.run_train_step(guide_states, guide_error, bc_mask, position_ids)
+        guide_batch = (guide_states, guide_error, bc_mask, position_ids)
+        loss, log_metrics = self.run_train_step(guide_batch)
+
+        # Rename losses
+        log_metrics = {f'gen_{k}': v for k, v in log_metrics.items()}
         return loss, log_metrics
 
     # @torch.no_grad()
