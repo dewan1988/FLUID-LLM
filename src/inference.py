@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import time
 
+from tqdm import tqdm
+
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
 from metrics import calc_n_rmse
 from models.model import MultivariateTimeLLM
@@ -32,6 +34,48 @@ def rmse_loss(pred_state, true_state):
     return torch.sqrt(mse_loss)
 
 
+@torch.no_grad()
+def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
+    bs = eval_cfg['batch_size']
+    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}/{mode}",
+                    resolution=model.config['resolution'],
+                    patch_size=model.config['patch_size'],
+                    stride=model.config['stride'],
+                    seq_len=eval_cfg['seq_len'],
+                    seq_interval=model.config['seq_interval'],
+                    mode=mode,
+                    fit_diffs=model.config['fit_diffs'],
+                    normalize=model.config['normalize_ds'])
+    N_patch = ds.N_patch
+
+    dl = DataLoader(ds, batch_size=bs, pin_memory=True)
+
+    model.eval()
+
+    all_nmrse = []
+
+    # Get batch and run through model
+    for eval_batch in tqdm(dl, desc="Evaluating model"):
+        true_states, true_diffs = eval_batch[0], eval_batch[1]
+        pred_states, pred_diffs = model.gen_seq(eval_batch, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+
+        # Split into steps
+        true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+        pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
+        pred_states = pred_states[:, :-1]
+
+        loss = rmse_loss(pred_states, true_states)
+        N_rmse = calc_n_rmse(pred_states, true_states)
+        all_nmrse.append(N_rmse.item())
+
+        #logging.info(f"Loss: {loss.mean():.7g}")
+        #logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+
+    # Get mean N_rmse
+    mean_nrmse = sum(all_nmrse) / len(all_nmrse)
+    logging.info(f"N_RMSE: {mean_nrmse:.7g}")
+
+
 def test_generate(model: MultivariateTimeLLM, eval_cfg):
     bs = eval_cfg['batch_size']
     ds = MGNDataset(load_dir=eval_cfg['load_dir'],
@@ -40,7 +84,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
                     stride=model.config['stride'],
                     seq_len=eval_cfg['seq_len'],
                     seq_interval=model.config['seq_interval'],
-                    mode='test',
+                    mode='valid',
                     fit_diffs=model.config['fit_diffs'],
                     normalize=model.config['normalize_ds'])
     N_patch = ds.N_patch
@@ -137,7 +181,10 @@ def main(args):
     model.load_state_dict(checkpoint_state_dict)
 
     # Run test_generate
-    test_generate(model, inference_params)
+    #test_generate(model, inference_params)
+
+    # Run evaluation
+    evaluate_model(model, inference_params, mode='valid')
 
 
 if __name__ == '__main__':
