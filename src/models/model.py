@@ -92,9 +92,6 @@ class MultivariateTimeLLM(nn.Module):
         # Nullify undesired layers
         self.backbone.embeddings = PassthroughEmbeddings()
 
-        # Freeze backbone parameters
-        freeze_model(self.backbone)
-
         if not self.config['freeze_llm']:
             if self.config['use_lora']:
                 logging.info(f"Using LoRA with config: {self.config['lora_config']}")

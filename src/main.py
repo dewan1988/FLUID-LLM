@@ -106,8 +106,7 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 loss, log_metrics_dict = trainer.run_gen_train_step(batch)
         else:
-            loss, log_metrics_dict = trainer.run_train_step(batch)
-        # Keep track of metrics
+            loss, log_metrics_dict = trainer.run_gen_train_step(batch)
 
     val_metrics_ep.append(log_metrics_dict)
     return val_metrics_ep
@@ -129,17 +128,20 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
 
         train_log, loss, nrmse = process_metrics(train_log_metrics, len(train_dataloader), run_mode, "train")
         wandb.log(train_log, step=epoch_idx + start_ep)
-        epoch_iterator.set_description(
-            f"Training (Epoch: {epoch_idx + 1} | Loss: {loss:.4g} | N_RMSE: {nrmse:.4g})")
-        epoch_iterator.refresh()
 
         # Validation Step
         val_metrics = val_epoch(valid_dataloader, trainer, accelerator)
-        val_log, _, _ = process_metrics(val_metrics, len(valid_dataloader), "Gen", "val")
+        val_log, val_loss, val_nmrse = process_metrics(val_metrics, len(valid_dataloader), "Gen", "val")
         wandb.log(val_log, step=epoch_idx + start_ep)
 
+        epoch_iterator.set_description(
+            f"Epoch: {epoch_idx + 1}: "
+            f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.7g}) - "
+            f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.7g})")
+        epoch_iterator.refresh()
+
         # Save model checkpoint
-        if train_params['save_model_each'] > 0 and epoch_idx % train_params['save_model_each'] == 0:
+        if train_params['save_on'] and train_params['save_model_each'] > 0 and epoch_idx % train_params['save_model_each'] == 0:
             accelerator.wait_for_everyone()
             checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 
