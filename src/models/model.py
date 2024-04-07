@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
@@ -12,6 +14,9 @@ from models.layers.patch_decoder import PatchDecoder
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
 
 transformers.logging.set_verbosity_error()
+
+logging.basicConfig(level=logging.INFO,
+                    format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
 class MultivariateTimeLLM(nn.Module):
@@ -91,9 +96,16 @@ class MultivariateTimeLLM(nn.Module):
         freeze_model(self.backbone)
 
         if not self.config['freeze_llm']:
-            config = LoraConfig(**self.config['lora_config'])
-            self.backbone = get_peft_model(self.backbone, config)
-            self.backbone.print_trainable_parameters()
+            if self.config['use_lora']:
+                logging.info(f"Using LoRA with config: {self.config['lora_config']}")
+                config = LoraConfig(**self.config['lora_config'])
+                self.backbone = get_peft_model(self.backbone, config)
+                self.backbone.print_trainable_parameters()
+            else:
+                logging.info(f"Fine-tuning the entire LLM without LoRA.")
+        else:
+            # Freeze backbone parameters
+            freeze_model(self.backbone)
 
     def forward(self, x, position_ids):
         batch_size = x.shape[0]
@@ -123,7 +135,7 @@ class MultivariateTimeLLM(nn.Module):
             Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
             Return.shape = (bs, (seq_len+1)*N_patch, 3, 16, 16)"""
 
-        with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+        with torch.cuda.amp.autocast():
             _, pred_diff = self.forward(states, position_ids)
         diffs = pred_diff[:, -N_patch:]
         return diffs
@@ -254,7 +266,7 @@ class MultivariateTimeLLM(nn.Module):
 
                 # Predict next diff
                 with torch.no_grad():
-                    with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    with torch.cuda.amp.autocast():
                         _, pred_diff = self(in_hist, pos_id)
                 pred_diff = pred_diff[:, -1:]
                 # Mask off boundary

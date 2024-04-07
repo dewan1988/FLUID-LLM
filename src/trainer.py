@@ -199,6 +199,7 @@ class Trainer:
         print(f"The model has {get_trainable_parameters(self.model)} trainable parameters")
 
         optimizer_type = self.params['optimizer']
+        self.params['learning_rate'] = float(self.params['learning_rate'])
         if optimizer_type == "adamw":
             optimizer = torch.optim.AdamW(list(params),
                                           lr=self.params['learning_rate'],

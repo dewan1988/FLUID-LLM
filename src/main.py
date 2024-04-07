@@ -5,6 +5,7 @@ import os
 import sys
 import argparse
 import logging
+from random import random
 from statistics import mean
 
 import numpy as np
@@ -38,10 +39,14 @@ def get_model(training_params):
 
 
 def select_run_mode(trainer: Trainer, gen_cfg, epoch):
-    if epoch > gen_cfg['start_epoch']:
-        if epoch % 5 == 0:
-            return trainer.run_gen_train_step, "Gen"
-    return trainer.run_train_step, "Autoreg"
+    if gen_cfg['ratio'] < 0.0 or gen_cfg['ratio'] > 1.0:
+        raise ValueError("Invalid teacher forcing ratio. Must be between 0 and 1.")
+
+    use_teacher_forcing = random() < gen_cfg['ratio']
+    if not use_teacher_forcing:
+        return trainer.run_gen_train_step, "Gen"
+    else:
+        return trainer.run_train_step, "Autoreg"
 
 
 def process_metrics(metrics_per_epoch, epoch_len, run_mode, mode: str):
