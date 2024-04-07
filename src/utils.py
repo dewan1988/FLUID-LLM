@@ -45,18 +45,18 @@ def get_trainable_parameters(model):
 
 
 def get_available_device():
-    accelerator = get_accelerator()
+    accelerator = get_accelerator(precision='bf16')
     return accelerator.device
 
 
-def get_accelerator(use_deepspeed=False):
+def get_accelerator(precision, use_deepspeed=False):
     global ACCELERATOR
     if not ACCELERATOR:
         if use_deepspeed:
             deepspeed_plugin = DeepSpeedPlugin(hf_ds_config='configs/deepspeed_zero2.json')
             ACCELERATOR = Accelerator(deepspeed_plugin=deepspeed_plugin)
         else:
-            ACCELERATOR = Accelerator()
+            ACCELERATOR = Accelerator(mixed_precision='bf16')
 
     return ACCELERATOR
 
