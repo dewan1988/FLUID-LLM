@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
+from metrics import calc_n_rmse
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
 from dataloader.mesh_utils import plot_patches
@@ -54,19 +55,7 @@ class Trainer:
         target = target.view(BS, -1, self.N_patch, channel, px, py)
         bc_mask = bc_mask.view(BS, -1, self.N_patch, channel, px, py)
 
-        # shape = (bs, seq_len, N_patch, 1/2, 16, 16)
-        v_pred = preds[:, :, :, :2, :]
-        v_target = target[:, :, :, :2, :]
-        v_mask = bc_mask[:, :, :, :2, :]
-
-        p_pred = preds[:, :, :, 2:, :]
-        p_target = target[:, :, :, 2:, :]
-        p_mask = bc_mask[:, :, :, 2:, :]
-
-        v_N_rmse = self._calc_n_rmse(v_pred, v_target, v_mask)
-        p_N_rmse = self._calc_n_rmse(p_pred, p_target, p_mask)
-
-        N_rmse = v_N_rmse + p_N_rmse
+        N_rmse = calc_n_rmse(preds, target, bc_mask)
 
         return N_rmse  # .item()
 
@@ -185,14 +174,6 @@ class Trainer:
     #     log_metrics = {"eval_loss": loss["loss"].detach().item()}
     #
     #     return log_metrics
-
-    def _calc_n_rmse(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
-        error = (preds - target) * (~bc_mask)
-        mse = error.pow(2).mean(dim=(-1, -2, -3, -4))
-
-        rmse = torch.sqrt(mse)
-        N_rmse = rmse.mean()
-        return N_rmse
 
     def prepare_optimizers(self):
         params = self.model.parameters()

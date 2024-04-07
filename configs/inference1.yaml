@@ -1,8 +1,8 @@
 # Load location
 checkpoint_save_path: model_checkpoints
-step_to_load: 180
+step_to_load: 20
 
 # DL param
-load_dir: ./ds/MGN/cylinder_dataset/train
+load_dir: /home/datasets/mgn/MGN/cylinder_dataset/train
 seq_len: 27
-batch_size: 64
+batch_size: 4

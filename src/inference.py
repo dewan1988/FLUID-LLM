@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import time
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
+from metrics import calc_n_rmse
 from models.model import MultivariateTimeLLM
 
 from dataloader.simple_dataloader import MGNDataset
@@ -76,7 +77,10 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
-    print(loss)
+    N_rmse = calc_n_rmse(pred_states, true_states)
+
+    logging.info(f"Loss: {loss.mean():.7g}")
+    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
 
     # Plotting
     plot_step = -1
