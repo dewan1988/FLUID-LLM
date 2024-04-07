@@ -14,7 +14,7 @@ from dataloader.mesh_utils import plot_patches
 
 
 def get_data_loader(config, mode="train"):
-    ds = MGNDataset(load_dir=config['load_dir'],
+    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
                     resolution=config['resolution'],
                     patch_size=config['patch_size'],
                     stride=config['stride'],
@@ -97,7 +97,7 @@ class Trainer:
             N_rmse = self.calculate_metrics(preds, true_state, bc_mask)
 
         # Log metrics
-        log_metrics = {"train_loss": loss}
+        log_metrics = {"loss": loss}
         log_metrics.update(all_losses)
         log_metrics['N_RMSE'] = N_rmse
 
@@ -131,6 +131,37 @@ class Trainer:
 
         # Forward pass like normal
         self.model.train()
+        guide_batch = (guide_states, guide_error, bc_mask, position_ids)
+        loss, log_metrics = self.run_train_step(guide_batch)
+
+        return loss, log_metrics
+
+    @torch.no_grad()
+    def run_gen_val_step(self, batch):
+        """ Like above, but use model.eval()
+        """
+        self.model.eval()
+
+        states, diffs, bc_mask, position_ids = batch
+        bs, tot_patch, channel, px, py = states.shape
+        seq_len = tot_patch // self.N_patch
+
+        # 1) Model makes prediction of the sequence as guide
+        guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
+
+        # 2) Model tries to predict diffs between generated sequence and next step to true sequence
+        # Reshape to be easier to work with
+        f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
+        f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
+        # Difference to predict
+        f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
+        guide_error = f_guide_error.view(bs, -1, channel, px, py)
+        # Last guide state has no diff to predict anymore. Delete last state
+        guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
+        bc_mask = bc_mask[:, :-self.N_patch]
+        position_ids = position_ids[:, :-self.N_patch]
+
+        # Forward pass like normal
         guide_batch = (guide_states, guide_error, bc_mask, position_ids)
         loss, log_metrics = self.run_train_step(guide_batch)
 
