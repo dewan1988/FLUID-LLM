@@ -160,7 +160,7 @@ def main(args):
     logging.info(f"Parameters for training: {training_params}")
 
     # Prepare accelerator
-    accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'])
+    accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'], precision='bf16')
     if training_params['use_deepspeed']:
         accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params[
                                                                                                     'batch_size'] // accelerator.state.num_processes

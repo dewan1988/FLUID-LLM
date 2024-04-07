@@ -5,7 +5,7 @@ llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, faceboo
 llm_layers: 7
 llm_4bit_loading: false
 freeze_llm: false
-use_lora: false
+use_lora: true
 lora_config:
   r: 16
   lora_alpha: 64
@@ -54,8 +54,8 @@ schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
 teacher_forcing:
-    ratio: 0.5
-    start_epoch: 20
+    ratio: 0.2
+    start_epoch: 150
 
 # Dataloader params
 num_workers: 8
@@ -71,7 +71,7 @@ fit_diffs: true
 
 # Logging params
 enable_wandb: true
-save_on: false
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
