@@ -141,7 +141,7 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
         epoch_iterator.refresh()
 
         # Save model checkpoint
-        if train_params['save_on'] and train_params['save_model_each'] > 0 and epoch_idx % train_params['save_model_each'] == 0:
+        if train_params['save_on'] and train_params['save_model_each'] > 0 and epoch_idx % train_params['save_model_each'] == 0 and epoch_idx > 0:
             accelerator.wait_for_everyone()
             checkpoint_file_path = os.path.join(save_path, f'step_{epoch_idx}.pth')
 
