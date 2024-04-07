@@ -2,7 +2,7 @@ task_name: cylinder_task
 
 # LLM params
 llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
-llm_layers: 7
+llm_layers: 0
 llm_4bit_loading: false
 freeze_llm: false
 use_lora: true
@@ -17,7 +17,7 @@ flash_attention: true
 use_deepspeed: false
 input_emb_layer_norm_eps: 1.0e-05
 input_emb_layer_dropout: 0.1
-use_bos_token: true
+use_bos_token: false
 diff_scale_factor: 0.03   # Scale factor for diffs
 
 #  Positional embedding params
@@ -42,19 +42,20 @@ decoder_params:
     zero_last_layer: true
 
 # Training params
-batch_size: 8
+batch_size: 32
 num_epochs: 301
 epoch_size: 100
-learning_rate: 10.e-4
+learning_rate: 1e-3
 weight_decay: 0
 optimizer: adam
-loss_function: ['mae', 'mse']
-loss_weighting: [0.3, 10]
+loss_function: ['rmse']
+loss_weighting: [1]
 schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
 teacher_forcing:
-    ratio: 0.5
+    ratio: 0.75
+    start_epoch: 0
 
 # Dataloader params
 num_workers: 8
@@ -65,7 +66,7 @@ seq_len: 10
 seq_interval: 2
 resolution: 240
 normalize_ds: false
-fit_diffs: true
+fit_diffs: false
 # Validation
 
 # Logging params

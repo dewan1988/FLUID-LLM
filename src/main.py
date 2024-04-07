@@ -42,6 +42,9 @@ def select_run_mode(trainer: Trainer, gen_cfg, epoch):
     if gen_cfg['ratio'] < 0.0 or gen_cfg['ratio'] > 1.0:
         raise ValueError("Invalid teacher forcing ratio. Must be between 0 and 1.")
 
+    if gen_cfg['start_epoch'] != 0 and epoch < gen_cfg['start_epoch']:
+        return trainer.run_train_step, "Autoreg"
+
     use_teacher_forcing = random() < gen_cfg['ratio']
     if not use_teacher_forcing:
         return trainer.run_gen_train_step, "Gen"
