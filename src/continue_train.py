@@ -130,7 +130,7 @@ def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
     load_file = "04-06_03-52-33"
-    load_num = 40
+    load_num = 80
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
     # Use saved .yaml config for easier editing
@@ -143,7 +143,7 @@ def main(args):
     if training_params['use_deepspeed']:
         accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params['batch_size'] // accelerator.state.num_processes
 
-    model, optimizer, train_dataloader, scheduler, trainer = load_model(save_file, training_params)
+    model, optimizer, train_dl, scheduler, trainer = load_model(save_file, training_params)
 
     # Wandb
     if training_params['enable_wandb'] is False:
@@ -151,7 +151,7 @@ def main(args):
     wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=training_params)
 
     # Prepare model, optimizer and dataloader for accelerate training
-    model, optimizer, train_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
+    model, optimizer, train_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dl, scheduler)
     trainer.model = model
 
     # Make save folder and save config
