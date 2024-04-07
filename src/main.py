@@ -22,20 +22,18 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def get_model(training_params):
+def get_model(training_params, dl):
     # Get the model
     model = MultivariateTimeLLM(training_params, device_map=get_available_device())
 
-    # Get the train data loader
-    train_dataloader = get_data_loader(training_params, mode='train')
-
+    # Get the Trainer
     trainer = Trainer(params=training_params,
                       model=model,
-                      N_patch=train_dataloader.dataset.N_patch)
+                      N_patch=dl.dataset.N_patch)
 
     optimizer, scheduler = trainer.prepare_optimizers()
 
-    return model, optimizer, scheduler, trainer, train_dataloader
+    return model, optimizer, scheduler, trainer
 
 
 def select_run_mode(trainer: Trainer, gen_cfg, epoch):
@@ -164,9 +162,9 @@ def main(args):
     if training_params['use_deepspeed']:
         accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params[
                                                                                                     'batch_size'] // accelerator.state.num_processes
-
-    model, optimizer, scheduler, trainer, train_dataloader = get_model(training_params)
+    train_dataloader = get_data_loader(training_params, mode="train")
     valid_dataloader = get_data_loader(training_params, mode="valid")
+    model, optimizer, scheduler, trainer = get_model(training_params, train_dataloader)
 
     # Prepare model, optimizer and dataloader for accelerate training
     model, optimizer, train_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
