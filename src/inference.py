@@ -56,16 +56,27 @@ def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
 
     # Get batch and run through model
     for eval_batch in tqdm(dl, desc="Evaluating model"):
-        true_states, true_diffs = eval_batch[0], eval_batch[1]
-        pred_states, pred_diffs = model.gen_seq(eval_batch, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+        true_states, true_diffs, mask = eval_batch[0], eval_batch[1], eval_batch[2]
+        bs, tot_patch, channel, px, py = true_states.shape
+        seq_len = tot_patch // N_patch
+
+        pred_states, _ = model.gen_seq(eval_batch, N_patch, pred_steps=seq_len - 1)
+
+        true_states = true_states.view(bs, seq_len, N_patch, channel, px, py)
+        pred_states = pred_states.view(bs, seq_len, N_patch, channel, px, py).cpu()
+        mask = mask.view(bs, seq_len, N_patch, channel, px, py)
 
         # Split into steps
-        true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-        pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
-        pred_states = pred_states[:, :-1]
+        #true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
+        #pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
+        #pred_states = pred_states[:, :-1]
+
+        #print(true_states.shape)
+        #print(pred_states.shape)
+        #exit(1)
 
         loss = rmse_loss(pred_states, true_states)
-        N_rmse = calc_n_rmse(pred_states, true_states)
+        N_rmse = calc_n_rmse(pred_states, true_states, mask)
         all_nmrse.append(N_rmse.item())
 
         #logging.info(f"Loss: {loss.mean():.7g}")

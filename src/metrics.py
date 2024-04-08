@@ -5,7 +5,7 @@ import torch
 
 
 def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor = None):
-    if bc_mask:
+    if bc_mask is not None:
         error = (preds - target) * (~bc_mask)
     else:
         error = (preds - target)
@@ -21,7 +21,7 @@ def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor
     # shape = (bs, seq_len, N_patch, 1/2, 16, 16)
     v_pred = preds[:, :, :, :2, :]
     v_target = target[:, :, :, :2, :]
-    if bc_mask:
+    if bc_mask is not None:
         v_mask = bc_mask[:, :, :, :2, :]
     else:
         v_mask = None
@@ -29,7 +29,7 @@ def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor
     p_pred = preds[:, :, :, 2:, :]
     p_target = target[:, :, :, 2:, :]
 
-    if bc_mask:
+    if bc_mask is not None:
         p_mask = bc_mask[:, :, :, 2:, :]
     else:
         p_mask = None
