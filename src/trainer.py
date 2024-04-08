@@ -66,20 +66,30 @@ class Trainer:
         - metrics_to_log (dict): A dictionary with the calculated metrics (detached from the computational graph)
         """
         states, target, bc_mask, position_ids = batch
-
+        # If fitting diffs, target is diffs. Otherwise, target is next state
         self.model.train()
 
         # Forward pass
-        _, diffs = self.model(states, position_ids)
-        preds = states + diffs
+        _, model_out = self.model(states, position_ids)
+        # preds = states + diffs
+        #
+        # # Calculate loss
+        # if self.params['fit_diffs']:
+        #     loss, all_losses = self.loss_fn(preds=diffs, target=target, mask=bc_mask)
+        #     true_state = states + target
+        # else:
+        #     loss, all_losses = self.loss_fn(preds=preds, target=target, mask=bc_mask)
+        #     true_state = states
 
-        # Calculate loss
+        loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
+
+        # Find predicted next state and true next state
         if self.params['fit_diffs']:
-            loss, all_losses = self.loss_fn(preds=diffs, target=target, mask=bc_mask)
             true_state = states + target
+            preds = states + model_out
         else:
-            loss, all_losses = self.loss_fn(preds=preds, target=target, mask=bc_mask)
             true_state = states
+            preds = model_out
 
         # Calculate metrics
         with torch.no_grad():
