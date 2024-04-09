@@ -14,11 +14,15 @@ class InitialConditionGenerator:
         """
         Randomly selects a type of initial condition to return
         """
-        rnd = np.random.randint(2)
+        rnd = np.random.randint(3)
         if rnd == 0:
             return self.multiple_gaussian_pulses()
         elif rnd == 1:
             return self.multiple_plane_waves()
+        elif rnd == 2:
+            gauss = self.gaussian_pulse()
+            waves = self.plane_wave()
+            return gauss + waves
         else:
             raise ValueError("Off by 1")
 
@@ -37,7 +41,7 @@ class InitialConditionGenerator:
 
         x = np.linspace(0, self.nx, self.nx)
         y = np.linspace(0, self.ny, self.ny)
-        X, Y = np.meshgrid(x, y)
+        X, Y = np.meshgrid(x, y, indexing='ij')
         return magnitude * np.exp(-(((X - center[0]) ** 2) + ((Y - center[1]) ** 2)) / (2 * sigma ** 2))
 
     def plane_wave(self, wavelength=None, angle=None, phase=None, amplitude=None):
@@ -51,7 +55,6 @@ class InitialConditionGenerator:
 
         if wavelength is None:
             wavelength = np.random.randint(self.min_scale, self.max_scale * 0.75)
-            print(wavelength)
         if angle is None:
             angle = np.random.randint(0, 180)
         if phase is None:
@@ -64,7 +67,7 @@ class InitialConditionGenerator:
 
         x = np.linspace(0, self.nx, self.nx)
         y = np.linspace(0, self.ny, self.ny)
-        X, Y = np.meshgrid(x, y)
+        X, Y = np.meshgrid(x, y, indexing='ij')
 
         return amplitude * np.sin(kx * X + ky * Y + phase)
 
