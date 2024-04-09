@@ -1,6 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.ndimage import distance_transform_edt
+import torch
+import torch.nn.functional as F
+
 
 class InitialConditionGenerator:
     def __init__(self, nx, ny):
@@ -36,7 +39,7 @@ class InitialConditionGenerator:
             center = (np.random.uniform(self.min_scale, self.nx - self.min_scale),
                       np.random.uniform(self.min_scale, self.ny - self.min_scale))
         if sigma is None:
-            sigma = np.random.uniform(self.min_scale/2, self.max_scale / 5)
+            sigma = np.random.uniform(self.min_scale / 2, self.max_scale / 5)
         if magnitude is None:
             magnitude = np.random.uniform(-1, 1)
 
@@ -100,7 +103,7 @@ class InitialConditionGenerator:
         return result
 
 
-def smooth_transition(initial_conditions, boundary_mask, k=25):
+def smooth_transition(initial_conditions, boundary_mask, k=25, smooth=True):
     """
     Smooth out the transition between initial conditions and the boundary.
 
@@ -109,8 +112,9 @@ def smooth_transition(initial_conditions, boundary_mask, k=25):
     :param k: Steepness of the logistic transition function.
     :param width: Approximate width of the transition zone.
     """
+
     # Compute distance to the nearest boundary point
-    distances = distance_transform_edt(1-boundary_mask)
+    distances = distance_transform_edt(1 - boundary_mask)
 
     # Normalize distances based on the transition width
     normalized_distance = distances / np.max(boundary_mask.shape)
@@ -119,10 +123,34 @@ def smooth_transition(initial_conditions, boundary_mask, k=25):
     transition = 1 / (1 + np.exp(-k * normalized_distance))
     transition = 2 * transition - 1
 
-    # Blend initial conditions with boundary (assuming boundary condition is 0)
-    smoothed_conditions = initial_conditions * transition
+    # Pytorch from here
+    initial_conditions = torch.from_numpy(initial_conditions).float()
+    transition = torch.from_numpy(transition).float()
 
-    return smoothed_conditions
+    if smooth:
+        transition = gaussian_blur(transition)
+
+    smoothed_conditions = initial_conditions * transition
+    return smoothed_conditions.squeeze()
+
+
+def gaussian_blur(image: torch.Tensor):
+    """
+    Applies a Gaussian blur to the input image.
+    """
+    gaussian_kernel = torch.tensor([[1., 4, 7, 4, 1],
+                                    [4, 16, 26, 16, 4],
+                                    [7, 26, 41, 26, 7],
+                                    [4, 16, 26, 16, 4],
+                                    [1, 4, 7, 4, 1]]).unsqueeze(0).unsqueeze(0)
+    gaussian_kernel /= gaussian_kernel.sum()  # Normalize the kernel
+
+    image = image.unsqueeze(0).unsqueeze(0)
+    image = F.conv2d(image, gaussian_kernel, padding=2)
+    # image = F.conv2d(image, gaussian_kernel, padding=2)
+
+    return image.squeeze()
+
 
 def main():
     icg = InitialConditionGenerator(100, 100)

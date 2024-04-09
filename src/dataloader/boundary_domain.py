@@ -52,15 +52,15 @@ class BoundaryConditionGenerator:
             min_ax = self.nx / 2
 
         # Center of the ellipse
-        maj_cent = np.random.uniform(max_ax * 0.9, (self.nx - max_ax) * 1.1)
-        min_cent = np.random.uniform(min_ax * 0.9, (self.ny - min_ax) * 1.1)
+        maj_cent = np.random.uniform(max_ax * 0.9, max_ax * 1.1)
+        min_cent = np.random.uniform(min_ax * 0.9, min_ax * 1.1)
 
         # Semi-major and semi-minor axes (ensure a > b for convention)
         a = np.random.uniform(max_ax / 1.33, max_ax*1.1)
         b = np.random.uniform(min_ax / 1.33, min_ax*1.1)
 
         # Orientation angle in degrees
-        theta = np.random.uniform(-30, 30)
+        theta = np.random.uniform(-15, 15)
 
         # Calculate the ellipse equation
         theta_rad = np.deg2rad(theta)  # Convert theta to radians for np.cos and np.sin
@@ -71,8 +71,8 @@ class BoundaryConditionGenerator:
             term1 = ((X - maj_cent) * cos_theta + (Y - min_cent) * sin_theta) ** 2 / a ** 2
             term2 = ((X - maj_cent) * sin_theta - (Y - min_cent) * cos_theta) ** 2 / b ** 2
         else:
-            term1 = ((X - maj_cent) * cos_theta - (Y - min_cent) * sin_theta) ** 2 / b ** 2
-            term2 = ((X - maj_cent) * sin_theta + (Y - min_cent) * cos_theta) ** 2 / a ** 2
+            term1 = ((X - min_cent) * cos_theta - (Y - maj_cent) * sin_theta) ** 2 / b ** 2
+            term2 = ((X - min_cent) * sin_theta + (Y - maj_cent) * cos_theta) ** 2 / a ** 2
 
         # Inside the ellipse <= 1, so we invert the condition to set inside to 0, outside to 1
         ellipse = 1 - (term1 + term2 <= 1).astype(int)  # .T

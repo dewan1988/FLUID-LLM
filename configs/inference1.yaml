@@ -4,5 +4,5 @@ step_to_load: 100
 
 # DL param
 load_dir: ./ds/MGN/cylinder_dataset/train
-seq_len: 27
+seq_len: 10
 batch_size: 64
