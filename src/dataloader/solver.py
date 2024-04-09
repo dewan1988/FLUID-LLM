@@ -2,9 +2,9 @@ import numpy as np
 from scipy.integrate import solve_ivp, ode
 import matplotlib.pyplot as plt
 
-from initial_cond import InitialConditionGenerator, smooth_transition
-from boundary_domain import BoundaryConditionGenerator
-from pdes import PDEs
+from dataloader.initial_cond import InitialConditionGenerator, smooth_transition
+from dataloader.boundary_domain import BoundaryConditionGenerator
+from dataloader.pdes import PDEs
 
 
 class WaveConfig:
@@ -12,9 +12,9 @@ class WaveConfig:
     Lx, Ly = 2.4, 0.6
     dx = Lx / (Nx - 1)
     dy = Ly / (Ny - 1)
-    dt = 0.1  # Time step
-    T = 1.  # Final time
-    Nt = 50  # Number of time steps
+    # dt = 0.1  # Time step
+    T = 0.5  # Final time
+    Nt = 21  # Number of time steps
 
 
 class PDESolver2D:
