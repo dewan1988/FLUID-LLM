@@ -6,7 +6,7 @@ import pickle
 import random
 from cprint import c_print
 import time
-from solver import WaveConfig, PDESolver2D
+from dataloader.solver import WaveConfig, PDESolver2D
 import torch
 from torch.utils.data import Dataset, DataLoader
 from dataloader.mesh_utils import to_grid, get_mesh_interpolation
@@ -193,7 +193,10 @@ class SynthDS(Dataset):
         return states, target, masks.bool()
 
     def __len__(self):
-        return 1000
+        if self.mode == "train":
+            return 1000
+        else:
+            return 125
 
 
 def plot_all_patches():
