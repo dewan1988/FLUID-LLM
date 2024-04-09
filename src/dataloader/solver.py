@@ -8,13 +8,13 @@ from pdes import PDEs
 
 
 class WaveConfig:
-    Nx, Ny = 150, 100  # Grid size
-    Lx, Ly = 1.5, 1.0
+    Nx, Ny = 240, 60  # Grid size
+    Lx, Ly = 2.4, 0.6
     dx = Lx / (Nx - 1)
     dy = Ly / (Ny - 1)
     dt = 0.1  # Time step
-    T = 1.0  # Final time
-    Nt = 10  # Number of time steps
+    T = 1.  # Final time
+    Nt = 50  # Number of time steps
 
 
 class PDESolver2D:
@@ -61,8 +61,6 @@ class PDESolver2D:
 
         bc_gen = BoundaryConditionGenerator(self.Nx, self.Ny)
         bc_mask = bc_gen.random_boundary()
-        plt.imshow(bc_mask, origin='lower')
-        plt.show()
 
         u_init = smooth_transition(u0, bc_mask)
         u_init = np.stack((u_init, dudt0), axis=0)
@@ -104,8 +102,19 @@ class PDESolver2D:
         t_span = (0, self.T)
         self.solution = solve_ivp(self.pde_wrapper, t_span, self.u0.ravel(), args=(self.pde.wave_equation,), t_eval=self.t_eval,
                                   method='DOP853')  # , max_step=0.1, rtol=0.001, atol=0.01)
-        print(self.solution.nfev)
-        return self.solution
+
+        solution = self.solution.y
+        solution = solution.reshape((2, self.Nx, self.Ny, self.Nt))
+
+        # us_init = self.u0.ravel().reshape((2, self.Nx, self.Ny))
+        # plt.imshow(us_init[0], origin='lower')
+        # plt.show()
+        #
+        # plt.imshow(solution[0, :, :, 0], origin='lower')
+        # plt.show()
+        # print(self.solution.t)
+        # exit(6)
+        return solution, self.bc_mask
 
     def plot_solution(self):
         """
@@ -128,7 +137,7 @@ class PDESolver2D:
         for i, t in enumerate(selected_timesteps):
             ax = axs[i // (n_selected // 2), i % (n_selected // 2)]
             u_sol_t = u_sol[:, :, t]
-            ax.imshow(u_sol_t, origin='lower', extent=[0, self.Nx * self.dx, 0, self.Ny * self.dy], vmin=vmin, vmax=vmax)
+            ax.imshow(u_sol_t, origin='lower', vmin=vmin, vmax=vmax)
             ax.set_title(f"Step {t}")
             ax.axis('off')
 
