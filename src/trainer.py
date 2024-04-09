@@ -6,8 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-#from dataloader.simple_dataloader import MGNDataset
-from dataloader.synth_dl import SynthDS as MGNDataset
+from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
@@ -15,7 +14,7 @@ from dataloader.mesh_utils import plot_patches
 
 
 def get_data_loader(config, mode="train"):
-    ds = MGNDataset(# load_dir=f'{config["load_dir"]}/{mode}',
+    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
                     resolution=config['resolution'],
                     patch_size=config['patch_size'],
                     stride=config['stride'],
@@ -28,7 +27,7 @@ def get_data_loader(config, mode="train"):
 
     dl = DataLoader(ds,
                     batch_size=config['batch_size'],
-                    num_workers=1,#config['num_workers'],
+                    num_workers=config['num_workers'],
                     prefetch_factor=2,
                     pin_memory=True)
     return dl
@@ -83,6 +82,16 @@ class Trainer:
 
         # Forward pass
         _, model_out = self.model(states, position_ids)
+        # preds = states + diffs
+        #
+        # # Calculate loss
+        # if self.params['fit_diffs']:
+        #     loss, all_losses = self.loss_fn(preds=diffs, target=target, mask=bc_mask)
+        #     true_state = states + target
+        # else:
+        #     loss, all_losses = self.loss_fn(preds=preds, target=target, mask=bc_mask)
+        #     true_state = states
+
         loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
 
         # Find predicted next state and true next state

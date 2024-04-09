@@ -20,15 +20,30 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def rmse_loss(pred_state, true_state):
+def rmse_loss(preds, targets):
     """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
-    assert pred_state.shape == true_state.shape
-    pred_state = pred_state.to(torch.float32)
-    true_state = true_state.to(torch.float32)
+    assert preds.shape == preds.shape
+    preds = preds.to(torch.float32)
+    targets = targets.to(torch.float32)
 
-    mse_loss = torch.mean((pred_state - true_state) ** 2, dim=(0, 2, 3, 4, 5))
+    v_pred = preds[:, :, :, :2, :]
+    v_target = targets[:, :, :, :2, :]
 
-    return torch.sqrt(mse_loss)
+    p_pred = preds[:, :, :, 2:, :]
+    p_target = targets[:, :, :, 2:, :]
+
+    # MSE over all patches in each step
+    v_mse = torch.mean((v_pred - v_target) ** 2, dim=(-1, -2, -3, -4))
+    p_mse = torch.mean((p_pred - p_target) ** 2, dim=(-1, -2, -3, -4))
+
+    # Average RMSE over batch
+    v_rmse = torch.sqrt(v_mse).mean(dim=0)
+    p_rmse = torch.sqrt(p_mse).mean(dim=0)
+    # print(v_rmse)
+    # exit(9)
+    rmse = v_rmse + p_rmse
+    rmse = rmse  # .mean()
+    return rmse
 
 
 def test_generate(model: MultivariateTimeLLM, eval_cfg):
@@ -64,16 +79,6 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
 
     true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
     pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
-
-    # """ OLD VERSION"""
-    # st = time.time()
-    # pred_states, pred_diffs = model.generate(batch_data, N_patch)
-    # print(f'Time taken: {time.time() - st:.4g}')
-    # # Split into steps
-    # pred_states = pred_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
-    # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-    # pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
-    # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
 
     loss = rmse_loss(pred_states, true_states)
     print(loss)

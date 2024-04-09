@@ -1,6 +1,7 @@
 import numpy as np
-from scipy.integrate import solve_ivp, ode
 import matplotlib.pyplot as plt
+from torchdiffeq import odeint
+import torch
 
 from dataloader.initial_cond import InitialConditionGenerator, smooth_transition
 from dataloader.boundary_domain import BoundaryConditionGenerator
@@ -8,18 +9,19 @@ from dataloader.pdes import PDEs
 
 
 class WaveConfig:
-    Nx, Ny = 240, 60  # Grid size
-    Lx, Ly = 2.4, 0.6
+    Nx, Ny = 60, 240  # Grid size
+    Lx, Ly = 0.4, 2.4
     dx = Lx / (Nx - 1)
     dy = Ly / (Ny - 1)
     # dt = 0.1  # Time step
-    T = 1.  # Final time
-    Nt = 50  # Number of time steps
+    T = 0.3  # Final time
+    Nt = 100  # Number of time steps
 
 
 class PDESolver2D:
-    u0: np.ndarray
-    bc_mask: np.ndarray
+    u0: torch.Tensor
+    bc_mask: torch.Tensor
+    solution: torch.Tensor
 
     def __init__(self, cfg: WaveConfig):
         """
@@ -36,17 +38,7 @@ class PDESolver2D:
         self.dx, self.dy = cfg.dx, cfg.dy
         self.T = cfg.T
 
-        self.x = np.linspace(0, self.Lx, self.Nx)
-        self.y = np.linspace(0, self.Ly, self.Ny)
-        self.t_eval = np.linspace(0, self.T, self.Nt)  # Time points to evaluate
-        self.solution = None
-
-        # Convolution kernels for second derivatives
-        self.kernel_dx2 = np.array([[1, -2, 1]]) / self.dx ** 2
-        self.kernel_dy2 = np.array([[1], [-2], [1]]) / self.dy ** 2
-        self.kernel_dxdy = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]]) / self.dx ** 2
-
-        # self.u0, self.bc_mask = self._initial_condition()
+        self.t_eval = torch.linspace(0, self.T, self.Nt)  # Time points to evaluate
 
     def set_init_cond(self):
         """
@@ -56,18 +48,20 @@ class PDESolver2D:
         - func: A function of two variables (x and y) that returns the initial state of the system.
         """
         init_cond_gen = InitialConditionGenerator(self.Nx, self.Ny)
-        u0 = init_cond_gen.random_cond()
-        dudt0 = np.zeros_like(u0)
+        u_init = init_cond_gen.random_cond()
 
         bc_gen = BoundaryConditionGenerator(self.Nx, self.Ny)
         bc_mask = bc_gen.random_boundary()
 
-        u_init = smooth_transition(u0, bc_mask)
-        u_init = np.stack((u_init, dudt0), axis=0)
+        u_init = smooth_transition(u_init, bc_mask, smooth=True)
+        dudt0 = torch.zeros_like(u_init)
+        u_init = torch.stack((u_init, dudt0), dim=0)
+
+        bc_mask = torch.from_numpy(bc_mask).bool()
         self.u0, self.bc_mask = u_init, bc_mask
         self.pde = PDEs(self.dx, self.dy, self.bc_mask)
 
-    def pde_wrapper(self, t, state_flat, equation_func):
+    def pde_wrapper(self, t, state_flat):
         """
         Returns the RHS of the system of ODEs equivalent to the original PDE.
 
@@ -80,15 +74,10 @@ class PDESolver2D:
         Returns:
         - A flat array representing the time derivative of the system's state.
         """
-        state_flat = state_flat.reshape((2, self.Nx * self.Ny))
-        u_f, dudt_f = state_flat[0], state_flat[1]
+        u, dudt = state_flat[0], state_flat[1]
 
-        u = u_f.reshape((self.Nx, self.Ny))  # Reshape to 2D for processing
-        dudt = dudt_f.reshape((self.Nx, self.Ny))
-
-        dudt, d2udt2 = equation_func(u, dudt)
-
-        pred_state = np.stack((dudt, d2udt2), axis=0).ravel()  # Stack and flatten
+        dudt, d2udt2 = self.pde.wave_equation(u, dudt)
+        pred_state = torch.stack((dudt, d2udt2), dim=0)  # Stack and flatten
         return pred_state
 
     def solve(self):
@@ -98,23 +87,13 @@ class PDESolver2D:
         Parameters:
         - equation_func: The function representing the PDE to be solved.
         - t_eval: Optional array of time points at which to store the solution.
+
+        solution.shape = (Nt, 2, Nx, Ny)
         """
-        t_span = (0, self.T)
-        self.solution = solve_ivp(self.pde_wrapper, t_span, self.u0.ravel(), args=(self.pde.wave_equation,), t_eval=self.t_eval,
-                                  method='DOP853')  # , max_step=0.1, rtol=0.001, atol=0.01)
-
-        solution = self.solution.y
-        solution = solution.reshape((2, self.Nx, self.Ny, self.Nt))
-
-        # us_init = self.u0.ravel().reshape((2, self.Nx, self.Ny))
-        # plt.imshow(us_init[0], origin='lower')
-        # plt.show()
-        #
-        # plt.imshow(solution[0, :, :, 0], origin='lower')
-        # plt.show()
-        # print(self.solution.t)
-        # exit(6)
-        return solution, self.bc_mask
+        with torch.no_grad():
+            self.solution = odeint(self.pde_wrapper, self.u0, self.t_eval,
+                                   method='rk4', options={'step_size': 0.005})  #
+        return self.solution, self.bc_mask
 
     def plot_solution(self):
         """
@@ -124,11 +103,10 @@ class PDESolver2D:
         - at_time_index: The index of the time step at which to plot the solution.
         """
 
-        solution = self.solution.y
-        solution = solution.reshape((2, self.Nx, self.Ny, self.Nt))
-        u_sol = solution[0]
+        solution = self.solution
+        u_sol = solution[:, 0]
 
-        vmin, vmax = np.min(u_sol), np.max(u_sol)
+        vmin, vmax = torch.min(u_sol), torch.max(u_sol)
 
         selected_timesteps = np.linspace(0, self.Nt - 1, 8).astype(int)
         n_selected = len(selected_timesteps)
@@ -136,7 +114,7 @@ class PDESolver2D:
 
         for i, t in enumerate(selected_timesteps):
             ax = axs[i // (n_selected // 2), i % (n_selected // 2)]
-            u_sol_t = u_sol[:, :, t]
+            u_sol_t = u_sol[t]
             ax.imshow(u_sol_t, origin='lower', vmin=vmin, vmax=vmax)
             ax.set_title(f"Step {t}")
             ax.axis('off')
@@ -148,6 +126,9 @@ class PDESolver2D:
 # Example usage
 if __name__ == "__main__":
     import time
+    from utils import set_seed
+
+    # set_seed(13)
 
     cfg = WaveConfig()
     solver = PDESolver2D(cfg)
