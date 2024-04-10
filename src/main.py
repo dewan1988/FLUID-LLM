@@ -102,11 +102,11 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
 
         if trainer.params['half_precision']:
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                loss, log_metrics_dict = trainer.run_gen_train_step(batch)
+                loss, log_metrics_dict = trainer.run_gen_val_step(batch)
         else:
-            loss, log_metrics_dict = trainer.run_gen_train_step(batch)
+            loss, log_metrics_dict = trainer.run_gen_val_step(batch)
 
-    val_metrics_ep.append(log_metrics_dict)
+        val_metrics_ep.append(log_metrics_dict)
     return val_metrics_ep
 
 
@@ -115,7 +115,7 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
     for epoch_idx, epoch in enumerate(epoch_iterator):
 
         # Train Step
-        ep_train_fn, run_mode = select_run_mode(trainer, train_params['teacher_forcing'], epoch)
+        ep_train_fn, run_mode = select_run_mode(trainer, train_params['teacher_forcing'], epoch + start_ep)
 
         train_log_metrics = run_train_epoch(run_fn=ep_train_fn,
                                             dataloader=train_dataloader,
