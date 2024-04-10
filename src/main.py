@@ -154,20 +154,14 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
             torch.save(checkpoint, checkpoint_file_path)
 
 
-def main(args):
-    set_seed()
-    training_params = load_yaml_from_file(args.config_path)
-    logging.info(f"Parameters for training: {training_params}")
+def run_everything(training_params, train_dataloader, valid_dataloader, model_components, args, start_ep=0):
+    model, optimizer, scheduler, trainer = model_components
 
     # Prepare accelerator
     accelerator = get_accelerator(use_deepspeed=training_params['use_deepspeed'], precision='bf16')
     if training_params['use_deepspeed']:
         accelerator.state.deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = training_params[
                                                                                                     'batch_size'] // accelerator.state.num_processes
-    train_dataloader = get_data_loader(training_params, mode="train")
-    valid_dataloader = get_data_loader(training_params, mode="valid")
-    model, optimizer, scheduler, trainer = get_model(training_params, train_dataloader)
-
     # Prepare model, optimizer and dataloader for accelerate training
     model, optimizer, train_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
     trainer.model = model
@@ -180,10 +174,22 @@ def main(args):
     logging.info(f"Saving checkpoints to: {save_path}")
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
 
-    train_run(training_params, save_path, train_dataloader, valid_dataloader, trainer, optimizer, scheduler, accelerator)
+    train_run(training_params, save_path, train_dataloader, valid_dataloader, trainer, optimizer, scheduler, accelerator, start_ep=start_ep)
 
     # Close wandb
     wandb.finish()
+
+
+def main(args):
+    set_seed()
+    training_params = load_yaml_from_file(args.config_path)
+    logging.info(f"Parameters for training: {training_params}")
+
+    train_dataloader = get_data_loader(training_params, mode="train")
+    valid_dataloader = get_data_loader(training_params, mode="valid")
+    model_components = get_model(training_params, train_dataloader)
+
+    run_everything(training_params, train_dataloader, valid_dataloader, model_components, args)
 
 
 if __name__ == '__main__':
