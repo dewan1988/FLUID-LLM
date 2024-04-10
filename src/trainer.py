@@ -71,16 +71,6 @@ class Trainer:
 
         # Forward pass
         _, model_out = self.model(states, position_ids)
-        # preds = states + diffs
-        #
-        # # Calculate loss
-        # if self.params['fit_diffs']:
-        #     loss, all_losses = self.loss_fn(preds=diffs, target=target, mask=bc_mask)
-        #     true_state = states + target
-        # else:
-        #     loss, all_losses = self.loss_fn(preds=preds, target=target, mask=bc_mask)
-        #     true_state = states
-
         loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
 
         # Find predicted next state and true next state
@@ -165,7 +155,7 @@ class Trainer:
         loss, log_metrics = self.run_train_step(guide_batch)
 
         # Rename losses
-        log_metrics = {f'gen_{k}': v for k, v in log_metrics.items()}
+        log_metrics = {f'{k}': v for k, v in log_metrics.items()}
         return loss, log_metrics
 
     # @torch.no_grad()

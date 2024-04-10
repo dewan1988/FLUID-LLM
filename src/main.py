@@ -106,9 +106,7 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
         else:
             loss, log_metrics_dict = trainer.run_gen_train_step(batch)
 
-        # Keep track of metrics
-        val_metrics_ep.append(log_metrics_dict)
-
+    val_metrics_ep.append(log_metrics_dict)
     return val_metrics_ep
 
 
