@@ -7,6 +7,7 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 from collections import deque
+from contextlib import nullcontext
 
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
@@ -25,6 +26,7 @@ class MultivariateTimeLLM(nn.Module):
 
         self.config = config
         self.task_name = config['task_name']
+        self.autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16) if config['half_precision'] else nullcontext()
 
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
@@ -132,8 +134,7 @@ class MultivariateTimeLLM(nn.Module):
             Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
             Return.shape = (bs, (seq_len+1)*N_patch, 3, 16, 16)"""
 
-        with torch.cuda.amp.autocast():
-            _, pred_diff = self.forward(states, position_ids)
+        _, pred_diff = self.forward(states, position_ids)
         diffs = pred_diff[:, -N_patch:]
         return diffs
 
@@ -217,63 +218,3 @@ class MultivariateTimeLLM(nn.Module):
 
         return all_states, all_diffs
 
-    """ OLD VERSION. """
-    @torch.no_grad()
-    def generate(self, batch_data, N_patch):
-        states, diffs, bc_mask, position_ids, states_shifted = batch_data
-
-        init_state_fp32 = states[:, :N_patch].to(torch.float32).to(self.device_map)
-        init_history_fp32 = diffs[:, :N_patch].to(torch.float32).to(self.device_map)
-
-        position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
-
-        # Keep track of predictions (in fp32)
-        history_states = init_state_fp32
-        history_diffs = init_history_fp32  # Init with one timestep
-        # Start with history patches, and extrapolate for 1 patch
-        for state_no in range(states.shape[1] // N_patch - 1):
-            print(f'{state_no = }')
-
-            for i in range(N_patch):
-                next_patch = N_patch * (state_no + 1) + i
-                last_state_patch = N_patch * state_no + i
-
-                pos_id = position_ids[:, :next_patch + 1]
-
-                # Generate current patch using diffs
-                # cur_state = history_states[:, last_state_patch] + history_diffs[:, last_state_patch]
-                # cur_state = cur_state.unsqueeze(1)
-                # history_states = torch.cat([history_states, cur_state], dim=1)
-
-                # Generate current patch using diffs
-                # More numerically stable version by adding on all histories to init_state_fp32
-                want_idx = torch.arange(i, next_patch, N_patch).to(self.device_map)
-                past_diffs = history_diffs[:, want_idx].sum(dim=1, )
-                cur_state = init_state_fp32[:, i] + past_diffs
-                cur_state = cur_state.unsqueeze(1)
-                history_states = torch.cat([history_states, cur_state], dim=1)
-
-                # Sliding history for long context
-                if state_no > 8:
-                    in_hist = history_states[:, -9 * N_patch - i - 1:]
-                    pos_id = pos_id[:, -9 * N_patch - i - 1:].clone()
-                    pos_id[:, :, 2] = pos_id[:, :, 2] - (state_no - 8)
-                else:
-                    in_hist = history_states
-
-                # Predict next diff
-                with torch.no_grad():
-                    with torch.cuda.amp.autocast():
-                        _, pred_diff = self(in_hist, pos_id)
-                pred_diff = pred_diff[:, -1:]
-                # Mask off boundary
-                mask = bc_mask[:, last_state_patch: last_state_patch + 1]
-                pred_diff[mask] = 0.
-
-                pred_diff = pred_diff.to(torch.float32)
-                history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
-
-                # pred_diff = diffs[:, next_patch: next_patch + 1].to(torch.float32)
-                # history_diffs = torch.cat([history_diffs, pred_diff], dim=1)
-
-        return history_states, history_diffs

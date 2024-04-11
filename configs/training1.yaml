@@ -54,7 +54,7 @@ schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
 teacher_forcing:
-    ratio: 0.2
+    ratio: 0.8
     start_epoch: 150
 
 # Dataloader params
@@ -70,8 +70,8 @@ fit_diffs: true
 # Validation
 
 # Logging params
-enable_wandb: false
-save_on: false
+enable_wandb: true
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

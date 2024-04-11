@@ -158,23 +158,6 @@ class Trainer:
         log_metrics = {f'{k}': v for k, v in log_metrics.items()}
         return loss, log_metrics
 
-    # @torch.no_grad()
-    # def run_eval_step(self, batch):
-    #     self.model.eval()
-    #
-    #     states, diffs, bc_mask, position_ids = batch
-    #
-    #     # Forward pass
-    #     backbone_out, preds = self.model(states, position_ids)
-    #
-    #     # Calculate loss
-    #     loss = self.calculate_loss(preds, diffs, bc_mask)
-    #
-    #     # Calculate metrics
-    #     log_metrics = {"eval_loss": loss["loss"].detach().item()}
-    #
-    #     return log_metrics
-
     def prepare_optimizers(self):
         params = self.model.parameters()
         print(f"The model has {get_trainable_parameters(self.model)} trainable parameters")

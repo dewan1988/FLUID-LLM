@@ -45,14 +45,13 @@ def rmse_loss(preds, targets):
     # print(v_rmse)
     # exit(9)
     rmse = v_rmse + p_rmse
-    rmse = rmse  # .mean()
     return rmse
 
 
 @torch.no_grad()
 def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
     bs = eval_cfg['batch_size']
-    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}/{mode}",
+    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}",
                     resolution=model.config['resolution'],
                     patch_size=model.config['patch_size'],
                     stride=model.config['stride'],
@@ -139,7 +138,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     loss = rmse_loss(pred_states, true_states)
     N_rmse = calc_n_rmse(pred_states, true_states)
 
-    logging.info(f"Loss: {loss.mean():.7g}")
+    logging.info(f"Loss: {loss}")
     logging.info(f"N_RMSE: {N_rmse.item():.7g}")
 
     # Plotting
@@ -179,7 +178,7 @@ def main(args):
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
+    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-2)
     checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
@@ -197,10 +196,10 @@ def main(args):
     model.load_state_dict(checkpoint_state_dict)
 
     # Run test_generate
-    #test_generate(model, inference_params)
+    test_generate(model, inference_params)
 
     # Run evaluation
-    evaluate_model(model, inference_params, mode='valid')
+    # evaluate_model(model, inference_params, mode='valid')
 
 
 if __name__ == '__main__':

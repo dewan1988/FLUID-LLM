@@ -7,7 +7,7 @@ import argparse
 import logging
 from random import random
 from statistics import mean
-
+from cprint import c_print
 import numpy as np
 import torch
 import wandb
@@ -70,15 +70,22 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
 
         optimizer.zero_grad(set_to_none=True)
         with accelerator.accumulate([trainer.model]):
-            if trainer.params['half_precision']:
-                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                    loss, log_metrics = run_fn(batch)
-            else:
-                loss, log_metrics = run_fn(batch)
+            loss, log_metrics = run_fn(batch)
 
             # Backpropagation
             accelerator.backward(loss)
             optimizer.step()
+
+            # for name, param in trainer.model.named_parameters():
+            #     if param.requires_grad:
+            #         if param.grad is not None:
+            #             # print(f'{name}, {param.grad.norm().item():.4g}, {param.norm().item():.4g}')
+            #             pass
+            #         else:
+            #             # pass
+            #             c_print(f'{name}, "None", {param.norm().item():.4g}', color='red')
+            # print(loss)
+            # exit(2)
 
             if batch_idx % 5 == 0:
                 dataloader_iterator.set_description(
@@ -101,8 +108,7 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
                  bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
 
         if trainer.params['half_precision']:
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                loss, log_metrics_dict = trainer.run_gen_val_step(batch)
+            loss, log_metrics_dict = trainer.run_gen_val_step(batch)
         else:
             loss, log_metrics_dict = trainer.run_gen_val_step(batch)
 
