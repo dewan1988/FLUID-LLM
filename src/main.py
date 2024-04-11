@@ -76,21 +76,11 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
             accelerator.backward(loss)
             optimizer.step()
 
-            # for name, param in trainer.model.named_parameters():
-            #     if param.requires_grad:
-            #         if param.grad is not None:
-            #             # print(f'{name}, {param.grad.norm().item():.4g}, {param.norm().item():.4g}')
-            #             pass
-            #         else:
-            #             # pass
-            #             c_print(f'{name}, "None", {param.norm().item():.4g}', color='red')
-            # print(loss)
-            # exit(2)
-
             if batch_idx % 5 == 0:
                 dataloader_iterator.set_description(
                     f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics['loss']:.3g} | N_RMSE: {log_metrics['N_RMSE']:.3g})")
                 dataloader_iterator.refresh()
+
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics)
 
@@ -107,10 +97,7 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
         batch = (states.to(accelerator.device), diffs.to(accelerator.device),
                  bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
 
-        if trainer.params['half_precision']:
-            loss, log_metrics_dict = trainer.run_gen_val_step(batch)
-        else:
-            loss, log_metrics_dict = trainer.run_gen_val_step(batch)
+        loss, log_metrics_dict = trainer.run_gen_val_step(batch)
 
         val_metrics_ep.append(log_metrics_dict)
     return val_metrics_ep
