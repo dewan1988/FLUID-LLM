@@ -39,7 +39,7 @@ def load_model(save_file, training_params, train_dl):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "04-07_21-40-28"
+    load_file = "04-11_04-40-56"
     load_num = 80
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')

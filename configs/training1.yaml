@@ -54,8 +54,8 @@ schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
 teacher_forcing:
-    ratio: 0.8
-    start_epoch: 150
+    ratio: 0.1
+    start_epoch: 200
 
 # Dataloader params
 num_workers: 8
