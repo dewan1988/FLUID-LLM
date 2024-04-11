@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 from dataloader.simple_dataloader import MGNDataset
+from dataloader.synth_dl import SynthDS
 from utils import get_available_device, get_trainable_parameters
 from metrics import calc_n_rmse
 from losses import CombinedLoss, RMSELoss
@@ -15,20 +16,33 @@ from dataloader.mesh_utils import plot_patches
 
 
 def get_data_loader(config, mode="train"):
-    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
-                    resolution=config['resolution'],
-                    patch_size=config['patch_size'],
-                    stride=config['stride'],
-                    seq_len=config['seq_len'],
-                    seq_interval=config['seq_interval'],
-                    mode=mode,
-                    fit_diffs=config['fit_diffs'],
-                    normalize=config['normalize_ds']
-                    )
+    if config['task_name'] == "cylinder_task":
+        ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
+                        resolution=config['resolution'],
+                        patch_size=config['patch_size'],
+                        stride=config['stride'],
+                        seq_len=config['seq_len'],
+                        seq_interval=config['seq_interval'],
+                        mode=mode,
+                        fit_diffs=config['fit_diffs'],
+                        normalize=config['normalize_ds']
+                        )
+    elif config['task_name'] == "synthetic_task":
+        ds = SynthDS(resolution=config['resolution'],
+                     patch_size=config['patch_size'],
+                     stride=config['stride'],
+                     seq_len=config['seq_len'],
+                     seq_interval=config['seq_interval'],
+                     mode=mode,
+                     fit_diffs=config['fit_diffs'],
+                     normalize=config['normalize_ds']
+                     )
+    else:
+        raise ValueError(f"Unknown task name: {config['task_name']}")
 
     dl = DataLoader(ds,
                     batch_size=config['batch_size'],
-                    num_workers=config['num_workers'],
+                    num_workers=config['num_workers'] if config['task_name'] != "synthetic_task" else 1,
                     prefetch_factor=2,
                     pin_memory=True)
     return dl
