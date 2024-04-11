@@ -12,7 +12,7 @@ import time
 
 from tqdm import tqdm
 
-from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder
+from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
 from metrics import calc_n_rmse
 from models.model import MultivariateTimeLLM
 
@@ -142,21 +142,21 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     logging.info(f"N_RMSE: {N_rmse.item():.7g}")
 
     # Plotting
-    plot_step = -1
+    plot_step = 30
     batch_num = 0
 
-    # Plot diffs
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        img_1 = true_diffs[batch_num, plot_step, :, i]
-        img_2 = pred_diffs[batch_num, plot_step, :, i]
-
-        # Initial image
-        plot_full_patches(img_1, (15, 4), ax[0])
-        # Predictions
-        plot_full_patches(img_2, (15, 4), ax[1])
-    fig.tight_layout()
-    fig.show()
+    # # Plot diffs
+    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    # for i, ax in enumerate(axs):
+    #     img_1 = true_diffs[batch_num, plot_step, :, i]
+    #     img_2 = pred_diffs[batch_num, plot_step, :, i]
+    #
+    #     # Initial image
+    #     plot_full_patches(img_1, (15, 4), ax[0])
+    #     # Predictions
+    #     plot_full_patches(img_2, (15, 4), ax[1])
+    # fig.tight_layout()
+    # fig.show()
 
     # Plot states
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
@@ -178,7 +178,7 @@ def main(args):
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-2)
+    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
     checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
@@ -191,9 +191,11 @@ def main(args):
 
     # Get the model
     model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device())
-
     # Load weights
     model.load_state_dict(checkpoint_state_dict)
+
+    accelerator = get_accelerator(use_deepspeed=False, precision='bf16')
+    model = accelerator.prepare(model)
 
     # Run test_generate
     test_generate(model, inference_params)
