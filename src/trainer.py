@@ -107,69 +107,74 @@ class Trainer:
         return loss, log_metrics
 
     def run_gen_train_step(self, batch):
-        """ No teacher forcing. Model makes predictions for a sequence, then tries to predict diffs given generated sequence.
-            No grad when making predictions.
         """
+        No teacher forcing version.
+        """
+        self.model.train()
 
-        states, diffs, bc_mask, position_ids = batch
+        states, target, bc_mask, position_ids = batch
         bs, tot_patch, channel, px, py = states.shape
         seq_len = tot_patch // self.N_patch
 
-        # 1) Model makes prediction of the sequence as guide
-        self.model.eval()
+        _, model_out = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len)
+        loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
+
+        # Calculate loss
+        if self.params['fit_diffs']:
+            true_state = states + target
+            preds = states + model_out
+        else:
+            true_state = states
+            preds = model_out
+
+        # Calculate metrics
         with torch.no_grad():
-            guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
+            BS, _, channel, px, py = preds.shape
 
-        # 2) Model tries to predict diffs between generated sequence and next step to true sequence
-        # Reshape to be easier to work with
-        f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
-        f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
-        # Difference to predict
-        f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
-        guide_error = f_guide_error.view(bs, -1, channel, px, py)
-        # Last guide state has no diff to predict anymore. Delete last state
-        guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
-        bc_mask = bc_mask[:, :-self.N_patch]
-        position_ids = position_ids[:, :-self.N_patch]
+            N_rmse = calc_n_rmse(preds.view(BS, -1, self.N_patch, channel, px, py),
+                                 true_state.view(BS, -1, self.N_patch, channel, px, py),
+                                 bc_mask.view(BS, -1, self.N_patch, channel, px, py))
 
-        # Forward pass like normal
-        self.model.train()
-        guide_batch = (guide_states, guide_error, bc_mask, position_ids)
-        loss, log_metrics = self.run_train_step(guide_batch)
+        # Log metrics
+        log_metrics = {"loss": loss}
+        log_metrics.update(all_losses)
+        log_metrics['N_RMSE'] = N_rmse
 
         return loss, log_metrics
 
     @torch.no_grad()
     def run_gen_val_step(self, batch):
-        """ Like above, but use model.eval()
         """
-        self.model.eval()
-
-        states, diffs, bc_mask, position_ids = batch
+        No teacher forcing version with no grad.
+        """
+        states, target, bc_mask, position_ids = batch
         bs, tot_patch, channel, px, py = states.shape
         seq_len = tot_patch // self.N_patch
 
-        # 1) Model makes prediction of the sequence as guide
-        guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
+        _, model_out = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len)
+        loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
 
-        # 2) Model tries to predict diffs between generated sequence and next step to true sequence
-        # Reshape to be easier to work with
-        f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
-        f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
-        # Difference to predict
-        f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
-        guide_error = f_guide_error.view(bs, -1, channel, px, py)
-        # Last guide state has no diff to predict anymore. Delete last state
-        guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
-        bc_mask = bc_mask[:, :-self.N_patch]
-        position_ids = position_ids[:, :-self.N_patch]
+        # Calculate loss
+        if self.params['fit_diffs']:
+            true_state = states + target
+            preds = states + model_out
+        else:
+            true_state = states
+            preds = model_out
 
-        # Forward pass like normal
-        guide_batch = (guide_states, guide_error, bc_mask, position_ids)
-        loss, log_metrics = self.run_train_step(guide_batch)
+        # Calculate metrics
+        with torch.no_grad():
+            BS, _, channel, px, py = preds.shape
 
-        # Rename losses
-        log_metrics = {f'{k}': v for k, v in log_metrics.items()}
+            N_rmse = calc_n_rmse(preds.view(BS, -1, self.N_patch, channel, px, py),
+                                 true_state.view(BS, -1, self.N_patch, channel, px, py),
+                                 bc_mask.view(BS, -1, self.N_patch, channel, px, py))
+
+        # Log metrics
+        log_metrics = {"loss": loss}
+        log_metrics.update(all_losses)
+        log_metrics['N_RMSE'] = N_rmse
+
         return loss, log_metrics
 
     def prepare_optimizers(self):

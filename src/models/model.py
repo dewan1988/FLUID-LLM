@@ -127,7 +127,6 @@ class MultivariateTimeLLM(nn.Module):
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 
-    @torch.no_grad()
     def _gen_step(self, states, position_ids, N_patch):
         """ Generate next timestep of the sequence given an input sequence.
             Use last given timestep as initialisation to generate diffs for next step
@@ -217,4 +216,3 @@ class MultivariateTimeLLM(nn.Module):
             all_states = all_states[:, N_patch:]
 
         return all_states, all_diffs
-
