@@ -123,7 +123,7 @@ class MultivariateTimeLLM(nn.Module):
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_preds.shape
         decoder_out = self.output_layer(backbone_preds)
-        decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N, self.M)
+        decoder_out = decoder_out.reshape(batch_size, seq_len, 3, self.N, self.M)
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 
@@ -156,7 +156,7 @@ class MultivariateTimeLLM(nn.Module):
         all_states = [init_states]
         all_diffs = []
         # Keep a buffer of the last 8 states as model input
-        init_states_t = init_states.view(init_states.shape[0], -1, N_patch, 3, 16, 16)
+        init_states_t = init_states.reshape(init_states.shape[0], -1, N_patch, 3, 16, 16)
         init_len = init_states_t.shape[1]
         input_buff = deque(maxlen=8)
         for t in range(init_len):

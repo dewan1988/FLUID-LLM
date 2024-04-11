@@ -28,16 +28,16 @@ max_num_embed: 24
 
 # Encoder params
 encoder_params:
-    type: MLP
+    type: CNN
     num_layers: 2
-    hidden_dim: 512
+    hidden_dim: 256
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
 
 # Decoder params
 decoder_params:
-    type: MLP
+    type: CNN
     num_layers: 2
-    hidden_dim: 512
+    hidden_dim: 256
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
     zero_last_layer: true
 

@@ -40,6 +40,7 @@ class InputEmbeddings(nn.Module):
 
         return shape = (seq_len, num_patches, llm_dim)
         """
+        # Apply patch embeddings
         inputs_embeds = self.patch_embeddings(x)
 
         # Apply self attention
