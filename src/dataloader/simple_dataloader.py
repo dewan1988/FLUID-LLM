@@ -50,6 +50,7 @@ class MGNDataset(Dataset):
 
         # Calculate number of patches, assuming stride = patch_size
         x_px, y_px = state.shape[1:]
+        print(x_px, y_px)
 
         self.N_x_patch, self.N_y_patch = num_patches(x_px, patch_size[0], stride[0]), num_patches(y_px, patch_size[1], stride[1])
         self.N_patch = self.N_x_patch * self.N_y_patch
@@ -259,9 +260,9 @@ class MGNDataset(Dataset):
 
 
 def plot_all_patches():
-    patch_size, stride = (16, 16), (16, 16)
+    patch_size = (16, 16)
 
-    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=240, patch_size=patch_size, stride=stride,
+    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=240, patch_size=patch_size, stride=patch_size,
                         seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
 
     ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
@@ -270,39 +271,24 @@ def plot_all_patches():
         state, diffs, mask, pos_id = batch
         break
 
-    x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
+    N_x, N_y = seq_dl.N_x_patch, seq_dl.N_y_patch
+
+    # print(f'{N_x = }, {N_y = }')
 
     p_shows = state[0]
-    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
-    for i in range(y_count):
-        for j in range(x_count):
-            p_show = p_shows[i + j * y_count].numpy()
-            p_show = np.transpose(p_show, (2, 1, 0))
-
-            min, max = seq_dl.ds_min_max[0]
-
-            axes[i, j].imshow(p_show[:, :, 0], vmin=min * 1.5, vmax=max * 1.5)
-            axes[i, j].axis('off')
-    plt.tight_layout()
-    plt.show()
+    p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])
+    plot_patches(p_shows[0, :, 0], (seq_dl.N_x_patch, seq_dl.N_y_patch))
 
     p_shows = diffs[0]
-    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
-    for i in range(y_count):
-        for j in range(x_count):
-            p_show = p_shows[i + j * y_count].numpy()
-            p_show = np.transpose(p_show, (2, 1, 0))
+    p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])
+    plot_patches(p_shows[0, :, 0], (seq_dl.N_x_patch, seq_dl.N_y_patch))
 
-            min, max = -0.005, 0.005  # seq_dl.ds_min_max[0]
 
-            axes[i, j].imshow(p_show[:, :, 0], vmin=min, vmax=max)
-            axes[i, j].axis('off')
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
+    from dataloader.mesh_utils import plot_patches
 
     # plot_patches(None, 10, 20)
     plot_all_patches()

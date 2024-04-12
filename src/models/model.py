@@ -68,8 +68,8 @@ class MultivariateTimeLLM(nn.Module):
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
 
-        self.N, self.M = config["patch_size"]
-        self.patch_in_dim = self.N * self.M * 3
+        self.N_x_patch, self.N_y_patch = config["patch_size"]
+        self.patch_in_dim = self.N_x_patch * self.N_y_patch * 3
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
@@ -123,10 +123,11 @@ class MultivariateTimeLLM(nn.Module):
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_preds.shape
         decoder_out = self.output_layer(backbone_preds)
-        decoder_out = decoder_out.reshape(batch_size, seq_len, 3, self.N, self.M)
+        decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N_x_patch, self.N_y_patch)
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 
+    @torch.no_grad()
     def _gen_step(self, states, position_ids, N_patch):
         """ Generate next timestep of the sequence given an input sequence.
             Use last given timestep as initialisation to generate diffs for next step
@@ -155,7 +156,7 @@ class MultivariateTimeLLM(nn.Module):
         all_states = [init_states]
         all_diffs = []
         # Keep a buffer of the last 8 states as model input
-        init_states_t = init_states.reshape(init_states.shape[0], -1, N_patch, 3, 16, 16)
+        init_states_t = init_states.view(init_states.shape[0], -1, N_patch, 3, self.N_x_patch, self.N_y_patch)
         init_len = init_states_t.shape[1]
         input_buff = deque(maxlen=8)
         for t in range(init_len):
@@ -216,3 +217,4 @@ class MultivariateTimeLLM(nn.Module):
             all_states = all_states[:, N_patch:]
 
         return all_states, all_diffs
+
