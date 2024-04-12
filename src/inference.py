@@ -85,9 +85,6 @@ def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
         #pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
         #pred_states = pred_states[:, :-1]
 
-        #print(true_states.shape)
-        #print(pred_states.shape)
-        #exit(1)
 
         loss = rmse_loss(pred_states, true_states)
         N_rmse = calc_n_rmse(pred_states, true_states, mask)
@@ -101,7 +98,7 @@ def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
     logging.info(f"N_RMSE: {mean_nrmse:.7g}")
 
 
-def test_generate(model: MultivariateTimeLLM, eval_cfg):
+def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     bs = eval_cfg['batch_size']
     ds = MGNDataset(load_dir=eval_cfg['load_dir'],
                     resolution=model.config['resolution'],
@@ -115,25 +112,26 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     N_patch = ds.N_patch
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
+    N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
+    x_px, y_px = model.config['patch_size']
 
     model.eval()
-
     # Get batch and run through model
     batch_data = next(iter(dl))
     true_states, true_diffs = batch_data[0], batch_data[1]
 
-    """ NEW VERSION"""
     st = time.time()
-    pred_states, pred_diffs = model.gen_seq(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
+    with torch.inference_mode():
+        pred_states, pred_diffs = model.gen_seq(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
     print(f"Time taken: {time.time() - st:.4g}")
 
     # Split into steps
-    true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-    pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
+    true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3,x_px, y_px).to(torch.float32)
+    pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, x_px, y_px).cpu()
     pred_states = pred_states[:, :-1]
 
-    true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16)
-    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).cpu()
+    true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px)
+    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px).cpu()
 
     loss = rmse_loss(pred_states, true_states)
     N_rmse = calc_n_rmse(pred_states, true_states)
@@ -141,22 +139,18 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
     logging.info(f"Loss: {loss}")
     logging.info(f"N_RMSE: {N_rmse.item():.7g}")
 
-    # Plotting
-    plot_step = 30
-    batch_num = 0
+    # Plot diffs
+    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    for i, ax in enumerate(axs):
+        img_1 = true_diffs[batch_num, plot_step, :, i]
+        img_2 = pred_diffs[batch_num, plot_step, :, i]
 
-    # # Plot diffs
-    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    # for i, ax in enumerate(axs):
-    #     img_1 = true_diffs[batch_num, plot_step, :, i]
-    #     img_2 = pred_diffs[batch_num, plot_step, :, i]
-    #
-    #     # Initial image
-    #     plot_full_patches(img_1, (15, 4), ax[0])
-    #     # Predictions
-    #     plot_full_patches(img_2, (15, 4), ax[1])
-    # fig.tight_layout()
-    # fig.show()
+        # Initial image
+        plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
+        # Predictions
+        plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
+    fig.tight_layout()
+    fig.show()
 
     # Plot states
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
@@ -165,20 +159,24 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg):
         img_2 = pred_states[batch_num, plot_step, :, i]
 
         # Initial image
-        plot_full_patches(img_1, (15, 4), ax[0])
+        plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
         # Predictions
-        plot_full_patches(img_2, (15, 4), ax[1])
+        plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
     fig.tight_layout()
     fig.show()
 
 
 def main(args):
+    load_no = -2
+    plot_num = 10
+    batch_num = 0
+
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=-1)
+    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=load_no)
     checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
@@ -198,7 +196,7 @@ def main(args):
     model = accelerator.prepare(model)
 
     # Run test_generate
-    test_generate(model, inference_params)
+    test_generate(model, inference_params, plot_num, batch_num)
 
     # Run evaluation
     # evaluate_model(model, inference_params, mode='valid')

@@ -50,7 +50,6 @@ class MGNDataset(Dataset):
 
         # Calculate number of patches, assuming stride = patch_size
         x_px, y_px = state.shape[1:]
-        print(x_px, y_px)
 
         self.N_x_patch, self.N_y_patch = num_patches(x_px, patch_size[0], stride[0]), num_patches(y_px, patch_size[1], stride[1])
         self.N_patch = self.N_x_patch * self.N_y_patch
@@ -282,8 +281,6 @@ def plot_all_patches():
     p_shows = diffs[0]
     p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])
     plot_patches(p_shows[0, :, 0], (seq_dl.N_x_patch, seq_dl.N_y_patch))
-
-
 
 
 if __name__ == '__main__':

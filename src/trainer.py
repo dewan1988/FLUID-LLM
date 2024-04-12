@@ -84,7 +84,10 @@ class Trainer:
         self.model.train()
 
         # Forward pass
-        _, model_out = self.model(states, position_ids)
+        if self.params['see_init_state']:
+            model_out = self.model.forward_duplicate(states, position_ids, self.N_patch)
+        else:
+            _, model_out = self.model(states, position_ids)
         loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
 
         # Find predicted next state and true next state
