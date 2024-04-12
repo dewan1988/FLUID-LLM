@@ -70,6 +70,7 @@ class MultivariateTimeLLM(nn.Module):
 
         self.N_x_patch, self.N_y_patch = config["patch_size"]
         self.patch_in_dim = self.N_x_patch * self.N_y_patch * 3
+        self.max_seq_len = self.config['seq_len'] - 1
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
@@ -154,10 +155,10 @@ class MultivariateTimeLLM(nn.Module):
         init_states = init_states.to(torch.float32)
         all_states = [init_states]
         all_diffs = []
-        # Keep a buffer of the last 8 states as model input
+        # Keep a buffer of the last N states as model input
         init_states_t = init_states.view(init_states.shape[0], -1, N_patch, 3, self.N_x_patch, self.N_y_patch)
         init_len = init_states_t.shape[1]
-        input_buff = deque(maxlen=5)
+        input_buff = deque(maxlen=self.max_seq_len)
         for t in range(init_len):
             input_buff.append(init_states_t[:, t])
 

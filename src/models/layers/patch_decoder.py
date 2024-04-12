@@ -9,6 +9,7 @@ class PatchDecoder(nn.Module):
     def __init__(self, llm_dim, out_dim, params):
         super().__init__()
 
+        self.CNN = False
         if params['type'] == 'MLP':
             hid_dim, num_layers, act = params["hidden_dim"], params["num_layers"], params["activation"]
             zero_last_layer = params["zero_last_layer"]
@@ -16,6 +17,7 @@ class PatchDecoder(nn.Module):
             self.decoder = MLP(in_dim=llm_dim, out_dim=out_dim, hid_dim=hid_dim,
                                num_layers=num_layers, act=act, zero_last=zero_last_layer)
         elif params['type'] == 'CNN':
+            self.CNN = True
             hid_dim, num_layers, act = params["hidden_dim"], params["num_layers"], params["activation"]
             zero_last_layer = params["zero_last_layer"]
 
@@ -28,10 +30,13 @@ class PatchDecoder(nn.Module):
     def forward(self, x):
         batch_size, seq_len, hid_dim = x.shape
 
-        # Reshape the tensor to [batch_size, channels, length] for Conv1d
-        x = x.reshape(batch_size, hid_dim, seq_len)
+        if self.CNN:
+            # Reshape the tensor to [batch_size, channels, length] for Conv1d
+            x = x.reshape(batch_size, hid_dim, seq_len)
 
         patches = self.decoder(x)
-        patches = patches.reshape(batch_size, seq_len, hid_dim)
+
+        if self.CNN:
+            patches = patches.reshape(batch_size, seq_len, hid_dim)
 
         return patches
