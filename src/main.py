@@ -117,6 +117,7 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
                                             accelerator=accelerator)
 
         train_log, loss, nrmse = process_metrics(train_log_metrics, len(train_dataloader), run_mode, "train")
+        train_log['lr'] = optimizer.param_groups[0]['lr']
         wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
