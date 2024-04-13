@@ -49,7 +49,7 @@ learning_rate: 1e-3
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0.3, 10]
+loss_weighting: [0.7, 10]
 schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
@@ -61,18 +61,18 @@ see_init_state: true
 # Dataloader params
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
-patch_size: [12, 12]
-stride: [12, 12]
-seq_len: 6
+patch_size: [20, 20]
+stride: [20, 20]
+seq_len: 10
 seq_interval: 2
-resolution: 238
+resolution: 220
 normalize_ds: false
 fit_diffs: true
 # Validation
 
 # Logging params
-enable_wandb: false
-save_on: false
+enable_wandb: true
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

@@ -167,8 +167,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
 
 def main(args):
-    load_no = -2
-    plot_num = 10
+    load_no = -1
+    plot_num = -1
     batch_num = 0
 
     set_seed()

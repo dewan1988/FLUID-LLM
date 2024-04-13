@@ -259,9 +259,9 @@ class MGNDataset(Dataset):
 
 
 def plot_all_patches():
-    patch_size = (16, 16)
+    patch_size = (20, 20)
 
-    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=240, patch_size=patch_size, stride=patch_size,
+    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=220, patch_size=patch_size, stride=patch_size,
                         seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
 
     ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
@@ -272,7 +272,7 @@ def plot_all_patches():
 
     N_x, N_y = seq_dl.N_x_patch, seq_dl.N_y_patch
 
-    # print(f'{N_x = }, {N_y = }')
+    print(f'{N_x = }, {N_y = }')
 
     p_shows = state[0]
     p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])

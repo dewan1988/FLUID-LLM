@@ -3,6 +3,6 @@ checkpoint_save_path: model_checkpoints
 step_to_load: 300
 
 # DL param
-load_dir: ./ds/MGN/cylinder_dataset/train
+load_dir: ./ds/MGN/cylinder_dataset/valid
 seq_len: 27
 batch_size: 64
