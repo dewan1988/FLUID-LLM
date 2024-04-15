@@ -31,7 +31,7 @@ class InputEmbeddings(nn.Module):
         if use_self_attn:
             self.patches_attn = SelfAttention(llm_dim)
 
-        self.LayerNorm = nn.LayerNorm(llm_dim, eps=layer_norm_eps)
+        # self.LayerNorm = nn.LayerNorm(llm_dim, eps=layer_norm_eps)
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
     def forward(self, x, position_ids):
@@ -52,6 +52,6 @@ class InputEmbeddings(nn.Module):
         # Add positional embeddings
         embeddings = self.position_embeddings(embeddings, position_ids)
 
-        embeddings = self.LayerNorm(embeddings)
+        # embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
