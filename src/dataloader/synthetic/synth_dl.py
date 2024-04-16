@@ -6,7 +6,7 @@ import pickle
 import random
 from cprint import c_print
 import time
-from dataloader.solver import WaveConfig, PDESolver2D
+from dataloader.synthetic.solver_node import WaveConfig, PDESolver2D
 import torch
 from torch.utils.data import Dataset, DataLoader
 from dataloader.mesh_utils import to_grid, get_mesh_interpolation
@@ -82,14 +82,17 @@ class SynthDS(Dataset):
 
         position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
 
+        states, diffs = states.clamp(-5, 5), diffs.clamp(-5, 5)
+
         return states, diffs, mask, torch.from_numpy(position_ids)
 
     def _get_step(self, ys, bc_mask, step_num):
         """
         Returns all interpolated measurements for a given step, including padding.
         """
-        ys = ys[:, :, :, step_num]
-        ys = np.concatenate((ys, ys[0:1]), axis=0)
+
+        ys = ys[step_num]
+        ys = torch.cat((ys, ys[0:1]), dim=0)
         # bc_mask = np.repeat(bc_mask[None], 3, axis=0)
 
         if self.pad:
@@ -146,7 +149,6 @@ class SynthDS(Dataset):
 
             Return shape: (seq_len, C+1, H, W)
         """
-
         sol, bc_mask = self._load_step()
 
         to_patches = []
@@ -204,30 +206,33 @@ def plot_all_patches():
 
     seq_dl = SynthDS(resolution=240, patch_size=patch_size, stride=stride,
                      seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
-    ds = DataLoader(seq_dl, batch_size=1, num_workers=1, prefetch_factor=1, shuffle=True)
+    ds = DataLoader(seq_dl, batch_size=1, num_workers=0)
 
     for batch in ds:
         state, diffs, mask, pos_id = batch
+        if state.max() > 100:
+            print(state.max())
         break
 
     x_count, y_count = seq_dl.N_x_patch, seq_dl.N_y_patch
     N_patch = seq_dl.N_patch
 
-    p_shows = state[0]
-    print(p_shows.shape)
-    vmin, vmax = p_shows[:, 0].min(), p_shows[:, 0].max()
-    print(vmin, vmax)
+    show_dim = 0
+    p_shows = state[0, :, show_dim]    # shape = (N_patch * seq_len, 16, 16)
+    p_shows = p_shows.reshape(-1, N_patch, 16, 16)
+    vmin, vmax = p_shows[0].min(), p_shows[0].max()
+    print(f'{vmin = :.2g}, {vmax = :.2g}')
     for show_step in range(0, 9, 2):
         fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
         for i in range(y_count):
             for j in range(x_count):
-                p_show = p_shows[i + j * y_count + show_step * N_patch].numpy()
-                p_show = np.transpose(p_show, (2, 1, 0))
-
-                axes[i, j].imshow(p_show[:, :, 0], vmin=vmin, vmax=vmax)
+                p_show = p_shows[show_step, i + j * y_count].numpy()
+                p_show = p_show.T
+                axes[i, j].imshow(p_show[:, :], vmin=vmin, vmax=vmax)
                 axes[i, j].axis('off')
-        plt.tight_layout()
-        plt.show()
+
+    plt.tight_layout()
+    plt.show()
 
     # p_shows = diffs[0]
     # fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
@@ -248,6 +253,6 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
     from utils import set_seed
 
-    # set_seed(42)
+    # set_seed(6)
     # plot_patches(None, 10, 20)
     plot_all_patches()

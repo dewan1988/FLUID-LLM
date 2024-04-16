@@ -20,7 +20,8 @@ class InitialConditionGenerator:
         """
         rnd = np.random.randint(3)
         if rnd == 0:
-            return self.multiple_gaussian_pulses()
+            init_cond = self.multiple_gaussian_pulses()
+            return init_cond
         elif rnd == 1:
             return self.multiple_plane_waves()
         elif rnd == 2:
@@ -86,7 +87,9 @@ class InitialConditionGenerator:
         result = np.zeros((self.nx, self.ny))
         for _ in range(n_pulses):
             result += self.gaussian_pulse()
-        result /= result.max() * norm_const  # Normalize
+
+        abs_max = np.abs(result).max() + 0.1
+        result /= abs_max * norm_const  # Normalize
         return result
 
     def multiple_plane_waves(self, n_waves=3):
@@ -112,7 +115,7 @@ def smooth_transition(initial_conditions, boundary_mask, k=25, smooth=True):
     :param k: Steepness of the logistic transition function.
     :param width: Approximate width of the transition zone.
     """
-
+    # print(initial_conditions.max())
     # Compute distance to the nearest boundary point
     distances = distance_transform_edt(1 - boundary_mask)
 

@@ -3,19 +3,19 @@ import matplotlib.pyplot as plt
 from torchdiffeq import odeint
 import torch
 
-from dataloader.initial_cond import InitialConditionGenerator, smooth_transition
-from dataloader.boundary_domain import BoundaryConditionGenerator
-from dataloader.pdes import PDEs
+from dataloader.synthetic.initial_cond import InitialConditionGenerator, smooth_transition
+from dataloader.synthetic.boundary_domain import BoundaryConditionGenerator
+from dataloader.synthetic.pdes import PDEs
 
 
 class WaveConfig:
-    Nx, Ny = 60, 240  # Grid size
-    Lx, Ly = 0.4, 2.4
+    Nx, Ny = 240, 60  # Grid size
+    Lx, Ly = 2.4, 0.6  # Domain size
     dx = Lx / (Nx - 1)
     dy = Ly / (Ny - 1)
-    # dt = 0.1  # Time step
-    T = 0.3  # Final time
-    Nt = 100  # Number of time steps
+    T = 0.2  # Final time
+    Nt = 21  # Number of time steps
+    stepsize = 0.005
 
 
 class PDESolver2D:
@@ -37,6 +37,7 @@ class PDESolver2D:
         self.Nt = cfg.Nt
         self.dx, self.dy = cfg.dx, cfg.dy
         self.T = cfg.T
+        self.stepsize = cfg.stepsize
 
         self.t_eval = torch.linspace(0, self.T, self.Nt)  # Time points to evaluate
 
@@ -92,7 +93,7 @@ class PDESolver2D:
         """
         with torch.no_grad():
             self.solution = odeint(self.pde_wrapper, self.u0, self.t_eval,
-                                   method='rk4', options={'step_size': 0.005})  #
+                                   method='rk4', options={'step_size': self.stepsize})  #
         return self.solution, self.bc_mask
 
     def plot_solution(self):
@@ -114,7 +115,7 @@ class PDESolver2D:
 
         for i, t in enumerate(selected_timesteps):
             ax = axs[i // (n_selected // 2), i % (n_selected // 2)]
-            u_sol_t = u_sol[t]
+            u_sol_t = u_sol[t].T
             ax.imshow(u_sol_t, origin='lower', vmin=vmin, vmax=vmax)
             ax.set_title(f"Step {t}")
             ax.axis('off')
@@ -127,8 +128,6 @@ class PDESolver2D:
 if __name__ == "__main__":
     import time
     from utils import set_seed
-
-    # set_seed(13)
 
     cfg = WaveConfig()
     solver = PDESolver2D(cfg)
