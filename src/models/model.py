@@ -67,10 +67,11 @@ class MultivariateTimeLLM(nn.Module):
             self.BOS_embed = torch.nn.Parameter(BOS_embed)
 
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
+        self.max_seq_len = self.config['seq_len'] - 1
 
         self.N_x_patch, self.N_y_patch = config["patch_size"]
         self.patch_in_dim = self.N_x_patch * self.N_y_patch * 3
-        self.max_seq_len = self.config['seq_len'] - 1
+        self.patch_shape = (3, self.N_x_patch, self.N_y_patch)
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
@@ -83,7 +84,7 @@ class MultivariateTimeLLM(nn.Module):
                                                 init_pos_embed=config['init_pos_embed'],
                                                 use_self_attn=config['use_patches_self_attention'])
 
-        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.config['decoder_params'])
+        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.patch_shape, self.config['decoder_params'])
 
         # Adjust the backbone for time series task
         self._adjust_backbone()

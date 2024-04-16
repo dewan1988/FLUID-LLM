@@ -35,7 +35,7 @@ encoder_params:
 
 # Decoder params
 decoder_params:
-    type: MLP
+    type: GNN
     num_layers: 2
     hidden_dim: 512
     activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
@@ -56,19 +56,18 @@ schedule_gamma: 0.8
 teacher_forcing:
     ratio: 0.1
     start_epoch: 5000
-see_init_state: true
+see_init_state: false
 
 # Dataloader params
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
-patch_size: [20, 20]
-stride: [20, 20]
+patch_size: [16, 16]
+stride: [16, 16]
 seq_len: 10
 seq_interval: 2
-resolution: 220
+resolution: 238
 normalize_ds: false
 fit_diffs: true
-# Validation
 
 # Logging params
 enable_wandb: false
