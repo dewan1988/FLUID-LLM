@@ -148,8 +148,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 1
-    save_epoch = 120
+    batch_num = 2
+    save_epoch = 300
 
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)

@@ -28,21 +28,28 @@ class GNNDecoder(nn.Module):
         y_pa_grid = torch.arange(self.Ny_patch)
         x_pa_grid, y_pa_grid = torch.meshgrid(x_pa_grid, y_pa_grid, indexing='ij')
         patch_idx = torch.stack((x_pa_grid, y_pa_grid), dim=-1).view(1, 1, 60, 2)
-        patch_idx = patch_idx / patch_idx.max()
+        # patch_idx = patch_idx / patch_idx.max()
         self.patch_idx = self.patch_to_px(patch_idx).cuda()
 
         # Indices for pixel number
-        x_px_grid = torch.arange(self.Nx_mesh)
-        y_px_grid = torch.arange(self.Ny_mesh)
+        # x_px_grid = torch.arange(self.Nx_mesh)
+        # y_px_grid = torch.arange(self.Ny_mesh)
+        # x_px_grid, y_px_grid = torch.meshgrid(x_px_grid, y_px_grid, indexing='ij')
+        # pixel_idx = torch.stack((x_px_grid, y_px_grid), dim=-1)
+        # pixel_idx = pixel_idx / pixel_idx.max()
+        # self.pixel_idx = pixel_idx.unsqueeze(0).unsqueeze(0).cuda()
+
+        x_px_grid = torch.arange(self.patch_size)
+        y_px_grid = torch.arange(self.patch_size)
         x_px_grid, y_px_grid = torch.meshgrid(x_px_grid, y_px_grid, indexing='ij')
-        pixel_idx = torch.stack((x_px_grid, y_px_grid), dim=-1)
+        pixel_idx = torch.stack((x_px_grid, y_px_grid), dim=-1).repeat(self.Nx_patch, self.Ny_patch, 1)
         pixel_idx = pixel_idx / pixel_idx.max()
         self.pixel_idx = pixel_idx.unsqueeze(0).unsqueeze(0).cuda()
 
-        plt.imshow(self.pixel_idx[0, 0, :, :, 0].cpu())
-        plt.show()
-        print(pixel_idx)
-        exit(7)
+        # plt.imshow(self.pixel_idx[0, 0, :, :, 0].cpu())
+        # plt.show()
+        # print(f'{self.patch_idx.shape = }, {self.pixel_idx.shape = }')
+        # exit(7)
 
         # Indices for edges
         self.mesh_edges = make_edge_idx(self.Ny_mesh, self.Nx_mesh).cuda()
@@ -63,7 +70,6 @@ class GNNDecoder(nn.Module):
         # patch_vectors = torch.zeros_like(patch_vectors)
         # patch_vectors[0, 4] = torch.ones_like(patch_vectors[0, 0])
         patch_vectors = patch_vectors.view(bs, seq_len, N_patch, self.hidden_dim)  # shape = [bs, seq_len, N_patch, hid_dim]
-
         node_features = self.patch_to_px(patch_vectors)  # shape = [bs, seq_len, Nx_patch, Ny_patch, hid_dim]
 
         # node_features = node_features.reshape(bs, seq_len, self.Nx_mesh, self.Ny_mesh, self.hidden_dim)
@@ -89,7 +95,7 @@ class GNNDecoder(nn.Module):
         node_features = node_features.view(bs * seq_len, self.Nx_mesh * self.Ny_mesh, self.hidden_dim + 4)
         #
         # gnn_input = node_features[0] # , 0, : ,:, 0]
-        # gnn_input = gnn_input.view(self.Nx_mesh, self.Ny_mesh, -1)[:, :, -4]
+        # gnn_input = gnn_input.view(self.Nx_mesh, self.Ny_mesh, -1)[:, :, -2]
         # plt.imshow(gnn_input.cpu().detach().float().numpy())
         # plt.show()
         # print(gnn_input.shape)
