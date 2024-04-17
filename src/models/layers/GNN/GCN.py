@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GATv2Conv
 
 
 class GCN_layers(torch.nn.Module):
@@ -19,14 +19,14 @@ class GCN_layers(torch.nn.Module):
         # Create a list of all GCN convolutional layers
         self.convs = torch.nn.ModuleList()
         if num_layers == 1:
-            self.out_conv = GCNConv(input_dim, output_dim)
+            self.out_conv = GATv2Conv(input_dim, output_dim)
         else:
-            self.convs.append(GCNConv(input_dim, hidden_dim))
+            self.convs.append(GATv2Conv(input_dim, hidden_dim))
             for l in range(num_layers - 2):
-                self.convs.append(GCNConv(hidden_dim, hidden_dim))
+                self.convs.append(GATv2Conv(hidden_dim, hidden_dim))
 
             # Output layer
-            self.out_conv = GCNConv(hidden_dim, output_dim)
+            self.out_conv = GATv2Conv(hidden_dim, output_dim)
 
     def forward(self, x, edge_index):
         """

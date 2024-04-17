@@ -3,6 +3,7 @@ from models.layers.MLP import MLP
 from models.layers.CNN import CNN
 from models.layers.GNN.GNN_decoder import GNNDecoder
 
+
 class PatchDecoder(nn.Module):
     """Patch decoder layer to project from feature space to patch space."""
 
@@ -39,7 +40,7 @@ class PatchDecoder(nn.Module):
             # Reshape the tensor to [batch_size, channels, length] for Conv1d
             x = x.reshape(batch_size, hid_dim, seq_len)
 
-        patches = self.decoder(x)
+        patches = self.decoder.forward(x)
 
         if self.CNN:
             patches = patches.reshape(batch_size, seq_len, hid_dim)

@@ -125,9 +125,9 @@ class MultivariateTimeLLM(nn.Module):
 
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_preds.shape
-        decoder_out = self.output_layer(backbone_preds)
+        decoder_out = self.output_layer.forward(backbone_preds)
 
-        decoder_out = decoder_out.view(batch_size, seq_len//60, 60, 16, 3).permute(0, 1, 4, 2, 3)
+        decoder_out = decoder_out.view(batch_size, seq_len//60, 120, 32, 3).permute(0, 1, 4, 2, 3)
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 

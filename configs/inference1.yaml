@@ -1,6 +1,6 @@
 # Load location
 checkpoint_save_path: model_checkpoints
-step_to_load: 40
+step_to_load: 60
 
 # DL param
 load_dir: ./ds/MGN/cylinder_dataset/valid

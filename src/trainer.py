@@ -76,11 +76,7 @@ class Trainer:
         else:
             _, model_out = self.model(states, position_ids)
 
-        # print(model_out.shape)
-        # plot_vals = model_out[0, 0, 0]
-        # plt.imshow(plot_vals.detach().cpu().numpy())
-        # plt.show()
-        # exit(9)
+
 
         bs, _, channel, px, py = target.shape
 
@@ -90,10 +86,19 @@ class Trainer:
 
         targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
-        targ_img_red = targ_img[:, :, :, ::4, ::4]
+        targ_img_red = targ_img[:, :, :, ::2, ::2]
+
+        # print(model_out.shape)
+        # plot_vals = model_out[0, 0, 0]
+        # plt.imshow(plot_vals.detach().cpu().numpy().T)
+        # plt.show()
+        #
+        # plot_targs = targ_img_red[0, 0, 0]
+        # plt.imshow(plot_targs.cpu().T)
+        # plt.show()
+        # exit(9)
 
         bc_mask = torch.zeros_like(targ_img_red).bool()
-
         loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_img_red, mask=bc_mask)
 
         # # Find predicted next state and true next state

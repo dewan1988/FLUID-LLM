@@ -82,9 +82,21 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
         targ_img_red = targ_img[:, :, :, ::4, ::4]
 
-        plt.imshow(targ_img_red[batch_num, plot_step, 0].cpu().T)
+
+        plot_dim = 0
+
+        plot_targ = targ_img_red[batch_num, plot_step, plot_dim]
+        plot_preds = decoder_out[batch_num, plot_step, plot_dim]
+
+        targ_min, targ_max = plot_targ.min(), plot_targ.max()
+        pred_min, pred_max = plot_preds.min(), plot_preds.max()
+
+        print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}')
+        print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}')
+
+        plt.imshow(plot_targ.cpu().T)
         plt.show()
-        plt.imshow(decoder_out[batch_num, plot_step, 0].cpu().T)
+        plt.imshow(plot_preds.cpu().T)
         plt.show()
 
         print(targ_img_red.std(), decoder_out.std())
@@ -136,7 +148,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 0
+    batch_num = 1
+    save_epoch = 120
 
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)
@@ -144,7 +157,7 @@ def main(args):
 
     # Load the checkpoint
     load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=load_no)
-    checkpoint_file_path = os.path.join(load_path, f'step_{inference_params["step_to_load"]}.pth')
+    checkpoint_file_path = os.path.join(load_path, f'step_{save_epoch}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
     if not os.path.exists(checkpoint_file_path):

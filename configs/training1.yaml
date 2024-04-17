@@ -45,7 +45,7 @@ decoder_params:
 batch_size: 8
 num_epochs: 301
 epoch_size: 100
-learning_rate: 5e-4
+learning_rate: 7e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']

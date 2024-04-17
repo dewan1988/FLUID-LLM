@@ -13,8 +13,9 @@ class GNNDecoder(nn.Module):
         super().__init__()
         self.channel, self.N_px, self.N_py = patch_shape
         self.Nx_patch, self.Ny_patch = 15, 4
-        self.Nx_mesh, self.Ny_mesh = 60, 16
-        self.patch_size = 4
+        self.patch_size = 8
+        self.Nx_mesh, self.Ny_mesh = self.Nx_patch * self.patch_size, self.Ny_patch * self.patch_size
+
         self.hidden_dim = 128
 
         # Trainable MLP input layer
@@ -38,15 +39,19 @@ class GNNDecoder(nn.Module):
         pixel_idx = pixel_idx / pixel_idx.max()
         self.pixel_idx = pixel_idx.unsqueeze(0).unsqueeze(0).cuda()
 
+        plt.imshow(self.pixel_idx[0, 0, :, :, 0].cpu())
+        plt.show()
+        print(pixel_idx)
+        exit(7)
+
         # Indices for edges
-        self.mesh_edges = make_edge_idx(16, 60).cuda()
+        self.mesh_edges = make_edge_idx(self.Ny_mesh, self.Nx_mesh).cuda()
 
         # bs, seq_len = 8, 3
         # patch_vectors = torch.randn(8, 540, 768).cuda()
         # node_features = self.forward(patch_vectors)
 
     def forward(self, patch_vectors):
-
         N_patch = 60
         bs, tot_patchs, llm_dim = patch_vectors.shape
         seq_len = tot_patchs // N_patch
@@ -71,7 +76,6 @@ class GNNDecoder(nn.Module):
         # plt.show()
         # print(gnn_input.shape)
         # exit(9)
-
 
         # 3) Concatenate on positional features
         patch_idx = self.patch_idx.repeat(bs, seq_len, 1, 1, 1)
@@ -106,7 +110,7 @@ class GNNDecoder(nn.Module):
         # for n in neigbours:
         #     preds[n] = 1.
         #
-        preds = preds.view(-1, self.Nx_mesh, self.Ny_mesh, 3)
+        preds = preds.view(-1, self.Nx_mesh, self.Ny_mesh, 3)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3]
 
         # preds = preds.detach().cpu()
         # plt.imshow(preds[0, :, :, 0].T)
