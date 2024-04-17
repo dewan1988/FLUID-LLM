@@ -4,6 +4,7 @@ import networkx as nx
 from torch_geometric.data import Data, Batch
 from models.layers.MLP import MLP
 from models.layers.GNN.GCN import GCN_layers
+import torch.nn.functional as F
 
 from matplotlib import pyplot as plt
 
@@ -19,8 +20,8 @@ class GNNDecoder(nn.Module):
         self.hidden_dim = 128
 
         # Trainable MLP input layer
-        self.input_mlp = MLP(in_dim, self.hidden_dim, hid_dim=self.hidden_dim, num_layers=2, act='relu', zero_last=False).cuda()
-        # GNN
+        self.input_mlp = MLP(in_dim, 192, hid_dim=self.hidden_dim, num_layers=2, act='relu', zero_last=False).cuda()
+        """# GNN
         self.GNN = GCN_layers(self.hidden_dim + 4, self.hidden_dim, 3, num_layers=1).cuda()
 
         # Indices for patch number
@@ -56,9 +57,10 @@ class GNNDecoder(nn.Module):
 
         # bs, seq_len = 8, 3
         # patch_vectors = torch.randn(8, 540, 768).cuda()
-        # node_features = self.forward(patch_vectors)
+        # node_features = self.forward(patch_vectors)"""
 
     def forward(self, patch_vectors):
+        """ Return shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3] """
         N_patch = 60
         bs, tot_patchs, llm_dim = patch_vectors.shape
         seq_len = tot_patchs // N_patch
@@ -66,7 +68,7 @@ class GNNDecoder(nn.Module):
         # 0) Preprocess input MLP
         patch_vectors = self.input_mlp(patch_vectors)  # shape = [bs, seq_len*N_patch, hid_dim]
 
-        # 1) Map patches to higher resolution grid
+        """ # 1) Map patches to higher resolution grid
         # patch_vectors = torch.zeros_like(patch_vectors)
         # patch_vectors[0, 4] = torch.ones_like(patch_vectors[0, 0])
         patch_vectors = patch_vectors.view(bs, seq_len, N_patch, self.hidden_dim)  # shape = [bs, seq_len, N_patch, hid_dim]
@@ -122,7 +124,19 @@ class GNNDecoder(nn.Module):
         # plt.imshow(preds[0, :, :, 0].T)
         # plt.show()
         # exit(9)
-        # print(f'{preds.shape = }')
+        # print(f'{preds.shape = }')"""
+        # patch_vectors = patch_vectors.view(bs*seq_len, 120, 32, 3)
+        #
+        patch_vectors = patch_vectors.view(bs, seq_len, N_patch, 192)
+        patch_vectors = patch_vectors.view(bs*seq_len, N_patch, 192)
+        patch_vectors = patch_vectors.permute(0, 2, 1)
+
+        preds = F.fold(patch_vectors, output_size=(120, 32), kernel_size=(8, 8), stride=(8, 8))
+        preds = preds.permute(0, 2, 3, 1)
+        # plt.imshow(patch_vectors[0, 1].cpu().detach().float().numpy())
+        # plt.show()
+        # print(patch_vectors.shape)
+        # exit(6)
         return preds
 
     def patch_to_px(self, patch_vectors):
