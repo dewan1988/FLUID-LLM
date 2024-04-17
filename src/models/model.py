@@ -69,9 +69,10 @@ class MultivariateTimeLLM(nn.Module):
         self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
         self.max_seq_len = self.config['seq_len'] - 1
 
-        self.N_x_patch, self.N_y_patch = config["patch_size"]
-        self.patch_in_dim = self.N_x_patch * self.N_y_patch * 3
-        self.patch_shape = (3, self.N_x_patch, self.N_y_patch)
+        self.N_px_patch, self.N_py_patch = config["patch_size"]
+        # print(f'Patch size: {self.N_x_patch} x {self.N_y_patch}')
+        self.patch_in_dim = self.N_px_patch * self.N_py_patch * 3
+        self.patch_shape = (3, self.N_px_patch, self.N_py_patch)
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
@@ -125,7 +126,8 @@ class MultivariateTimeLLM(nn.Module):
         # Decode hidden state given by the LLM
         _, seq_len, _ = backbone_preds.shape
         decoder_out = self.output_layer(backbone_preds)
-        decoder_out = decoder_out.view(batch_size, seq_len, 3, self.N_x_patch, self.N_y_patch)
+
+        decoder_out = decoder_out.view(batch_size, seq_len//60, 60, 16, 3).permute(0, 1, 4, 2, 3)
 
         return backbone_out, decoder_out * self.config['diff_scale_factor']
 
@@ -228,9 +230,4 @@ class MultivariateTimeLLM(nn.Module):
         preds = preds[:, N_patch:]
 
         return preds
-        # print(states.shape)
-        # print(position_ids[0, :, 2])
-        # exit(9)
-        #
-
 

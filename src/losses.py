@@ -187,7 +187,9 @@ class CombinedLoss(nn.Module):
             # loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
             # loss_val = loss_velocity + loss_pressure
-            loss_val = loss_fn(preds, target, mask)
+            # print(f'{preds.shape = }, {target.shape = }, {mask.shape = }')
+            # exit(7)
+            loss_val = loss_fn.forward(preds, target, mask)
             tot_loss += loss_val * weighting
 
             all_losses[str(loss_fn)] = loss_val# .item()

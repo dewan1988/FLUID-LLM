@@ -88,24 +88,25 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
     return metrics_per_epoch
 
 
-def val_epoch(val_dl, trainer, accelerator: Accelerator):
-    val_metrics_ep = []
-    dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
-    for batch_idx, batch in enumerate(dl_iterator):
-        states, diffs, bc_mask, position_ids = batch
-        batch = (states.to(accelerator.device), diffs.to(accelerator.device),
-                 bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
-
-        loss, log_metrics_dict = trainer.run_gen_val_step(batch)
-
-        val_metrics_ep.append(log_metrics_dict)
-    return val_metrics_ep
+#
+# def val_epoch(val_dl, trainer, accelerator: Accelerator):
+#     val_metrics_ep = []
+#     dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
+#     for batch_idx, batch in enumerate(dl_iterator):
+#         states, diffs, bc_mask, position_ids = batch
+#         batch = (states.to(accelerator.device), diffs.to(accelerator.device),
+#                  bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
+#
+#         loss, log_metrics_dict = trainer.run_gen_val_step(batch)
+#
+#         val_metrics_ep.append(log_metrics_dict)
+#     return val_metrics_ep
 
 
 def train_run(train_params, save_path, train_dataloader, valid_dataloader, trainer, optimizer, scheduler, accelerator, start_ep=0):
     epoch_iterator = trange(train_params["num_epochs"], desc="Training", position=0, leave=True)
     for epoch_idx, epoch in enumerate(epoch_iterator):
-
+        print()
         # Train Step
         ep_train_fn, run_mode = select_run_mode(trainer, train_params['teacher_forcing'], epoch + start_ep)
 
@@ -121,14 +122,15 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
         wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
-        val_metrics = val_epoch(valid_dataloader, trainer, accelerator)
-        val_log, val_loss, val_nmrse = process_metrics(val_metrics, len(valid_dataloader), "Gen", "val")
-        wandb.log(val_log, step=epoch_idx + start_ep)
+        # val_metrics = val_epoch(valid_dataloader, trainer, accelerator)
+        # val_log, val_loss, val_nmrse = process_metrics(val_metrics, len(valid_dataloader), "Gen", "val")
+        # wandb.log(val_log, step=epoch_idx + start_ep)
 
         epoch_iterator.set_description(
             f"Epoch: {epoch_idx + 1}: "
             f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.7g}) - "
-            f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.7g})")
+            #    f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.7g})"
+        )
         epoch_iterator.refresh()
 
         # Save model checkpoint

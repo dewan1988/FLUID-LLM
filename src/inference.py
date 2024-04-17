@@ -15,6 +15,7 @@ from tqdm import tqdm
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
 from metrics import calc_n_rmse
 from models.model import MultivariateTimeLLM
+import torch.nn.functional as F
 
 from dataloader.simple_dataloader import MGNDataset
 from dataloader.mesh_utils import plot_full_patches
@@ -48,56 +49,6 @@ def rmse_loss(preds, targets):
     return rmse
 
 
-@torch.no_grad()
-def evaluate_model(model: MultivariateTimeLLM, eval_cfg, mode='valid'):
-    bs = eval_cfg['batch_size']
-    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}",
-                    resolution=model.config['resolution'],
-                    patch_size=model.config['patch_size'],
-                    stride=model.config['stride'],
-                    seq_len=eval_cfg['seq_len'],
-                    seq_interval=model.config['seq_interval'],
-                    mode=mode,
-                    fit_diffs=model.config['fit_diffs'],
-                    normalize=model.config['normalize_ds'])
-    N_patch = ds.N_patch
-
-    dl = DataLoader(ds, batch_size=bs, pin_memory=True)
-
-    model.eval()
-
-    all_nmrse = []
-
-    # Get batch and run through model
-    for eval_batch in tqdm(dl, desc="Evaluating model"):
-        true_states, true_diffs, mask = eval_batch[0], eval_batch[1], eval_batch[2]
-        bs, tot_patch, channel, px, py = true_states.shape
-        seq_len = tot_patch // N_patch
-
-        pred_states, _ = model.gen_seq(eval_batch, N_patch, pred_steps=seq_len - 1)
-
-        true_states = true_states.view(bs, seq_len, N_patch, channel, px, py)
-        pred_states = pred_states.view(bs, seq_len, N_patch, channel, px, py).cpu()
-        mask = mask.view(bs, seq_len, N_patch, channel, px, py)
-
-        # Split into steps
-        #true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, 16, 16).to(torch.float32)
-        #pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, 16, 16).cpu()
-        #pred_states = pred_states[:, :-1]
-
-
-        loss = rmse_loss(pred_states, true_states)
-        N_rmse = calc_n_rmse(pred_states, true_states, mask)
-        all_nmrse.append(N_rmse.item())
-
-        #logging.info(f"Loss: {loss.mean():.7g}")
-        #logging.info(f"N_RMSE: {N_rmse.item():.7g}")
-
-    # Get mean N_rmse
-    mean_nrmse = sum(all_nmrse) / len(all_nmrse)
-    logging.info(f"N_RMSE: {mean_nrmse:.7g}")
-
-
 def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     bs = eval_cfg['batch_size']
     ds = MGNDataset(load_dir=eval_cfg['load_dir'],
@@ -118,57 +69,73 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     model.eval()
     # Get batch and run through model
     batch_data = next(iter(dl))
-    true_states, true_diffs = batch_data[0], batch_data[1]
 
-    st = time.time()
     with torch.inference_mode():
-        pred_states, pred_diffs = model.gen_seq(batch_data, N_patch, pred_steps=eval_cfg['seq_len'] - 1)
-    print(f"Time taken: {time.time() - st:.4g}")
+        states, target, bc_mask, position_ids = batch_data
+        _, decoder_out = model.forward(states.cuda(), position_ids.cuda())
 
-    # Split into steps
-    true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3,x_px, y_px).to(torch.float32)
-    pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, x_px, y_px).cpu()
-    pred_states = pred_states[:, :-1]
+        # Reshape targets to images and downsample
+        target = target.view(bs, -1, 60, 3, 16, 16)
+        target = target.view(-1, 60, 3 * 16 * 16).transpose(-1, -2)
 
-    true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px)
-    pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px).cpu()
+        targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
+        targ_img = targ_img.view(bs, -1, 3, 240, 64)
+        targ_img_red = targ_img[:, :, :, ::4, ::4]
 
-    loss = rmse_loss(pred_states, true_states)
-    N_rmse = calc_n_rmse(pred_states, true_states)
+        plt.imshow(targ_img_red[batch_num, plot_step, 0].cpu().T)
+        plt.show()
+        plt.imshow(decoder_out[batch_num, plot_step, 0].cpu().T)
+        plt.show()
 
-    logging.info(f"Loss: {loss}")
-    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+        print(targ_img_red.std(), decoder_out.std())
+    exit(5)
 
-    # Plot diffs
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        img_1 = true_diffs[batch_num, plot_step, :, i]
-        img_2 = pred_diffs[batch_num, plot_step, :, i]
-
-        # Initial image
-        plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
-        # Predictions
-        plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
-    fig.tight_layout()
-    fig.show()
-
-    # Plot states
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        img_1 = true_states[batch_num, plot_step, :, i]
-        img_2 = pred_states[batch_num, plot_step, :, i]
-
-        # Initial image
-        plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
-        # Predictions
-        plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
-    fig.tight_layout()
-    fig.show()
+    # print(f"Time taken: {time.time() - st:.4g}")
+    #
+    # # Split into steps
+    # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3,x_px, y_px).to(torch.float32)
+    # pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, x_px, y_px).cpu()
+    # pred_states = pred_states[:, :-1]
+    #
+    # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px)
+    # pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px).cpu()
+    #
+    # loss = rmse_loss(pred_states, true_states)
+    # N_rmse = calc_n_rmse(pred_states, true_states)
+    #
+    # logging.info(f"Loss: {loss}")
+    # logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+    #
+    # # Plot diffs
+    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    # for i, ax in enumerate(axs):
+    #     img_1 = true_diffs[batch_num, plot_step, :, i]
+    #     img_2 = pred_diffs[batch_num, plot_step, :, i]
+    #
+    #     # Initial image
+    #     plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
+    #     # Predictions
+    #     plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
+    # fig.tight_layout()
+    # fig.show()
+    #
+    # # Plot states
+    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
+    # for i, ax in enumerate(axs):
+    #     img_1 = true_states[batch_num, plot_step, :, i]
+    #     img_2 = pred_states[batch_num, plot_step, :, i]
+    #
+    #     # Initial image
+    #     plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
+    #     # Predictions
+    #     plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
+    # fig.tight_layout()
+    # fig.show()
 
 
 def main(args):
     load_no = -1
-    plot_num = -1
+    plot_step = 0
     batch_num = 0
 
     set_seed()
@@ -196,7 +163,7 @@ def main(args):
     model = accelerator.prepare(model)
 
     # Run test_generate
-    test_generate(model, inference_params, plot_num, batch_num)
+    test_generate(model, inference_params, plot_step, batch_num)
 
     # Run evaluation
     # evaluate_model(model, inference_params, mode='valid')

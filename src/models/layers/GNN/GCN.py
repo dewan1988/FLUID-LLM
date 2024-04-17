@@ -18,12 +18,15 @@ class GCN_layers(torch.nn.Module):
 
         # Create a list of all GCN convolutional layers
         self.convs = torch.nn.ModuleList()
-        self.convs.append(GCNConv(input_dim, hidden_dim))
-        for l in range(num_layers - 2):
-            self.convs.append(GCNConv(hidden_dim, hidden_dim))
+        if num_layers == 1:
+            self.out_conv = GCNConv(input_dim, output_dim)
+        else:
+            self.convs.append(GCNConv(input_dim, hidden_dim))
+            for l in range(num_layers - 2):
+                self.convs.append(GCNConv(hidden_dim, hidden_dim))
 
-        # Output layer
-        self.out_conv = GCNConv(hidden_dim, output_dim)
+            # Output layer
+            self.out_conv = GCNConv(hidden_dim, output_dim)
 
     def forward(self, x, edge_index):
         """

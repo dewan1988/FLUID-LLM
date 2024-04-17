@@ -45,11 +45,11 @@ decoder_params:
 batch_size: 8
 num_epochs: 301
 epoch_size: 100
-learning_rate: 1e-3
+learning_rate: 5e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0.7, 10]
+loss_weighting: [0., 10]
 schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params
@@ -72,7 +72,7 @@ fit_diffs: true
 # Logging params
 enable_wandb: false
 save_on: false
-save_model_each: 20
+save_model_each: 10
 checkpoint_save_path: model_checkpoints
 
 

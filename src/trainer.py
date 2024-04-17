@@ -5,6 +5,7 @@ Module defining a trainer for a LLM on a given dataset.
 import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
+from matplotlib import pyplot as plt
 
 from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
@@ -74,24 +75,43 @@ class Trainer:
             model_out = self.model.forward_duplicate(states, position_ids, self.N_patch)
         else:
             _, model_out = self.model(states, position_ids)
-        loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
 
-        # Find predicted next state and true next state
-        if self.params['fit_diffs']:
-            true_state = states + target
-            preds = states + model_out
-        else:
-            true_state = states
-            preds = model_out
+        # print(model_out.shape)
+        # plot_vals = model_out[0, 0, 0]
+        # plt.imshow(plot_vals.detach().cpu().numpy())
+        # plt.show()
+        # exit(9)
 
-        # Calculate metrics
-        with torch.no_grad():
-            N_rmse = self.calculate_metrics(preds, true_state, bc_mask)
+        bs, _, channel, px, py = target.shape
+
+        # Reshape targets to images and downsample
+        target = target.view(bs, -1, 60, channel, px, py)
+        target = target.view(-1, 60, 3 * 16 * 16).transpose(-1, -2)
+
+        targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
+        targ_img = targ_img.view(bs, -1, 3, 240, 64)
+        targ_img_red = targ_img[:, :, :, ::4, ::4]
+
+        bc_mask = torch.zeros_like(targ_img_red).bool()
+
+        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_img_red, mask=bc_mask)
+
+        # # Find predicted next state and true next state
+        # if self.params['fit_diffs']:
+        #     true_state = states + target
+        #     preds = states + model_out
+        # else:
+        #     true_state = states
+        #     preds = model_out
+        #
+        # # Calculate metrics
+        # with torch.no_grad():
+        #     N_rmse = self.calculate_metrics(preds, true_state, bc_mask)
 
         # Log metrics
         log_metrics = {"loss": loss}
         log_metrics.update(all_losses)
-        log_metrics['N_RMSE'] = N_rmse
+        log_metrics['N_RMSE'] = 0.  # N_rmse
 
         return loss, log_metrics
 
