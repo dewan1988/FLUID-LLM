@@ -83,7 +83,6 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         targ_img_red = targ_img[:, :, :, ::2, ::2]
 
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-
     for i, ax in enumerate(axs):
         plot_dim = i
 
@@ -93,16 +92,25 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         targ_min, targ_max = plot_targ.min(), plot_targ.max()
         pred_min, pred_max = plot_preds.min(), plot_preds.max()
 
-        print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}')
+        print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}, std: {plot_targ.std():.4g}')
         print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}')
 
         ax[0].imshow(plot_targ.cpu().T)
         ax[1].imshow(plot_preds.cpu().T)
 
+    fig.tight_layout()
     plt.show()
 
-    exit(5)
+    # Calculate normalised RMSE
+    decoder_out = decoder_out.cpu()
+    targ_std = targ_img_red.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
+    targ_img_red = targ_img_red / (targ_std)
+    decoder_out = decoder_out / (targ_std)
 
+    loss_fn = torch.nn.L1Loss()
+    loss = loss_fn(decoder_out[batch_num], targ_img_red[batch_num])
+    print(targ_std.squeeze())
+    print(loss)
     # print(f"Time taken: {time.time() - st:.4g}")
     #
     # # Split into steps
@@ -149,7 +157,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 3
+    batch_num = 5
     save_epoch = 300
 
     set_seed()

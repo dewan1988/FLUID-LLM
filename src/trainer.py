@@ -76,8 +76,6 @@ class Trainer:
         else:
             _, model_out = self.model(states, position_ids)
 
-
-
         bs, _, channel, px, py = target.shape
 
         # Reshape targets to images and downsample
@@ -88,7 +86,12 @@ class Trainer:
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
         targ_img_red = targ_img[:, :, :, ::2, ::2]
 
-        # print(model_out.shape)
+        # Normalise predictions so loss is well scaled
+        targ_std = targ_img_red.std(dim=(-1, -2, -3, -4), keepdim=True)       # Std over each batch item
+        targ_img_red = targ_img_red / (targ_std+0.025)
+        model_out = model_out / (targ_std+0.025)
+        #
+        # print(targ_std.shape, targ_img_red.shape)
         # plot_vals = model_out[0, 0, 0]
         # plt.imshow(plot_vals.detach().cpu().numpy().T)
         # plt.show()

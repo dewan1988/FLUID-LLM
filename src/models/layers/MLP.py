@@ -16,6 +16,8 @@ class MLP(nn.Module):
             self.act = nn.Sigmoid()
         elif act == "gelu":
             self.act = nn.GELU()
+        elif act == 'softplus':
+            self.act = nn.Softplus()
         elif act == "linear":
             self.act = nn.Identity()
         else:

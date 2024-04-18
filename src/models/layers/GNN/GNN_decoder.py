@@ -20,7 +20,7 @@ class GNNDecoder(nn.Module):
         self.hidden_dim = 128
 
         # Trainable MLP input layer
-        self.input_mlp = MLP(in_dim, 192, hid_dim=self.hidden_dim, num_layers=2, act='relu', zero_last=False).cuda()
+        self.input_mlp = MLP(in_dim, 192, hid_dim=512, num_layers=2, act='softplus', zero_last=False).cuda()
         """# GNN
         self.GNN = GCN_layers(self.hidden_dim + 4, self.hidden_dim, 3, num_layers=1).cuda()
 
