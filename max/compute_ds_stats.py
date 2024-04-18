@@ -4,7 +4,7 @@ import numpy as np
 
 
 def get_data_loader(config):
-    ds = MGNDataset(load_dir=config['load_dir'],
+    ds = MGNDataset(load_dir=f"{config['load_dir']}/train",
                     resolution=config['resolution'],
                     patch_size=config['patch_size'],
                     stride=config['stride'],
@@ -46,7 +46,7 @@ def main():
     # Average variance
     state_vars, diff_vars = [[] for _ in range(3)], [[] for _ in range(3)]
 
-    for load_no in range(50): # range(len(ds)):
+    for load_no in range(10): # range(len(ds)):
 
         state, diff, mask, _ = ds.ds_get(load_no, step_num=0)
 
@@ -63,8 +63,8 @@ def main():
             state_vars[j].append(s.var().item())
             diff_vars[j].append(d.var().item())
 
-            if j % 3 == 0:
-                print(d.mean(), d.var())
+            # if j % 3 == 0:
+            #     print(d.mean(), d.var())
 
     for i in range(3):
         print()

@@ -205,7 +205,7 @@ class MGNDataset(Dataset):
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
 
-        if self.normalize:
+        if self.normalize or True:
             states = self._normalize(states)
 
         if self.fit_diffs:
@@ -226,7 +226,7 @@ class MGNDataset(Dataset):
         return states, target, masks.bool()
 
     def _normalize(self, states):
-
+        """ states.shape = [seq_len, N_patch, 3, patch_x, patch_y] """
         # Coordinate
         # State 0:  0.823, 0.3315
         # Diff 0: 1.614e-05, 0.000512
@@ -239,14 +239,14 @@ class MGNDataset(Dataset):
         # State 2:  0.04763, 0.07536
         # Diff 2: -0.002683, 0.00208
         # 0.0739, 0.00208
-        raise NotImplementedError("Normalisation is tricky when x and y velocities have different scale, even though the system is x_y invariant")
+        # raise NotImplementedError("Normalisation is tricky when x and y velocities have different scale, even though the system is x_y invariant")
 
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351
         s2_mean, s2_var = 0.04763, 0.07536
 
-        means = torch.tensor([s0_mean, s1_mean, s2_mean]).reshape(1, 3, 1, 1)
-        stds = torch.sqrt(torch.tensor([s0_var, s1_var, s2_var]).reshape(1, 3, 1, 1))
+        means = torch.tensor([s0_mean, s1_mean, s2_mean]).reshape(1, 1, 3, 1, 1)
+        stds = torch.sqrt(torch.tensor([1, 1, 0.25]).reshape(1, 1, 3, 1, 1))
 
         # Normalise states
         states = states - means
