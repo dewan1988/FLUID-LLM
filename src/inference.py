@@ -108,7 +108,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     decoder_out = decoder_out / (targ_std)
 
     loss_fn = torch.nn.L1Loss()
-    loss = loss_fn(decoder_out[batch_num], targ_img_red[batch_num])
+    loss = loss_fn(decoder_out, targ_img_red)
     print(targ_std.squeeze())
     print(loss)
     # print(f"Time taken: {time.time() - st:.4g}")
@@ -155,9 +155,9 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
 
 def main(args):
-    load_no = -1
+    load_no = -2
     plot_step = 0
-    batch_num = 5
+    batch_num = 2
     save_epoch = 300
 
     set_seed()

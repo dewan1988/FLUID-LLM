@@ -1,7 +1,7 @@
 from torch import nn
 from models.layers.MLP import MLP
 from models.layers.CNN import CNN
-from models.layers.GNN.GNN_decoder import GNNDecoder
+from models.layers.GNN.GNN_decoder import GNNDecoder3
 
 
 class PatchDecoder(nn.Module):
@@ -28,7 +28,7 @@ class PatchDecoder(nn.Module):
                                pool_output=False)
 
         elif params['type'] == 'GNN':
-            self.decoder = GNNDecoder(in_dim=llm_dim, out_dim=out_dim, patch_shape=patch_shape, params=params)
+            self.decoder = GNNDecoder3(in_dim=llm_dim, out_dim=out_dim, patch_shape=patch_shape, params=params)
 
         else:
             raise ValueError(f"Unknown patch embedding type: {params['type']}")

@@ -21,7 +21,53 @@ class GNNDecoder(nn.Module):
 
         # Trainable MLP input layer
         self.input_mlp = MLP(in_dim, 192, hid_dim=512, num_layers=2, act='softplus', zero_last=False).cuda()
-        """# GNN
+
+    def forward(self, patch_vectors):
+        """ Return shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3] """
+        N_patch = 60
+        bs, tot_patchs, llm_dim = patch_vectors.shape
+        seq_len = tot_patchs // N_patch
+
+        # 0) Preprocess input MLP
+        patch_vectors = self.input_mlp(patch_vectors)  # shape = [bs, seq_len*N_patch, patch_size^2 * 3]
+        patch_vectors = patch_vectors.view(bs, seq_len, N_patch, 192)
+        patch_vectors = patch_vectors.view(bs * seq_len, N_patch, 192)
+        patch_vectors = patch_vectors.permute(0, 2, 1)
+
+        preds = F.fold(patch_vectors, output_size=(120, 32), kernel_size=(8, 8), stride=(8, 8))
+        preds = preds.permute(0, 2, 3, 1)
+        # plt.imshow(patch_vectors[0, 1].cpu().detach().float().numpy())
+        # plt.show()
+        # print(patch_vectors.shape)
+        # exit(6)
+        return preds
+
+    def patch_to_px(self, patch_vectors):
+        """ return.shape = (bs, seq_len, Ny_mesh, Nx_mesh, hid_dim)"""
+        bs, seq_len, N_patch, hid_dim = patch_vectors.shape
+
+        patch_vectors_reshaped = patch_vectors.view(bs, seq_len, self.Nx_patch, self.Ny_patch, hid_dim)
+
+        # Repeat each patch vector to cover its corresponding 4x4 subgrid
+        patch_vectors_repeated = patch_vectors_reshaped.repeat_interleave(self.patch_size, dim=-3).repeat_interleave(self.patch_size, dim=-2)
+        # Flatten the result to match the node feature matrix expected by PyTorch Geometric
+        node_features = patch_vectors_repeated.view(bs, seq_len, self.Nx_mesh, self.Ny_mesh, hid_dim)
+        return node_features
+
+
+class GNNDecoder2(nn.Module):
+    def __init__(self, in_dim, out_dim, patch_shape, params):
+        super().__init__()
+        self.channel, self.N_px, self.N_py = patch_shape
+        self.Nx_patch, self.Ny_patch = 15, 4
+        self.patch_size = 8
+        self.Nx_mesh, self.Ny_mesh = self.Nx_patch * self.patch_size, self.Ny_patch * self.patch_size
+
+        self.hidden_dim = 128
+
+        # Trainable MLP input layer
+        self.input_mlp = MLP(in_dim, self.hidden_dim, hid_dim=512, num_layers=2, act='softplus', zero_last=False).cuda()
+        # GNN
         self.GNN = GCN_layers(self.hidden_dim + 4, self.hidden_dim, 3, num_layers=1).cuda()
 
         # Indices for patch number
@@ -57,7 +103,7 @@ class GNNDecoder(nn.Module):
 
         # bs, seq_len = 8, 3
         # patch_vectors = torch.randn(8, 540, 768).cuda()
-        # node_features = self.forward(patch_vectors)"""
+        # node_features = self.forward(patch_vectors)
 
     def forward(self, patch_vectors):
         """ Return shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3] """
@@ -68,7 +114,7 @@ class GNNDecoder(nn.Module):
         # 0) Preprocess input MLP
         patch_vectors = self.input_mlp(patch_vectors)  # shape = [bs, seq_len*N_patch, hid_dim]
 
-        """ # 1) Map patches to higher resolution grid
+        # 1) Map patches to higher resolution grid
         # patch_vectors = torch.zeros_like(patch_vectors)
         # patch_vectors[0, 4] = torch.ones_like(patch_vectors[0, 0])
         patch_vectors = patch_vectors.view(bs, seq_len, N_patch, self.hidden_dim)  # shape = [bs, seq_len, N_patch, hid_dim]
@@ -103,6 +149,7 @@ class GNNDecoder(nn.Module):
         # print(gnn_input.shape)
         # exit(9)
 
+        # 4) Pass through GNN
         graphs = []
         for single_graph in node_features:
             graph = Data(x=single_graph, edge_index=self.mesh_edges)
@@ -118,6 +165,8 @@ class GNNDecoder(nn.Module):
         # for n in neigbours:
         #     preds[n] = 1.
         #
+
+        # 5) Reshape to image format
         preds = preds.view(-1, self.Nx_mesh, self.Ny_mesh, 3)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3]
 
         # preds = preds.detach().cpu()
@@ -127,16 +176,126 @@ class GNNDecoder(nn.Module):
         # print(f'{preds.shape = }')"""
         # patch_vectors = patch_vectors.view(bs*seq_len, 120, 32, 3)
         #
-        patch_vectors = patch_vectors.view(bs, seq_len, N_patch, 192)
-        patch_vectors = patch_vectors.view(bs*seq_len, N_patch, 192)
-        patch_vectors = patch_vectors.permute(0, 2, 1)
 
-        preds = F.fold(patch_vectors, output_size=(120, 32), kernel_size=(8, 8), stride=(8, 8))
-        preds = preds.permute(0, 2, 3, 1)
-        # plt.imshow(patch_vectors[0, 1].cpu().detach().float().numpy())
+        return preds
+
+    def patch_to_px(self, patch_vectors):
+        """ return.shape = (bs, seq_len, Ny_mesh, Nx_mesh, hid_dim)"""
+        bs, seq_len, N_patch, hid_dim = patch_vectors.shape
+
+        patch_vectors_reshaped = patch_vectors.view(bs, seq_len, self.Nx_patch, self.Ny_patch, hid_dim)
+
+        # Repeat each patch vector to cover its corresponding 4x4 subgrid
+        patch_vectors_repeated = patch_vectors_reshaped.repeat_interleave(self.patch_size, dim=-3).repeat_interleave(self.patch_size, dim=-2)
+        # Flatten the result to match the node feature matrix expected by PyTorch Geometric
+        node_features = patch_vectors_repeated.view(bs, seq_len, self.Nx_mesh, self.Ny_mesh, hid_dim)
+        return node_features
+
+
+class GNNDecoder3(nn.Module):
+    def __init__(self, in_dim, out_dim, patch_shape, params):
+        super().__init__()
+        self.channel, self.N_px, self.N_py = patch_shape
+        self.Nx_patch, self.Ny_patch = 15, 4
+        self.patch_size = 8
+        self.Nx_mesh, self.Ny_mesh = self.Nx_patch * self.patch_size, self.Ny_patch * self.patch_size
+
+        self.hidden_dim = 8
+        self.gnn_dim = (self.patch_size ** 2) * self.hidden_dim
+
+        # Trainable MLP input layer
+        self.input_mlp = MLP(in_dim, self.gnn_dim, hid_dim=512, num_layers=2, act='softplus', zero_last=False).cuda()
+        # GNN
+        self.GNN = GCN_layers(self.hidden_dim, 512, 3, num_layers=1).cuda()
+
+        # # Indices for patch number
+        # x_pa_grid = torch.arange(self.Nx_patch)
+        # y_pa_grid = torch.arange(self.Ny_patch)
+        # x_pa_grid, y_pa_grid = torch.meshgrid(x_pa_grid, y_pa_grid, indexing='ij')
+        # patch_idx = torch.stack((x_pa_grid, y_pa_grid), dim=-1).view(1, 1, 60, 2)
+        # patch_idx = patch_idx / patch_idx.max()
+        # self.patch_idx = self.patch_to_px(patch_idx).cuda()
+        # # Indices for pixel number
+        # x_px_grid = torch.arange(self.patch_size)
+        # y_px_grid = torch.arange(self.patch_size)
+        # x_px_grid, y_px_grid = torch.meshgrid(x_px_grid, y_px_grid, indexing='ij')
+        # pixel_idx = torch.stack((x_px_grid, y_px_grid), dim=-1).repeat(self.Nx_patch, self.Ny_patch, 1)
+        # pixel_idx = pixel_idx / pixel_idx.max()
+        # self.pixel_idx = pixel_idx.unsqueeze(0).unsqueeze(0).cuda()
+
+        # plt.imshow(self.pixel_idx[0, 0, :, :, 0].cpu())
         # plt.show()
-        # print(patch_vectors.shape)
-        # exit(6)
+        # print(f'{self.patch_idx.shape = }, {self.pixel_idx.shape = }')
+        # exit(7)
+
+        # Indices for edges
+        self.mesh_edges = make_edge_idx(self.Ny_mesh, self.Nx_mesh).cuda()
+
+        # bs, seq_len = 8, 3
+        # patch_vectors = torch.randn(8, 540, 768).cuda()
+        # node_features = self.forward(patch_vectors)
+
+    def forward(self, patch_vectors):
+        """ Return shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3] """
+        N_patch = 60
+        bs, tot_patchs, llm_dim = patch_vectors.shape
+        seq_len = tot_patchs // N_patch
+
+        # 0) Preprocess input MLP
+        patch_vectors = self.input_mlp(patch_vectors)  # shape = [bs, seq_len*N_patch, hid_dim]
+
+        # 1) Flatten out patches to grid
+        patch_vectors = patch_vectors.view(bs * seq_len, N_patch, self.gnn_dim) # shape = [bs*seq_len, N_patch, self.gnn_dim ]
+        patch_vectors = patch_vectors.permute(0, 2, 1)  # shape = [bs*seq_len, gnn_dim, N_patch]
+
+        node_ft = F.fold(patch_vectors,
+                         output_size=(self.patch_size * self.Nx_patch, self.patch_size * self.Ny_patch),
+                         kernel_size=(self.patch_size, self.patch_size), stride=(self.patch_size, self.patch_size))
+
+        node_ft = node_ft.view(bs * seq_len, self.hidden_dim, self.Nx_mesh, self.Ny_mesh)
+        node_ft = node_ft.permute(0, 2, 3, 1)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, gnn_dim]
+
+        # print(f'{node_features.shape = }')
+        # Convert to graph for GNN
+        #
+        # gnn_input = node_features[0] # , 0, : ,:, 0]
+        # gnn_input = gnn_input.view(self.Nx_mesh, self.Ny_mesh, -1)[:, :, -2]
+        # plt.imshow(gnn_input.cpu().detach().float().numpy())
+        # plt.show()
+        # print(gnn_input.shape)
+        # exit(9)
+
+        # 4) Pass through GNN
+        node_ft = node_ft.view(bs * seq_len, self.Nx_mesh * self.Ny_mesh, self.hidden_dim)
+
+        graphs = []
+        for single_graph in node_ft:
+            graph = Data(x=single_graph, edge_index=self.mesh_edges)
+            graphs.append(graph)
+        graphs = Batch.from_data_list(graphs)
+
+        preds = self.GNN.forward(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Nx_mesh*Ny_mesh, 3]
+
+        # print(preds.shape)
+        # analyse_num = 50
+        # neigbours = analyse_edge_idx(graphs.edge_index, analyse_num)
+        # preds[analyse_num] = 2.
+        # for n in neigbours:
+        #     preds[n] = 1.
+        #
+
+        # 5) Reshape to image format
+        preds = preds.view(-1, self.Nx_mesh, self.Ny_mesh, 3)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3]
+
+        # preds = preds.detach().cpu()
+        # plt.imshow(preds[0, :, :, 0].T)
+        # plt.show()
+        # print(f'{preds.shape = }')
+        # exit(9)
+
+        # patch_vectors = patch_vectors.view(bs*seq_len, 120, 32, 3)
+        #
+
         return preds
 
     def patch_to_px(self, patch_vectors):
