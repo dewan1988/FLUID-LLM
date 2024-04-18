@@ -49,7 +49,7 @@ learning_rate: 7e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
-loss_weighting: [0., 10]
+loss_weighting: [0.2, 10]
 schedule_epoch: 50
 schedule_gamma: 0.8
 # Teacher forcing params

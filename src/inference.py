@@ -80,10 +80,12 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
         targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
-        targ_img_red = targ_img[:, :, :, ::4, ::4]
+        targ_img_red = targ_img[:, :, :, ::2, ::2]
 
+    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
 
-        plot_dim = 0
+    for i, ax in enumerate(axs):
+        plot_dim = i
 
         plot_targ = targ_img_red[batch_num, plot_step, plot_dim]
         plot_preds = decoder_out[batch_num, plot_step, plot_dim]
@@ -94,12 +96,11 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}')
         print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}')
 
-        plt.imshow(plot_targ.cpu().T)
-        plt.show()
-        plt.imshow(plot_preds.cpu().T)
-        plt.show()
+        ax[0].imshow(plot_targ.cpu().T)
+        ax[1].imshow(plot_preds.cpu().T)
 
-        print(targ_img_red.std(), decoder_out.std())
+    plt.show()
+
     exit(5)
 
     # print(f"Time taken: {time.time() - st:.4g}")
@@ -148,7 +149,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 2
+    batch_num = 3
     save_epoch = 300
 
     set_seed()
