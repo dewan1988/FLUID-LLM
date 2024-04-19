@@ -16,6 +16,7 @@ from utils import set_seed, load_yaml_from_file, get_available_device, get_save_
 from metrics import calc_n_rmse
 from models.model import MultivariateTimeLLM
 import torch.nn.functional as F
+from trainer import get_data_loader
 
 from dataloader.simple_dataloader import MGNDataset
 from dataloader.mesh_utils import plot_full_patches
@@ -72,7 +73,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
     with torch.inference_mode():
         states, target, bc_mask, position_ids = batch_data
-        _, decoder_out = model.forward(states.cuda(), position_ids.cuda())
+        decoder_out = model.forward(states.cuda(), position_ids.cuda())
 
         # Reshape targets to images and downsample
         target = target.view(bs, -1, 60, 3, 16, 16)
@@ -155,10 +156,10 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
 
 def main(args):
-    load_no = -2
+    load_no = -1
     plot_step = 0
-    batch_num = 0
-    save_epoch = 70
+    batch_num = 2
+    save_epoch = 300
 
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)
@@ -172,14 +173,17 @@ def main(args):
     if not os.path.exists(checkpoint_file_path):
         raise ValueError(f"Checkpoint file not found at {checkpoint_file_path}")
 
-    checkpoint = torch.load(checkpoint_file_path)
-    checkpoints_params = checkpoint['params']
-    checkpoint_state_dict = checkpoint['state_dict']
+    ckpt = torch.load(checkpoint_file_path)
+    ckpt_params = ckpt['params']
+    ckpt_state_dict = ckpt['state_dict']
+
+    # Get dataloader
+    dl, ds_props = get_data_loader(ckpt_params, mode="valid")
 
     # Get the model
-    model = MultivariateTimeLLM(checkpoints_params, device_map=get_available_device())
+    model = MultivariateTimeLLM(ckpt_params, ds_props=ds_props, device_map=get_available_device())
     # Load weights
-    model.load_state_dict(checkpoint_state_dict)
+    model.load_state_dict(ckpt_state_dict)
 
     accelerator = get_accelerator(use_deepspeed=False, precision='bf16')
     model = accelerator.prepare(model)

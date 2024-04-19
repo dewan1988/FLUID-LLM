@@ -175,7 +175,7 @@ class Trainer:
         seq_len = tot_patch // self.N_patch
 
         # 1) Model makes prediction of the sequence as guide
-        guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
+        guide_states, _ = self.model.gen_seq(batch, pred_steps=seq_len - 1)
 
         # 2) Model tries to predict diffs between generated sequence and next step to true sequence
         # Reshape to be easier to work with
