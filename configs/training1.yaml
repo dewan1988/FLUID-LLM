@@ -15,16 +15,16 @@ lora_config:
 half_precision: true
 flash_attention: true
 use_deepspeed: false
-input_emb_layer_norm_eps: 1.0e-05
-input_emb_layer_dropout: 0.1
 use_bos_token: true
 diff_scale_factor: 0.03   # Scale factor for diffs
 
 #  Positional embedding params
-pos_embedding_type: pos  # "pos", "rope"
-init_pos_embed: "normal"   # "normal", "zero", "scaled"
-use_patches_self_attention: false
-max_num_embed: 24
+pos_embedding_params:
+  input_emb_layer_norm_eps: 1.0e-05
+  input_emb_layer_dropout: 0.1
+  pos_embedding_type: pos  # "pos", "rope"
+  init_pos_embed: "normal"   # "normal", "zero", "scaled"
+  max_num_embed: 24
 
 # Encoder params
 encoder_params:
@@ -35,11 +35,7 @@ encoder_params:
 
 # Decoder params
 decoder_params:
-    type: GNN
-    num_layers: 2
-    hidden_dim: 512
-    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
-    zero_last_layer: true
+    type: MLPGNN
 
 # Training params
 batch_size: 8

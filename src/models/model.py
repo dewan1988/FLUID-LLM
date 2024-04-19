@@ -9,6 +9,7 @@ from cprint import c_print
 from collections import deque
 from contextlib import nullcontext
 
+from dataloader.ds_props import DSProps
 from utils import freeze_model, unfreeze_model
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.patch_decoder import PatchDecoder
@@ -21,23 +22,24 @@ logging.basicConfig(level=logging.INFO,
 
 
 class MultivariateTimeLLM(nn.Module):
-    def __init__(self, config, device_map='cpu'):
+    def __init__(self, config, ds_props: DSProps, device_map='cpu'):
         super().__init__()
 
         self.config = config
+        self.ds_props = ds_props
         self.task_name = config['task_name']
-        self.autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16) if config['half_precision'] else nullcontext()
 
         # Get LLM backbone config and adapt appropriately
         # Ex.: huggyllama/llama-7b, openai-community/gpt2, google-bert/bert-base-uncased
         llm_config = AutoConfig.from_pretrained(config['llm_backbone'])
         if config['llm_layers'] > llm_config.num_hidden_layers:
             raise ValueError(f"Requested number of layers ({config['llm_layers']}) is greater than the model's ({llm_config.num_hidden_layers})!")
-
         llm_config.num_hidden_layers = config['llm_layers'] if config['llm_layers'] > 0 else llm_config.num_hidden_layers
         llm_config.output_attentions = True
         llm_config.output_hidden_states = True
+        c_print(f'LLM config: {llm_config}', color='green')
         self.llm_config = llm_config
+        self.llm_in_dim = self.llm_config.hidden_size
 
         self.backbone = AutoModel.from_pretrained(
             pretrained_model_name_or_path=config['llm_backbone'],
@@ -49,8 +51,6 @@ class MultivariateTimeLLM(nn.Module):
             device_map=device_map,
             attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
         )
-
-        c_print(f'LLM config: {llm_config}', color='green')
 
         # BOS token if needed
         if config['use_bos_token']:
@@ -66,26 +66,19 @@ class MultivariateTimeLLM(nn.Module):
             BOS_embed = embeddings(torch.tensor(BOS_id).to(device_map)).clone()
             self.BOS_embed = torch.nn.Parameter(BOS_embed)
 
-        self.llm_in_dim = self.backbone.get_input_embeddings().weight.shape[1]
-        self.max_seq_len = self.config['seq_len'] - 1
-
-        self.N_px_patch, self.N_py_patch = config["patch_size"]
-        # print(f'Patch size: {self.N_x_patch} x {self.N_y_patch}')
+        self.N_px_patch, self.N_py_patch = ds_props.patch_size
         self.patch_in_dim = self.N_px_patch * self.N_py_patch * 3
         self.patch_shape = (3, self.N_px_patch, self.N_py_patch)
+        self.max_seq_len = ds_props.seq_len
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
                                                 self.config['encoder_params'],
-                                                config['input_emb_layer_dropout'],
-                                                self.config['input_emb_layer_norm_eps'],  # self.llm_config.layer_norm_epsilon,
-                                                self.config['max_num_embed'],
-                                                pos_embedding_type=config['pos_embedding_type'],
-                                                init_pos_embed=config['init_pos_embed'],
-                                                use_self_attn=config['use_patches_self_attention'])
+                                                self.config['pos_embedding_params'],
+                                                )
 
-        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, self.patch_shape, self.config['decoder_params'])
+        self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, ds_props, self.config['decoder_params'])
 
         # Adjust the backbone for time series task
         self._adjust_backbone()
@@ -129,7 +122,7 @@ class MultivariateTimeLLM(nn.Module):
 
         decoder_out = decoder_out.view(batch_size, seq_len//60, 120, 32, 3).permute(0, 1, 4, 2, 3)
 
-        return backbone_out, decoder_out * self.config['diff_scale_factor']
+        return decoder_out * self.config['diff_scale_factor']
 
     def _gen_step(self, states, position_ids, N_patch):
         """ Generate next timestep of the sequence given an input sequence.

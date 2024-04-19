@@ -12,7 +12,7 @@ from utils import get_available_device, get_trainable_parameters
 from metrics import calc_n_rmse
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
-from dataloader.mesh_utils import plot_patches
+from dataloader.ds_props import DSProps
 
 
 def get_data_loader(config, mode="train"):
@@ -32,11 +32,17 @@ def get_data_loader(config, mode="train"):
                     num_workers=config['num_workers'],
                     prefetch_factor=2,
                     pin_memory=True)
-    return dl
+
+    N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
+    N_patch = ds.N_patch
+    seq_len = ds.seq_len - 1
+    ds_props = DSProps(Nx_patch=N_x_patch, Ny_patch=N_y_patch, N_patch=N_patch, patch_px=ds.patch_size[0], patch_size=ds.patch_size,
+                       seq_len=seq_len)
+    return dl, ds_props
 
 
 class Trainer:
-    def __init__(self, params, model: MultivariateTimeLLM, N_patch):
+    def __init__(self, params, model: MultivariateTimeLLM, ds_props: DSProps):
         """
         params (dict): A dict with the configuration parameters (e.g., learning rate, optimizer, etc.)
         """
@@ -44,7 +50,9 @@ class Trainer:
 
         self.params = params
         self.model = model
-        self.N_patch = N_patch
+        self.ds_props = ds_props
+
+        self.N_patch = ds_props.N_patch
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
     def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
@@ -74,13 +82,13 @@ class Trainer:
         if self.params['see_init_state']:
             model_out = self.model.forward_duplicate(states, position_ids, self.N_patch)
         else:
-            _, model_out = self.model(states, position_ids)
+            model_out = self.model(states, position_ids)
 
         bs, _, channel, px, py = target.shape
 
         # Reshape targets to images and downsample
-        target = target.view(bs, -1, 60, channel, px, py)
-        target = target.view(-1, 60, 3 * 16 * 16).transpose(-1, -2)
+        target = target.view(bs, -1, self.N_patch, channel, px, py)
+        target = target.view(-1, self.N_patch, 3 * 16 * 16).transpose(-1, -2)
 
         targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
         targ_img = targ_img.view(bs, -1, 3, 240, 64)

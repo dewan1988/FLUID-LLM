@@ -10,29 +10,22 @@ from models.layers.self_attention import SelfAttention
 class InputEmbeddings(nn.Module):
     """Input embeddings layer adapter for time series data."""
 
-    def __init__(self, patch_dim, llm_dim, enc_params: dict, hidden_dropout_prob,
-                 layer_norm_eps, max_pos_embeddings, init_pos_embed,
-                 pos_embedding_type="rope", use_self_attn=True,
-                 ):
+    def __init__(self, patch_dim, llm_dim, enc_params: dict, emb_cfg: dict):
         super().__init__()
 
         # Patch embedding
         self.patch_embeddings = PatchEmbeddings(in_dim=patch_dim, llm_dim=llm_dim, params=enc_params)
 
         # Positional Embeddings
-        if pos_embedding_type == "rope":
+        if emb_cfg['pos_embedding_type'] == "rope":
             self.position_embeddings = Rotary3DPositionalEmbeddings(llm_dim)
-        elif pos_embedding_type == "pos":
-            self.position_embeddings = PositionalEmbeddings(llm_dim, max_pos_embeddings, init_pos_embed)
+        elif emb_cfg['pos_embedding_type'] == "pos":
+            self.position_embeddings = PositionalEmbeddings(llm_dim, emb_cfg['max_num_embed'], emb_cfg['init_pos_embed'])
         else:
-            raise ValueError(f"Unknown positional embedding type: {pos_embedding_type}")
-
-        self.use_self_attn = use_self_attn
-        if use_self_attn:
-            self.patches_attn = SelfAttention(llm_dim)
+            raise ValueError(f"Unknown positional embedding type: {emb_cfg['pos_embedding_type'] }")
 
         # self.LayerNorm = nn.LayerNorm(llm_dim, eps=layer_norm_eps)
-        self.dropout = nn.Dropout(hidden_dropout_prob)
+        self.dropout = nn.Dropout(emb_cfg['input_emb_layer_dropout'])
 
     def forward(self, x, position_ids):
         """
@@ -42,10 +35,6 @@ class InputEmbeddings(nn.Module):
         """
         # Apply patch embeddings
         inputs_embeds = self.patch_embeddings(x)
-
-        # Apply self attention
-        if self.use_self_attn:
-            inputs_embeds = self.patches_attn(inputs_embeds)
 
         embeddings = inputs_embeds
 

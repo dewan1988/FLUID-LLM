@@ -17,19 +17,20 @@ from tqdm import trange, tqdm
 from trainer import Trainer, get_data_loader
 from utils import set_seed, load_yaml_from_file, get_available_device, get_accelerator, make_save_folder, save_cfg
 from models.model import MultivariateTimeLLM
+from dataloader.ds_props import DSProps
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def get_model(training_params, dl):
+def get_model(training_params, ds_props):
     # Get the model
-    model = MultivariateTimeLLM(training_params, device_map=get_available_device())
+    model = MultivariateTimeLLM(training_params, ds_props, device_map=get_available_device())
 
     # Get the Trainer
     trainer = Trainer(params=training_params,
                       model=model,
-                      N_patch=dl.dataset.N_patch)
+                      ds_props=ds_props)
 
     optimizer, scheduler = trainer.prepare_optimizers()
 
@@ -178,9 +179,9 @@ def main(args):
     training_params = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {training_params}")
 
-    train_dataloader = get_data_loader(training_params, mode="train")
-    valid_dataloader = get_data_loader(training_params, mode="valid")
-    model_components = get_model(training_params, train_dataloader)
+    train_dataloader, ds_props = get_data_loader(training_params, mode="train")
+    valid_dataloader, _ = get_data_loader(training_params, mode="valid")
+    model_components = get_model(training_params, ds_props)
 
     run_everything(training_params, train_dataloader, valid_dataloader, model_components, args)
 

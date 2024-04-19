@@ -18,15 +18,15 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def load_model(save_file, training_params, train_dl):
+def load_model(save_file, training_params, ds_props):
     # Get the model
-    model = MultivariateTimeLLM(training_params, device_map=get_available_device())
+    model = MultivariateTimeLLM(training_params, ds_props, device_map=get_available_device())
     model.load_state_dict(save_file['state_dict'])
 
     # Get trainer
     trainer = Trainer(params=training_params,
                       model=model,
-                      N_patch=train_dl.dataset.N_patch)
+                      N_patch=ds_props.N_patch)
 
     # Load optimizer and scheduler
     optimizer, scheduler = trainer.prepare_optimizers()
@@ -39,8 +39,8 @@ def load_model(save_file, training_params, train_dl):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "04-11_04-40-56"
-    load_num = 80
+    load_file = "04-18_23-12-40"
+    load_num = 10
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
     # Use saved .yaml config for easier editing
@@ -48,9 +48,9 @@ def main(args):
     c_print("Loading Config", color='bright_green')
     c_print(training_params, color='green')
 
-    train_dataloader = get_data_loader(training_params, mode="train")
-    valid_dataloader = get_data_loader(training_params, mode="valid")
-    model_components = load_model(save_file, training_params, train_dataloader)
+    train_dataloader, ds_props = get_data_loader(training_params, mode="train")
+    valid_dataloader, _ = get_data_loader(training_params, mode="valid")
+    model_components = load_model(save_file, training_params, ds_props)
 
     run_everything(training_params, train_dataloader, valid_dataloader, model_components, args, start_ep=load_num)
 
