@@ -58,8 +58,8 @@ class MGNDataset(Dataset):
         """
         Returns as all patches as a single sequence for file with index idx, ready to be encoded by the LLM as a single element of batch.
         Return:
-             state.shape = ((seq_len - 1) * num_patches, 3, H, W)
-             diff.shape = ((seq_len - 1)  * num_patches, 3, H, W)
+             state.shape = ((seq_len - 1), num_patches, 3, H, W)
+             diff.shape = ((seq_len - 1), num_patches, 3, H, W)
              patch_idx: [x_idx, y_idx, t_idx] for each patch
 
         """
@@ -72,14 +72,12 @@ class MGNDataset(Dataset):
         """
         Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
         Return:
-             state.shape = ((seq_len - 1) * num_patches, 3, H, W)
-             diff.shape = ((seq_len - 1)  * num_patches, 3, H, W)
+             state.shape = ((seq_len - 1), num_patches, 3, H, W)
+             diff.shape = ((seq_len - 1), num_patches, 3, H, W)
              patch_idx: [x_idx, y_idx, t_idx] for each patch
 
         """
-
         to_patches = self._get_full_seq(save_file, step_num)
-
         states, diffs, mask = self._ds_get_pt(to_patches)
 
         # Get positions / times for each patch
@@ -197,10 +195,8 @@ class MGNDataset(Dataset):
         to_patches = torch.from_numpy(to_patches).float()
 
         patches = self._patch(to_patches)
-
         states = patches[:, :-1]
         masks = patches[:, -1]
-
         # Permute to (seq_len, num_patches, C, H, W)
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
@@ -217,11 +213,7 @@ class MGNDataset(Dataset):
 
         # Reshape into a continuous sequence
         seq_dim = (self.seq_len - 1) * self.N_patch
-        states = states.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-        target = target.reshape(seq_dim, 3, self.patch_size[0], self.patch_size[1])
-
-        # Reshape mask. All masks are the same
-        masks = masks[:-1].reshape(seq_dim, 1, self.patch_size[0], self.patch_size[1]).repeat(1, 3, 1, 1)
+        masks = masks[1:].unsqueeze(2).repeat(1, 1, 3, 1, 1)
 
         return states, target, masks.bool()
 
@@ -259,33 +251,30 @@ class MGNDataset(Dataset):
 
 
 def plot_all_patches():
-    patch_size = (20, 20)
+    patch_size = (16, 16)
 
-    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=220, patch_size=patch_size, stride=patch_size,
+    seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=238, patch_size=patch_size, stride=patch_size,
                         seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
 
-    ds = DataLoader(seq_dl, batch_size=8, num_workers=8, prefetch_factor=2, shuffle=True)
+    ds = DataLoader(seq_dl, batch_size=8, num_workers=0, shuffle=True)
 
     for batch in ds:
         state, diffs, mask, pos_id = batch
         break
 
     N_x, N_y = seq_dl.N_x_patch, seq_dl.N_y_patch
-
+    print(f'{state.shape = }, {diffs.shape = }')
     print(f'{N_x = }, {N_y = }')
 
-    p_shows = state[0]
-    p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])
-    plot_patches(p_shows[0, :, 0], (seq_dl.N_x_patch, seq_dl.N_y_patch))
+    p_shows = state[0, 0, :, 0]
+    plot_patches(p_shows, (seq_dl.N_x_patch, seq_dl.N_y_patch))
 
-    p_shows = diffs[0]
-    p_shows = p_shows.view(9, seq_dl.N_patch, 3, patch_size[0], patch_size[1])
-    plot_patches(p_shows[0, :, 0], (seq_dl.N_x_patch, seq_dl.N_y_patch))
+    p_shows = diffs[0, 0, :, 0]
+    plot_patches(p_shows, (seq_dl.N_x_patch, seq_dl.N_y_patch))
 
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
     from dataloader.mesh_utils import plot_patches
 
-    # plot_patches(None, 10, 20)
     plot_all_patches()
