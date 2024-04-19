@@ -159,3 +159,12 @@ def get_save_folder(save_dir, load_name=None, load_no=-1):
 
     return os.path.join(save_dir, folders[load_no])
 
+
+def process_metrics(metrics_per_epoch, epoch_len, run_mode, mode: str):
+    # === Aggregate metrics across iterations in the epoch ===
+    metrics_names = metrics_per_epoch[0].keys()
+    metrics_agg = {f"{mode}/{run_mode}_{metric_name}": sum(d[metric_name] for d in metrics_per_epoch)
+                                                       / epoch_len
+                   for metric_name in metrics_names}
+
+    return metrics_agg, metrics_agg[f"{mode}/{run_mode}_loss"], metrics_agg[f"{mode}/{run_mode}_N_RMSE"]

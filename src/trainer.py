@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
-from metrics import calc_n_rmse
+from utils_model import calc_n_rmse, patch_to_img
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
@@ -34,9 +34,8 @@ def get_data_loader(config, mode="train"):
                     pin_memory=True)
 
     N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
-    N_patch = ds.N_patch
     seq_len = ds.seq_len - 1
-    ds_props = DSProps(Nx_patch=N_x_patch, Ny_patch=N_y_patch, N_patch=N_patch, patch_px=ds.patch_size[0], patch_size=ds.patch_size,
+    ds_props = DSProps(Nx_patch=N_x_patch, Ny_patch=N_y_patch, patch_size=ds.patch_size,
                        seq_len=seq_len)
     return dl, ds_props
 
@@ -56,14 +55,8 @@ class Trainer:
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
     def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
-        """ input.shape = (bs, seq_len*N_patch, 3, pat)
+        """ input.shape = (bs, seq_len, 3, px, py)
         """
-        BS, _, channel, px, py = preds.shape
-
-        preds = preds.view(BS, -1, self.N_patch, channel, px, py)
-        target = target.view(BS, -1, self.N_patch, channel, px, py)
-        bc_mask = bc_mask.view(BS, -1, self.N_patch, channel, px, py)
-
         N_rmse = calc_n_rmse(preds, target, bc_mask)
 
         return N_rmse  # .item()
@@ -75,61 +68,35 @@ class Trainer:
         - metrics_to_log (dict): A dictionary with the calculated metrics (detached from the computational graph)
         """
         states, target, bc_mask, position_ids = batch
+
         # If fitting diffs, target is diffs. Otherwise, target is next state
         self.model.train()
-
         # Forward pass
         if self.params['see_init_state']:
             model_out = self.model.forward_duplicate(states, position_ids, self.N_patch)
         else:
             model_out = self.model(states, position_ids)
 
-        bs, _, channel, px, py = target.shape
-
         # Reshape targets to images and downsample
-        target = target.view(bs, -1, self.N_patch, channel, px, py)
-        target = target.view(-1, self.N_patch, 3 * 16 * 16).transpose(-1, -2)
-
-        targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
-        targ_img = targ_img.view(bs, -1, 3, 240, 64)
-        targ_img_red = targ_img[:, :, :, ::2, ::2]
+        targ_imgs = patch_to_img(target, self.ds_props)
+        bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         # Normalise predictions so loss is well scaled
-        targ_std = targ_img_red.std(dim=(-1, -2, -3, -4), keepdim=True)       # Std over each batch item
-        targ_img_red = targ_img_red / (targ_std+0.025)
-        model_out = model_out / (targ_std+0.025)
-        #
-        # print(targ_std.shape, targ_img_red.shape)
-        # plot_vals = model_out[0, 0, 0]
-        # plt.imshow(plot_vals.detach().cpu().numpy().T)
-        # plt.show()
-        #
-        # plot_targs = targ_img_red[0, 0, 0]
-        # plt.imshow(plot_targs.cpu().T)
-        # plt.show()
-        # exit(9)
+        targ_std = targ_imgs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
+        targ_imgs = targ_imgs / (targ_std + 0.025)
+        model_out = model_out / (targ_std + 0.025)
 
-        bc_mask = torch.zeros_like(targ_img_red).bool()
-        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_img_red, mask=bc_mask)
+        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_imgs, mask=bc_mask)
 
-        # # Find predicted next state and true next state
-        # if self.params['fit_diffs']:
-        #     true_state = states + target
-        #     preds = states + model_out
-        # else:
-        #     true_state = states
-        #     preds = model_out
-        #
-        # # Calculate metrics
-        # with torch.no_grad():
-        #     N_rmse = self.calculate_metrics(preds, true_state, bc_mask)
+        # Calculate metrics
+        with torch.no_grad():
+            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask) # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
-        log_metrics = {"loss": loss}
-        log_metrics.update(all_losses)
-        log_metrics['N_RMSE'] = 0.  # N_rmse
+        all_losses["loss"] = loss
+        all_losses['N_RMSE'] = N_rmse
 
-        return loss, log_metrics
+        return loss, all_losses
 
     def run_gen_train_step(self, batch):
         """ No teacher forcing. Model makes predictions for a sequence, then tries to predict diffs given generated sequence.
@@ -165,37 +132,30 @@ class Trainer:
         return loss, log_metrics
 
     @torch.no_grad()
-    def run_gen_val_step(self, batch):
+    def run_val_step(self, batch):
         """ Like above, but use model.eval()
         """
         self.model.eval()
 
-        states, diffs, bc_mask, position_ids = batch
-        bs, tot_patch, channel, px, py = states.shape
-        seq_len = tot_patch // self.N_patch
+        states, target, bc_mask, position_ids = batch
 
+        bs, seq_len, N_patch, channel, px, py = states.shape
         # 1) Model makes prediction of the sequence as guide
-        guide_states, _ = self.model.gen_seq(batch, pred_steps=seq_len - 1)
+        model_out, _ = self.model.gen_seq(batch, pred_steps=seq_len - 1)
 
-        # 2) Model tries to predict diffs between generated sequence and next step to true sequence
-        # Reshape to be easier to work with
-        f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
-        f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
-        # Difference to predict
-        f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
-        guide_error = f_guide_error.view(bs, -1, channel, px, py)
-        # Last guide state has no diff to predict anymore. Delete last state
-        guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
-        bc_mask = bc_mask[:, :-self.N_patch]
-        position_ids = position_ids[:, :-self.N_patch]
+        targ_imgs = patch_to_img(target, self.ds_props)
+        bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
+        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_imgs, mask=bc_mask)
 
-        # Forward pass like normal
-        guide_batch = (guide_states, guide_error, bc_mask, position_ids)
-        loss, log_metrics = self.run_train_step(guide_batch)
+        # Calculate metrics
+        with torch.no_grad():
+            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask) # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
-        # Rename losses
-        log_metrics = {f'{k}': v for k, v in log_metrics.items()}
-        return loss, log_metrics
+        # Log metrics
+        all_losses["loss"] = loss
+        all_losses['N_RMSE'] = N_rmse
+
+        return all_losses
 
     def prepare_optimizers(self):
         params = self.model.parameters()

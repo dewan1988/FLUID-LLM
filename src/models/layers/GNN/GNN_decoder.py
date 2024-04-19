@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 import networkx as nx
 from torch_geometric.data import Data, Batch
+import torch.nn.functional as F
+
 from models.layers.MLP import MLP
 from models.layers.GNN.GCN import GCN_layers
 from dataloader.ds_props import DSProps
-import torch.nn.functional as F
+from utils_model import patch_to_img
 
 from matplotlib import pyplot as plt
 
@@ -16,8 +18,8 @@ class Decoder(nn.Module):
         self.channel = ds_props.channel
         self.Nx_patch, self.Ny_patch = ds_props.Nx_patch, ds_props.Ny_patch
         self.N_patch = ds_props.N_patch
-        self.out_patch_px = ds_props.patch_px // 2
-        self.Nx_mesh, self.Ny_mesh = self.Nx_patch * self.out_patch_px, self.Ny_patch * self.out_patch_px
+        self.out_patch_size = ds_props.out_patch_size
+        self.Nx_mesh, self.Ny_mesh = ds_props.out_tot_size
 
     def patch_to_px(self, patch_vectors):
         """ return.shape = (bs, seq_len, Ny_mesh, Nx_mesh, hid_dim)"""
@@ -26,7 +28,7 @@ class Decoder(nn.Module):
         patch_vectors_reshaped = patch_vectors.view(bs, seq_len, self.Nx_patch, self.Ny_patch, hid_dim)
 
         # Repeat each patch vector to cover its corresponding 4x4 subgrid
-        patch_vectors_repeated = patch_vectors_reshaped.repeat_interleave(self.out_patch_px, dim=-3).repeat_interleave(self.out_patch_px, dim=-2)
+        patch_vectors_repeated = patch_vectors_reshaped.repeat_interleave(self.out_patch_size[0], dim=-3).repeat_interleave(self.out_patch_size[1], dim=-2)
         # Flatten the result to match the node feature matrix expected by PyTorch Geometric
         node_features = patch_vectors_repeated.view(bs, seq_len, self.Nx_mesh, self.Ny_mesh, hid_dim)
         return node_features
@@ -196,32 +198,13 @@ class MLPGNNDecoder(Decoder):
         super().__init__(ds_props)
 
         self.hidden_dim = 8
-        self.gnn_out_dim = (self.out_patch_px ** 2) * self.hidden_dim
+        self.gnn_out_dim = (self.out_patch_size[0] * self.out_patch_size[1]) * self.hidden_dim
+        self.kern = (self.out_patch_size[0], self.out_patch_size[1])
 
         # Trainable MLP input layer
         self.input_mlp = MLP(in_dim, self.gnn_out_dim, hid_dim=512, num_layers=2, act='softplus', zero_last=False)
         # GNN
         self.GNN = GCN_layers(self.hidden_dim, 512, 3, num_layers=1)
-
-        # # Indices for patch number
-        # x_pa_grid = torch.arange(self.Nx_patch)
-        # y_pa_grid = torch.arange(self.Ny_patch)
-        # x_pa_grid, y_pa_grid = torch.meshgrid(x_pa_grid, y_pa_grid, indexing='ij')
-        # patch_idx = torch.stack((x_pa_grid, y_pa_grid), dim=-1).view(1, 1, 60, 2)
-        # patch_idx = patch_idx / patch_idx.max()
-        # self.patch_idx = self.patch_to_px(patch_idx).cuda()
-        # # Indices for pixel number
-        # x_px_grid = torch.arange(self.patch_size)
-        # y_px_grid = torch.arange(self.patch_size)
-        # x_px_grid, y_px_grid = torch.meshgrid(x_px_grid, y_px_grid, indexing='ij')
-        # pixel_idx = torch.stack((x_px_grid, y_px_grid), dim=-1).repeat(self.Nx_patch, self.Ny_patch, 1)
-        # pixel_idx = pixel_idx / pixel_idx.max()
-        # self.pixel_idx = pixel_idx.unsqueeze(0).unsqueeze(0).cuda()
-
-        # plt.imshow(self.pixel_idx[0, 0, :, :, 0].cpu())
-        # plt.show()
-        # print(f'{self.patch_idx.shape = }, {self.pixel_idx.shape = }')
-        # exit(7)
 
         # Indices for edges
         mesh_edges = make_edge_idx(self.Ny_mesh, self.Nx_mesh)
@@ -240,8 +223,8 @@ class MLPGNNDecoder(Decoder):
         patch_vectors = patch_vectors.permute(0, 2, 1)  # shape = [bs*seq_len, gnn_out_dim, N_patch]
 
         node_ft = F.fold(patch_vectors,
-                         output_size=(self.out_patch_px * self.Nx_patch, self.out_patch_px * self.Ny_patch),
-                         kernel_size=(self.out_patch_px, self.out_patch_px), stride=(self.out_patch_px, self.out_patch_px))
+                         output_size=(self.Nx_mesh, self.Ny_mesh),
+                         kernel_size=self.kern, stride=self.kern)
 
         node_ft = node_ft.view(bs * seq_len, self.hidden_dim, self.Nx_mesh, self.Ny_mesh)
         node_ft = node_ft.permute(0, 2, 3, 1)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, gnn_dim]

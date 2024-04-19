@@ -6,9 +6,10 @@ import pickle
 import random
 from cprint import c_print
 import time
-
 import torch
 from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
+
 from dataloader.mesh_utils import to_grid, get_mesh_interpolation
 
 
@@ -87,7 +88,7 @@ class MGNDataset(Dataset):
         y_idx = (arange // self.N_x_patch) % self.N_y_patch
         t_idx = arange // self.N_patch
 
-        position_ids = np.stack([x_idx, y_idx, t_idx], axis=1)
+        position_ids = np.stack([x_idx, y_idx, t_idx], axis=1).reshape(self.seq_len - 1, self.N_patch, 3)
 
         return states, diffs, mask, torch.from_numpy(position_ids)
 
@@ -117,15 +118,10 @@ class MGNDataset(Dataset):
         """
         bs, C, _, _ = states.shape
         ph, pw = self.patch_size
-        # states = states.unsqueeze(0)
 
-        st = time.time()
-        patches = torch.nn.functional.unfold(states, kernel_size=self.patch_size, stride=self.stride)
+        patches = F.unfold(states, kernel_size=self.patch_size, stride=self.stride)
 
-        if time.time() - st > 0.1:
-            c_print(f"Time to patch: {time.time() - st:.3g}s", 'green')
-
-        # Reshape patches to (bs, N, C, ph, pw, num_patches)
+        # Reshape patches to (bs, C, ph, pw, num_patches)
         patches_reshaped = patches.view(bs, C, ph, pw, patches.size(2))
         return patches_reshaped
 
@@ -260,10 +256,10 @@ def plot_all_patches():
 
     for batch in ds:
         state, diffs, mask, pos_id = batch
+        print(f'{state.shape = }, {diffs.shape = }. {pos_id.shape = }')
         break
 
     N_x, N_y = seq_dl.N_x_patch, seq_dl.N_y_patch
-    print(f'{state.shape = }, {diffs.shape = }')
     print(f'{N_x = }, {N_y = }')
 
     p_shows = state[0, 0, :, 0]

@@ -2,15 +2,17 @@ import logging
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoConfig, AutoModel, AutoTokenizer
 import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 from collections import deque
 from contextlib import nullcontext
+from matplotlib import pyplot as plt
 
 from dataloader.ds_props import DSProps
 from utils import freeze_model, unfreeze_model
+from utils_model import img_to_patch, patch_to_img
 from models.layers.input_embeddings import InputEmbeddings
 from models.layers.patch_decoder import PatchDecoder
 from models.layers.passthrough_embeddings import PassthroughEmbeddings
@@ -104,13 +106,18 @@ class MultivariateTimeLLM(nn.Module):
             freeze_model(self.backbone)
 
     def forward(self, x, position_ids):
-        """ returns.shape = (bs, seq_len, Nx_px, Ny_px, 3)"""
-        batch_size = x.shape[0]
+        """
+            x.shape = (bs, seq_len, N_patch, 3, 16, 16)
+            returns.shape = (bs, seq_len, Nx_px, Ny_px, 3)
+        """
+        bs, seq_len, _, _, _, _ = x.shape
 
         # Encode with patch embedder
-        x_enc = self.input_embeddings(x, position_ids)
+        x_enc = self.input_embeddings.forward(x, position_ids)
+        # Flatten patch so seq_len and patch dims are concatenated
+        x_enc = x_enc.view(bs, -1, self.llm_in_dim)  # shape = [bs, seq_len*N_patch, llm_dim]
         if self.config['use_bos_token']:
-            x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(batch_size, -1, -1), x_enc], dim=1)
+            x_enc = torch.cat([self.BOS_embed.unsqueeze(0).expand(bs, -1, -1), x_enc], dim=1)
             backbone_out = self.backbone(inputs_embeds=x_enc)
             backbone_preds = backbone_out.last_hidden_state[:, 1:]
         else:
@@ -119,20 +126,22 @@ class MultivariateTimeLLM(nn.Module):
             backbone_preds = backbone_out.last_hidden_state
 
         # Decode hidden state given by the LLM
-        _, tot_patches, _ = backbone_preds.shape
         decoder_out = self.output_layer.forward(backbone_preds)
 
-        decoder_out = decoder_out.view(batch_size, tot_patches//60, 120, 32, 3).permute(0, 1, 4, 2, 3)
+        decoder_out = decoder_out.view(bs, seq_len, self.ds_props.out_tot_size[0], self.ds_props.out_tot_size[1], 3).permute(0, 1, 4, 2, 3)
         return decoder_out * self.config['diff_scale_factor']
 
     def _gen_step(self, states, position_ids):
         """ Generate next timestep of the sequence given an input sequence.
-            Use last given timestep as initialisation to generate diffs for next step
-            Input.shape = (bs, seq_len*N_patch, 3, 16, 16)
-            Return.shape = (bs, seq_len, Nx_px, Ny_px, 3)"""
+            Use last given timestep as initialisation to generate diffs for next step.
+            Convert to patch format
+            Input.shape = (bs, seq_len, N_patch, 3, 16, 16)
+            Return.shape = (bs, 1, 3, patch_px, patch_py)"""
 
         pred_diff = self.forward(states, position_ids)
+
         diffs = pred_diff[:, -1:]
+        diffs = img_to_patch(diffs, self.ds_props)
         return diffs
 
     def _generate(self, init_states, bc_mask, position_ids, N_steps):
@@ -143,35 +152,34 @@ class MultivariateTimeLLM(nn.Module):
         Keep 2 buffers, one for all states / diffs, and one for sliding model input.
         Ensure model input isn't too long and normalise timesteps to start at 0·
 
-        init_states.shape = (bs, init_len*N_patch, 3, 16, 16)
-        all_states.shape = (bs, (init_len+N_steps)*N_patch, 3, 16, 16)
-        all_diffs.shape = (bs, N_steps*N_patch, 3, 16, 16)
+        init_states.shape = (bs, init_len, N_patch, 3, 16, 16)
+        all_states.shape = (bs, (init_len+N_steps), N_patch, 3, 16, 16)
+        all_diffs.shape = (bs, N_steps, N_patch, 3, 16, 16)
         """
+        # print(f'{init_states.shape = }, {bc_mask.shape = }, {position_ids.shape = }')
+        bs, init_len, N_patch, channel, px, py = init_states.shape
 
         # All states and diffs, including input and predictions for output.
         init_states = init_states.to(torch.float32)
         all_states = [init_states]
         all_diffs = []
         # Keep a buffer of the last N states as model input
-        init_states_t = init_states.view(init_states.shape[0], -1, self.N_patch, 3, self.N_x_patch, self.N_y_patch)
-        init_len = init_states_t.shape[1]
         input_buff = deque(maxlen=self.max_seq_len)
         for t in range(init_len):
-            input_buff.append(init_states_t[:, t])
+            input_buff.append(init_states[:, t:t+1])
 
-        for pred_step in range(init_len, init_len+N_steps):
+        for pred_step in range(init_len, init_len + N_steps):
             # print(f'{pred_step = }')
             seq_len = len(input_buff)
             # Get correct position ids
-            end_pos = pred_step * self.N_patch
-            start_pos = (pred_step - seq_len) * self.N_patch
-            seq_pos_ids = position_ids[:, start_pos:end_pos].clone()       # shape = [bs, seq_len*N_patch, 3, ...]
+            start_pos = (pred_step - seq_len)
+            seq_pos_ids = position_ids[:, start_pos:pred_step]  # shape = [bs, seq_len, N_patch, 3]
             # Normalise timestep so first state is t=0
-            min_t = seq_pos_ids[:, :, 2].min()
-            seq_pos_ids[:, :, 2] = seq_pos_ids[:, :, 2] - min_t
+            min_t = seq_pos_ids[:, :, :, 2].min()
+            seq_pos_ids[:, :, :, 2] = seq_pos_ids[:, :, :, 2] - min_t
 
-            # Get masks for current state
-            mask = bc_mask[:, end_pos - self.N_patch: end_pos]    # shape = [bs, N_patch, 3, ...]
+            # Get masks for current state.
+            mask = bc_mask[:, pred_step - 1: pred_step]  # shape = [bs, N_patch, 3, ...]
 
             s = torch.cat(list(input_buff), dim=1)
             diffs = self._gen_step(s, seq_pos_ids)
@@ -191,28 +199,30 @@ class MultivariateTimeLLM(nn.Module):
         return all_states, all_diffs
 
     def gen_seq(self, batch_data, pred_steps, start_state=1):
-        """ Evaluate the model by generating the next steps in the sequence."""
+        """ Evaluate the model by generating the next steps in the sequence.
+            Output is reshaped to image format. return.shape = (bs, seq_len, 3, tot_px, tot_py)"""
         states, _, bc_mask, position_ids = batch_data
-        position_ids, bc_mask = position_ids.to(self.device_map), bc_mask.to(self.device_map)
+        bs, seq_len, N_patch, channel, px, py = states.shape
 
-        tot_seq_len = bc_mask.shape[1] // self.N_patch
-        assert pred_steps + start_state - 1 <= tot_seq_len, \
-            f'Prediction steps ({pred_steps}) must be less than total sequence length ({tot_seq_len}) + 1!'
+        assert pred_steps + start_state - 1 <= seq_len, \
+            f'Prediction steps ({pred_steps}) must be less than total sequence length ({seq_len}+ 1)!'
 
         # Make sure the model can see everything before making the first prediction, duplicate the first state if start=1
         if start_state == 1:
-            states = torch.cat([states[:, :self.N_patch], states], dim=1)
-            init_state = states[:, :2 * self.N_patch].to(self.device_map)
-            bc_mask = torch.cat([bc_mask[:, :self.N_patch], bc_mask], dim=1)
-            position_ids = torch.cat([position_ids[:, :self.N_patch], position_ids], dim=1)
+            states = torch.cat([states[:, :1], states], dim=1)
+            init_state = states[:, :2]
+            bc_mask = torch.cat([bc_mask[:, :1], bc_mask], dim=1)
+            position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
         else:
-            init_state = states[:, :start_state * self.N_patch].to(self.device_map)
+            init_state = states[:, :start_state]
 
         all_states, all_diffs = self._generate(init_state, bc_mask, position_ids, pred_steps)
 
         if start_state == 1:
-            all_states = all_states[:, self.N_patch:]
+            all_states = all_states[:, 1:]
 
+        all_states = patch_to_img(all_states.contiguous(), self.ds_props)
+        all_diffs = patch_to_img(all_diffs, self.ds_props)
         return all_states, all_diffs
 
     def forward_duplicate(self, states, position_ids, N_patch):
@@ -224,4 +234,3 @@ class MultivariateTimeLLM(nn.Module):
         preds = preds[:, N_patch:]
 
         return preds
-

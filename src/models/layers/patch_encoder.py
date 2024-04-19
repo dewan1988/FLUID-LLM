@@ -21,17 +21,10 @@ class PatchEmbeddings(nn.Module):
             raise ValueError(f"Unknown patch embedding type: {params['type']}")
 
     def forward(self, x):
-        batch_size, num_patches, C, H, W = x.shape
+        batch_size, seq_len, N_patch, C, H, W = x.shape
 
-        if self.encoder_type == 'CNN':
-            x = x.reshape(-1, C, H, W)
-        else:
-            x = x.reshape(batch_size, num_patches, -1)
+        x = x.reshape(batch_size, seq_len, N_patch, -1)
 
         embeddings = self.encoder(x)
-
-        if self.encoder_type == 'CNN':
-            embeddings = embeddings.reshape(batch_size * num_patches, -1)  # Flatten each patch output
-            embeddings = embeddings.reshape(batch_size, num_patches, -1)
 
         return embeddings

@@ -13,7 +13,7 @@ import time
 from tqdm import tqdm
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
-from metrics import calc_n_rmse
+from utils_model import calc_n_rmse
 from models.model import MultivariateTimeLLM
 import torch.nn.functional as F
 from trainer import get_data_loader
