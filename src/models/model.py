@@ -11,6 +11,7 @@ from contextlib import nullcontext
 from matplotlib import pyplot as plt
 
 from dataloader.ds_props import DSProps
+from dataloader.mesh_utils import plot_patches
 from utils import freeze_model, unfreeze_model
 from utils_model import img_to_patch, patch_to_img
 from models.layers.input_embeddings import InputEmbeddings
@@ -142,6 +143,7 @@ class MultivariateTimeLLM(nn.Module):
 
         diffs = pred_diff[:, -1:]
         diffs = img_to_patch(diffs, self.ds_props)
+
         return diffs
 
     def _generate(self, init_states, bc_mask, position_ids, N_steps):
@@ -184,7 +186,6 @@ class MultivariateTimeLLM(nn.Module):
             s = torch.cat(list(input_buff), dim=1)
             diffs = self._gen_step(s, seq_pos_ids)
             diffs[mask] = 0.
-
             # Calculate diffs in fp32
             diffs = diffs.to(torch.float32)
             all_diffs.append(diffs)
@@ -213,6 +214,7 @@ class MultivariateTimeLLM(nn.Module):
             init_state = states[:, :2]
             bc_mask = torch.cat([bc_mask[:, :1], bc_mask], dim=1)
             position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
+            pred_steps += 1
         else:
             init_state = states[:, :start_state]
 

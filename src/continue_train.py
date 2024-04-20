@@ -26,7 +26,7 @@ def load_model(save_file, training_params, ds_props):
     # Get trainer
     trainer = Trainer(params=training_params,
                       model=model,
-                      N_patch=ds_props.N_patch)
+                      ds_props=ds_props)
 
     # Load optimizer and scheduler
     optimizer, scheduler = trainer.prepare_optimizers()
@@ -39,8 +39,8 @@ def load_model(save_file, training_params, ds_props):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "04-18_23-12-40"
-    load_num = 10
+    load_file = "04-19_22-35-52"
+    load_num = 290
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
     # Use saved .yaml config for easier editing

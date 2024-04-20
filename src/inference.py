@@ -81,13 +81,13 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
         targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
-        targ_img_red = targ_img[:, :, :, ::2, ::2]
+        # targ_img_red = targ_img[:, :, :, ::2, ::2]
 
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
     for i, ax in enumerate(axs):
         plot_dim = i
 
-        plot_targ = targ_img_red[batch_num, plot_step, plot_dim]
+        plot_targ = targ_img[batch_num, plot_step, plot_dim]
         plot_preds = decoder_out[batch_num, plot_step, plot_dim]
 
         targ_min, targ_max = plot_targ.min(), plot_targ.max()
@@ -104,8 +104,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
     # Calculate normalised RMSE
     decoder_out = decoder_out.cpu()
-    targ_std = targ_img_red.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
-    targ_img_red = targ_img_red / (targ_std)
+    targ_std = targ_img.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
+    targ_img_red = targ_img / (targ_std)
     decoder_out = decoder_out / (targ_std)
 
     loss_fn = torch.nn.L1Loss()
@@ -158,7 +158,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 2
+    batch_num = 0
     save_epoch = 300
 
     set_seed()

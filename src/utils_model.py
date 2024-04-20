@@ -45,7 +45,7 @@ def patch_to_img(patches, ds_props: DSProps):
     tot_px, tot_py = ds_props.input_tot_size
     N_patch = ds_props.N_patch
 
-    patches = patches.view(-1, N_patch, channel * px_patch * py_patch).transpose(-1, -2)   # (bs*seq_len, channel*px*py, N_patch)
+    patches = patches.view(-1, N_patch, channel * px_patch * py_patch).transpose(-1, -2)  # (bs*seq_len, channel*px*py, N_patch)
     img = F.fold(patches, output_size=(tot_px, tot_py), kernel_size=(px_patch, py_patch), stride=(px_patch, py_patch))
 
     img = img.view(bs, seq_len, channel, tot_px, tot_py)
@@ -64,7 +64,7 @@ def img_to_patch(img, ds_props: DSProps):
     channel = ds_props.channel
     N_patch = ds_props.N_patch
 
-    img = img.view(-1, channel, tot_px, tot_py)     # (bs*seq_len, channel, tot_px, tot_py)
+    img = img.view(-1, channel, tot_px, tot_py)  # (bs*seq_len, channel, tot_px, tot_py)
     patches = F.unfold(img, kernel_size=(px_patch, py_patch), stride=(px_patch, py_patch))
-    patches = patches.view(bs, seq_len, N_patch, channel, px_patch, py_patch).transpose(-1, -2)
+    patches = patches.view(bs, seq_len, channel, px_patch, py_patch, N_patch).permute(0, 1, 5, 2, 3, 4)
     return patches

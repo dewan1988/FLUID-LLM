@@ -90,7 +90,7 @@ class Trainer:
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask) # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
@@ -140,16 +140,14 @@ class Trainer:
         states, target, bc_mask, position_ids = batch
 
         bs, seq_len, N_patch, channel, px, py = states.shape
-        # 1) Model makes prediction of the sequence as guide
-        model_out, _ = self.model.gen_seq(batch, pred_steps=seq_len - 1)
+        _, pred_diffs = self.model.gen_seq(batch, pred_steps=seq_len - 1)
 
         targ_imgs = patch_to_img(target, self.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
-        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_imgs, mask=bc_mask)
 
         # Calculate metrics
-        with torch.no_grad():
-            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask) # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+        loss, all_losses = self.loss_fn.forward(preds=pred_diffs, target=targ_imgs, mask=bc_mask)
+        N_rmse = calc_n_rmse(pred_diffs, targ_imgs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
