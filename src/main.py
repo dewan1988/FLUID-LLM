@@ -100,16 +100,16 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
         # Train Step
         ep_train_fn, run_mode = select_run_mode(trainer, train_params['teacher_forcing'], epoch + start_ep)
 
-        # train_log_metrics = run_train_epoch(run_fn=ep_train_fn,
-        #                                     dataloader=train_dataloader,
-        #                                     trainer=trainer,
-        #                                     optimizer=optimizer,
-        #                                     scheduler=scheduler,
-        #                                     accelerator=accelerator)
-        #
-        # train_log, loss, nrmse = process_metrics(train_log_metrics, len(train_dataloader), run_mode, "train")
-        # train_log['lr'] = optimizer.param_groups[0]['lr']
-        # wandb.log(train_log, step=epoch_idx + start_ep)
+        train_log_metrics = run_train_epoch(run_fn=ep_train_fn,
+                                            dataloader=train_dataloader,
+                                            trainer=trainer,
+                                            optimizer=optimizer,
+                                            scheduler=scheduler,
+                                            accelerator=accelerator)
+
+        train_log, loss, nrmse = process_metrics(train_log_metrics, len(train_dataloader), run_mode, "train")
+        train_log['lr'] = optimizer.param_groups[0]['lr']
+        wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
         val_metrics = val_epoch(valid_dataloader, trainer, accelerator)
@@ -118,7 +118,7 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
 
         epoch_iterator.set_description(
             f"Epoch: {epoch_idx + 1}: "
-            # f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.7g}) - "
+            f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.7g}) - "
             f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.7g})"
         )
         epoch_iterator.refresh()
