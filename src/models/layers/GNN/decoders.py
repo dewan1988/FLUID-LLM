@@ -66,7 +66,6 @@ class MLPDecoder(Decoder):
         # plt.imshow(patch_vectors[0, 1].cpu().detach().float().numpy())
         # plt.show()
         # print(patch_vectors.shape)
-        exit(8)
         return preds
 
 
