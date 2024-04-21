@@ -16,18 +16,18 @@ class GCN_layers(torch.nn.Module):
         """
         super().__init__()
 
-        layer_fn = GCNConv
+        layer_fn = GATv2Conv
         # Create a list of all GCN convolutional layers
         self.convs = torch.nn.ModuleList()
         if num_layers == 1:
-            self.out_conv = layer_fn(input_dim, output_dim)
+            self.out_conv = layer_fn(input_dim, output_dim, add_self_loops=True, bias=False)
         else:
-            self.convs.append(layer_fn(input_dim, hidden_dim))
+            self.convs.append(layer_fn(input_dim, hidden_dim, add_self_loops=True))
             for l in range(num_layers - 2):
-                self.convs.append(layer_fn(hidden_dim, hidden_dim))
+                self.convs.append(layer_fn(hidden_dim, hidden_dim, add_self_loops=True))
 
             # Output layer
-            self.out_conv = layer_fn(hidden_dim, output_dim)
+            self.out_conv = layer_fn(hidden_dim, output_dim, add_self_loops=True)
 
     def forward(self, x, edge_index):
         """
@@ -44,7 +44,7 @@ class GCN_layers(torch.nn.Module):
         # Pass through each convolutional layer with ReLU activation
         for conv in self.convs:
             x = conv(x, edge_index)
-            x = F.relu(x)
+            x = F.softplus(x)
             # x = F.dropout(x, p=0.5, training=self.training)
 
         # Pass through the output convolutional layer

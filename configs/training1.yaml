@@ -35,10 +35,14 @@ encoder_params:
 
 # Decoder params
 decoder_params:
+#    type: MLP0
+#    mlp_layers: 2
+#    mlp_hid_dim: 512
+
     type: MLPGNN
-    gnn_dim : 8
+    gnn_dim: 8
     gnn_hid_dim: 32
-    gnn_layers: 2
+    gnn_layers: 1
     mlp_hid_dim: 512
 
 # Training params
@@ -70,9 +74,9 @@ normalize_ds: false
 fit_diffs: true
 
 # Logging params
-enable_wandb: true
-save_on: true
-save_model_each: 10
+enable_wandb: false
+save_on: false
+save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
 

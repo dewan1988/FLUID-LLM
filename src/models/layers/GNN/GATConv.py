@@ -42,7 +42,8 @@ class GATNet(torch.nn.Module):
 
         for i, layer in enumerate(self.gnn_layers):
             V = layer(V, edge_index, edge_attr=E)
-            V = F.elu(V)
+            if i < len(self.gnn_layers) - 1:
+                V = F.softplus(V)
 
         return V
 

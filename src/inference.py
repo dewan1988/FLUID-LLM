@@ -61,11 +61,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
                     mode='valid',
                     fit_diffs=model.config['fit_diffs'],
                     normalize=model.config['normalize_ds'])
-    N_patch = ds.N_patch
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
-    N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
-    x_px, y_px = model.config['patch_size']
 
     model.eval()
     # Get batch and run through model
@@ -73,6 +70,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
     with torch.inference_mode():
         states, target, bc_mask, position_ids = batch_data
+        bs = target.shape[0]
         decoder_out = model.forward(states.cuda(), position_ids.cuda())
 
         # Reshape targets to images and downsample
@@ -93,8 +91,9 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         targ_min, targ_max = plot_targ.min(), plot_targ.max()
         pred_min, pred_max = plot_preds.min(), plot_preds.max()
 
+        print()
         print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}, std: {plot_targ.std():.4g}')
-        print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}')
+        print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}, std: {plot_preds.std():.4g}')
 
         ax[0].imshow(plot_targ.cpu().T)
         ax[1].imshow(plot_preds.cpu().T)
@@ -156,9 +155,9 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
 
 def main(args):
-    load_no = -1
+    load_no = -2
     plot_step = 0
-    batch_num = 0
+    batch_num = 3
     save_epoch = 300
 
     set_seed()

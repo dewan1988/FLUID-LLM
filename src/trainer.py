@@ -83,8 +83,8 @@ class Trainer:
 
         # Normalise predictions so loss is well scaled
         targ_std = targ_imgs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
-        targ_imgs = targ_imgs / (targ_std + 0.025)
-        model_out = model_out / (targ_std + 0.025)
+        targ_imgs = targ_imgs / (targ_std + 0.015)
+        model_out = model_out / (targ_std + 0.015)
 
         loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_imgs, mask=bc_mask)
 

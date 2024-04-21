@@ -19,7 +19,9 @@ class Decoder(nn.Module):
         self.Nx_patch, self.Ny_patch = ds_props.Nx_patch, ds_props.Ny_patch
         self.N_patch = ds_props.N_patch
         self.out_patch_size = ds_props.out_patch_size
-        self.Nx_mesh, self.Ny_mesh = ds_props.out_tot_size
+        self.Npx_mesh, self.Npy_mesh = ds_props.out_tot_size
+
+        self.kern = (self.out_patch_size[0], self.out_patch_size[1])
 
     def patch_to_px(self, patch_vectors):
         """ return.shape = (bs, seq_len, Ny_mesh, Nx_mesh, hid_dim)"""
@@ -30,20 +32,20 @@ class Decoder(nn.Module):
         # Repeat each patch vector to cover its corresponding 4x4 subgrid
         patch_vectors_repeated = patch_vectors_reshaped.repeat_interleave(self.out_patch_size[0], dim=-3).repeat_interleave(self.out_patch_size[1], dim=-2)
         # Flatten the result to match the node feature matrix expected by PyTorch Geometric
-        node_features = patch_vectors_repeated.view(bs, seq_len, self.Nx_mesh, self.Ny_mesh, hid_dim)
+        node_features = patch_vectors_repeated.view(bs, seq_len, self.Npx_mesh, self.Npy_mesh, hid_dim)
         return node_features
 
 
 class MLPDecoder(Decoder):
     def __init__(self, in_dim, out_dim, ds_props: DSProps, params):
-        super().__init__(params)
+        super().__init__(ds_props)
+        self.mlp_out_dim = (self.out_patch_size[0] * self.out_patch_size[1]) * self.channel
 
-        self.patch_tot_pixels = (self.patch_size ** 2) * self.channel
-
-        self.hidden_dim = 128
+        self.hidden_dim = params['mlp_hid_dim']
+        self.mlp_layers = params['mlp_layers']
 
         # Trainable MLP input layer
-        self.input_mlp = MLP(in_dim, self.patch_tot_pixels, hid_dim=512, num_layers=2, act='softplus', zero_last=False)
+        self.input_mlp = MLP(in_dim, self.mlp_out_dim, hid_dim=self.hidden_dim, num_layers=self.mlp_layers, act='softplus', zero_last=False)
 
     def forward(self, patch_vectors):
         """ Return shape = [bs*seq_len, Nx_mesh, Ny_mesh, 3] """
@@ -53,18 +55,18 @@ class MLPDecoder(Decoder):
 
         # 0) Preprocess input MLP
         patch_vectors = self.input_mlp(patch_vectors)  # shape = [bs, seq_len*N_patch, patch_size^2 * 3]
-        patch_vectors = patch_vectors.view(bs * seq_len, N_patch, 192)
+        patch_vectors = patch_vectors.view(bs * seq_len, N_patch, self.mlp_out_dim)
         patch_vectors = patch_vectors.permute(0, 2, 1)
 
         preds = F.fold(patch_vectors,
-                       output_size=(self.out_patch_px * self.Nx_patch, self.out_patch_px * self.Ny_patch),
-                       kernel_size=(self.out_patch_px, self.out_patch_px), stride=(self.out_patch_px, self.out_patch_px))
+                       output_size=(self.Npx_mesh, self.Npy_mesh),
+                       kernel_size=self.kern, stride=self.kern)
         preds = preds.permute(0, 2, 3, 1)
 
         # plt.imshow(patch_vectors[0, 1].cpu().detach().float().numpy())
         # plt.show()
         # print(patch_vectors.shape)
-        # exit(6)
+        exit(8)
         return preds
 
 
@@ -74,7 +76,6 @@ class GNNDecoder(Decoder):
         self.channel = ds_props.channel
         self.Nx_patch, self.Ny_patch = ds_props.Nx_patch, ds_props.Ny_patch
         self.patch_px = ds_props.patch_size
-        self.Nx_mesh, self.Ny_mesh = self.Nx_patch * self.patch_size, self.Ny_patch * self.patch_size
 
         self.hidden_dim = 128
 
@@ -196,13 +197,11 @@ class GNNDecoder(Decoder):
 class MLPGNNDecoder(Decoder):
     def __init__(self, in_dim, out_dim, ds_props: DSProps, params):
         super().__init__(ds_props)
-
         self.gnn_dim = params['gnn_dim']
         self.gnn_layers = params['gnn_layers']
         self.gnn_hid_dim = params['gnn_hid_dim']
         self.mlp_hid_dim = params['mlp_hid_dim']
         self.mlp_out_dim = (self.out_patch_size[0] * self.out_patch_size[1]) * self.gnn_dim
-        self.kern = (self.out_patch_size[0], self.out_patch_size[1])
 
         # Trainable MLP input layer
         self.input_mlp = MLP(in_dim, self.mlp_out_dim, hid_dim=self.mlp_hid_dim, num_layers=2, act='softplus', zero_last=False)
@@ -210,11 +209,11 @@ class MLPGNNDecoder(Decoder):
         self.GNN = GCN_layers(self.gnn_dim, self.gnn_hid_dim, 3, num_layers=self.gnn_layers)
 
         # Indices for edges
-        mesh_edges = make_edge_idx(self.Ny_mesh, self.Nx_mesh)
+        mesh_edges = make_edge_idx(self.Npy_mesh, self.Npx_mesh)
         self.mesh_edges = torch.nn.Parameter(mesh_edges, requires_grad=False)
 
     def forward(self, patch_vectors):
-        """ Return shape = [bs, seq_len, Nx_mesh, Ny_mesh, 3] """
+        """ Return shape = [bs, seq_len, Npx_mesh, Ny_mesh, 3] """
         bs, tot_patchs, _ = patch_vectors.shape
         seq_len = tot_patchs // self.N_patch
 
@@ -226,11 +225,11 @@ class MLPGNNDecoder(Decoder):
         patch_vectors = patch_vectors.permute(0, 2, 1)  # shape = [bs*seq_len, gnn_out_dim, N_patch]
 
         node_ft = F.fold(patch_vectors,
-                         output_size=(self.Nx_mesh, self.Ny_mesh),
+                         output_size=(self.Npx_mesh, self.Npy_mesh),
                          kernel_size=self.kern, stride=self.kern)
 
-        node_ft = node_ft.view(bs * seq_len, self.gnn_dim, self.Nx_mesh, self.Ny_mesh)
-        node_ft = node_ft.permute(0, 2, 3, 1)  # shape = [bs*seq_len, Nx_mesh, Ny_mesh, gnn_dim]
+        node_ft = node_ft.view(bs * seq_len, self.gnn_dim, self.Npx_mesh, self.Npy_mesh)
+        node_ft = node_ft.permute(0, 2, 3, 1)  # shape = [bs*seq_len, Npx_mesh, Ny_mesh, gnn_dim]
 
         # print(f'{node_features.shape = }')
         # Convert to graph for GNN
@@ -243,14 +242,14 @@ class MLPGNNDecoder(Decoder):
         # exit(9)
 
         # 4) Flatten nodes and pass through GNN
-        node_ft = node_ft.view(bs * seq_len, self.Nx_mesh * self.Ny_mesh, self.gnn_dim)
+        node_ft = node_ft.view(bs * seq_len, self.Npx_mesh * self.Npy_mesh, self.gnn_dim)
         graphs = []
         for single_graph in node_ft:
             graph = Data(x=single_graph, edge_index=self.mesh_edges)
             graphs.append(graph)
         graphs = Batch.from_data_list(graphs)
 
-        preds = self.GNN.forward(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Nx_mesh*Ny_mesh, 3]
+        preds = self.GNN.forward(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Npx_mesh*Ny_mesh, 3]
 
         # print(preds.shape)
         # analyse_num = 50
@@ -261,7 +260,7 @@ class MLPGNNDecoder(Decoder):
         #
 
         # 5) Reshape to image format
-        preds = preds.view(bs, seq_len, self.Nx_mesh, self.Ny_mesh, 3)  # shape = [bs, seq_len, Nx_mesh, Ny_mesh, 3]
+        preds = preds.view(bs, seq_len, self.Npx_mesh, self.Npy_mesh, 3)  # shape = [bs, seq_len, Nx_mesh, Ny_mesh, 3]
 
         # preds = preds.detach().cpu()
         # plt.imshow(preds[0, :, :, 0].T)

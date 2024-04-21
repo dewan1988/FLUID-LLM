@@ -1,7 +1,7 @@
 from torch import nn
 from models.layers.MLP import MLP
 from models.layers.CNN import CNN
-from models.layers.GNN.GNN_decoder import MLPDecoder, GNNDecoder, MLPGNNDecoder
+from models.layers.GNN.decoders import MLPDecoder, GNNDecoder, MLPGNNDecoder
 from dataloader.ds_props import DSProps
 
 
