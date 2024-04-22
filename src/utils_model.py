@@ -17,7 +17,7 @@ def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Te
     return N_rmse
 
 
-def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor = None):
+def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
     # shape = (bs, seq_len, channel, px, py)
     v_pred = preds[:, :, :2, :]
     v_target = target[:, :, :2, :]

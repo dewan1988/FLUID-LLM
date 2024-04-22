@@ -10,47 +10,19 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import time
 
-from tqdm import tqdm
-
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
-from utils_model import calc_n_rmse
+from utils_model import calc_n_rmse, patch_to_img
 from models.model import MultivariateTimeLLM
 import torch.nn.functional as F
 from trainer import get_data_loader
 
 from dataloader.simple_dataloader import MGNDataset
-from dataloader.mesh_utils import plot_full_patches
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def rmse_loss(preds, targets):
-    """ state.shape = (bs, num_steps, N_patch, 3, 16, 16)"""
-    assert preds.shape == preds.shape
-    preds = preds.to(torch.float32)
-    targets = targets.to(torch.float32)
-
-    v_pred = preds[:, :, :, :2, :]
-    v_target = targets[:, :, :, :2, :]
-
-    p_pred = preds[:, :, :, 2:, :]
-    p_target = targets[:, :, :, 2:, :]
-
-    # MSE over all patches in each step
-    v_mse = torch.mean((v_pred - v_target) ** 2, dim=(-1, -2, -3, -4))
-    p_mse = torch.mean((p_pred - p_target) ** 2, dim=(-1, -2, -3, -4))
-
-    # Average RMSE over batch
-    v_rmse = torch.sqrt(v_mse).mean(dim=0)
-    p_rmse = torch.sqrt(p_mse).mean(dim=0)
-    # print(v_rmse)
-    # exit(9)
-    rmse = v_rmse + p_rmse
-    return rmse
-
-
-def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
+def get_eval_dl(model, eval_cfg):
     bs = eval_cfg['batch_size']
     ds = MGNDataset(load_dir=eval_cfg['load_dir'],
                     resolution=model.config['resolution'],
@@ -63,6 +35,11 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
                     normalize=model.config['normalize_ds'])
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
+    return dl
+
+
+def test_step(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
+    dl = get_eval_dl(model, eval_cfg)
 
     model.eval()
     # Get batch and run through model
@@ -79,7 +56,6 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
         targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
         targ_img = targ_img.view(bs, -1, 3, 240, 64)
-        # targ_img_red = targ_img[:, :, :, ::2, ::2]
 
     fig, axs = plt.subplots(3, 2, figsize=(20, 8))
     for i, ax in enumerate(axs):
@@ -111,54 +87,69 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     loss = loss_fn(decoder_out, targ_img_red)
     print(targ_std.squeeze())
     print(loss)
-    # print(f"Time taken: {time.time() - st:.4g}")
-    #
-    # # Split into steps
-    # true_states = true_states.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3,x_px, y_px).to(torch.float32)
-    # pred_states = pred_states.view(bs, eval_cfg['seq_len'], N_patch, 3, x_px, y_px).cpu()
-    # pred_states = pred_states[:, :-1]
-    #
-    # true_diffs = true_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px)
-    # pred_diffs = pred_diffs.view(bs, eval_cfg['seq_len'] - 1, N_patch, 3, x_px, y_px).cpu()
-    #
-    # loss = rmse_loss(pred_states, true_states)
-    # N_rmse = calc_n_rmse(pred_states, true_states)
-    #
-    # logging.info(f"Loss: {loss}")
-    # logging.info(f"N_RMSE: {N_rmse.item():.7g}")
-    #
-    # # Plot diffs
-    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    # for i, ax in enumerate(axs):
-    #     img_1 = true_diffs[batch_num, plot_step, :, i]
-    #     img_2 = pred_diffs[batch_num, plot_step, :, i]
-    #
-    #     # Initial image
-    #     plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
-    #     # Predictions
-    #     plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
-    # fig.tight_layout()
-    # fig.show()
-    #
-    # # Plot states
-    # fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    # for i, ax in enumerate(axs):
-    #     img_1 = true_states[batch_num, plot_step, :, i]
-    #     img_2 = pred_states[batch_num, plot_step, :, i]
-    #
-    #     # Initial image
-    #     plot_full_patches(img_1, (N_x_patch, N_y_patch), ax[0])
-    #     # Predictions
-    #     plot_full_patches(img_2, (N_x_patch, N_y_patch), ax[1])
-    # fig.tight_layout()
-    # fig.show()
+
+
+def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
+    dl = get_eval_dl(model, eval_cfg)
+
+    model.eval()
+    # Get batch and run through model
+    batch = next(iter(dl))
+
+    with torch.inference_mode():
+        states, target, bc_mask, position_ids = batch
+        states, target, bc_mask, position_ids = (states.cuda(), target.cuda(), bc_mask.cuda(), position_ids.cuda())
+        batch = (states, target, bc_mask, position_ids)
+
+        bs, seq_len, N_patch, channel, px, py = states.shape
+        pred_states, pred_diffs = model.gen_seq(batch, pred_steps=seq_len - 1)
+
+        true_states = patch_to_img(states, model.ds_props)
+        true_diffs = patch_to_img(target, model.ds_props)
+        bc_mask = patch_to_img(bc_mask.float(), model.ds_props).bool()
+        # print(f'{pred_states.shape = }, {pred_diffs.shape = }')
+        # print(f'{true_states.shape = }, {true_diffs.shape = }')
+
+    # Plot diffs
+    fig, axs = plt.subplots(3, 2, figsize=(20, 9))
+    fig.suptitle(f'Differences, step {plot_step}')
+    for i, ax in enumerate(axs):
+        img_1 = true_diffs[batch_num, plot_step, i].cpu()
+        img_2 = pred_diffs[batch_num, plot_step, i].cpu()
+
+        ax[0].imshow(img_1.T)  # Initial image
+        ax[0].axis('off')
+        ax[1].imshow(img_2.T)  # Predictions
+        ax[1].axis('off')
+    fig.tight_layout()
+    fig.show()
+
+    # Plot states
+    fig, axs = plt.subplots(3, 2, figsize=(20, 9))
+    fig.suptitle(f'States, step {plot_step}')
+    for i, ax in enumerate(axs):
+        img_1 = true_states[batch_num, plot_step, i].cpu()
+        img_2 = pred_states[batch_num, plot_step, i].cpu()
+
+        ax[0].imshow(img_1.T)  # Initial image
+        ax[0].axis('off')
+        ax[1].imshow(img_2.T)  # Predictions
+        ax[1].axis('off')
+    fig.tight_layout()
+    fig.show()
+
+    N_rmse = calc_n_rmse(pred_states[:, :-1], true_states, bc_mask)
+    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+
+    N_rmse = calc_n_rmse(pred_diffs, true_diffs, bc_mask)
+    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
 
 
 def main(args):
     load_no = -1
     plot_step = 0
-    batch_num = 0
-    save_epoch = 280
+    batch_num = 2
+    save_epoch = 300
 
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)
@@ -189,9 +180,6 @@ def main(args):
 
     # Run test_generate
     test_generate(model, inference_params, plot_step, batch_num)
-
-    # Run evaluation
-    # evaluate_model(model, inference_params, mode='valid')
 
 
 if __name__ == '__main__':
