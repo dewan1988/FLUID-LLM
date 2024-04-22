@@ -17,9 +17,10 @@ flash_attention: true
 use_deepspeed: false
 use_bos_token: true
 
-# Model params
+# Model weights
 pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
+loss_norm_eps: 0.1
 
 #  Positional embedding params
 pos_embedding_params:
@@ -64,7 +65,6 @@ teacher_forcing:
     ratio: 0.1
     start_epoch: 5000
 see_init_state: false
-loss_norm_eps: 0.015
 
 # Dataloader params
 num_workers: 8
