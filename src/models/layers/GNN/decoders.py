@@ -227,20 +227,9 @@ class MLPGNNDecoder(Decoder):
                          output_size=(self.Npx_mesh, self.Npy_mesh),
                          kernel_size=self.kern, stride=self.kern)
 
+        # 4) Flatten nodes and pass through GNN
         node_ft = node_ft.view(bs * seq_len, self.gnn_dim, self.Npx_mesh, self.Npy_mesh)
         node_ft = node_ft.permute(0, 2, 3, 1)  # shape = [bs*seq_len, Npx_mesh, Ny_mesh, gnn_dim]
-
-        # print(f'{node_features.shape = }')
-        # Convert to graph for GNN
-        #
-        # gnn_input = node_features[0] # , 0, : ,:, 0]
-        # gnn_input = gnn_input.view(self.Nx_mesh, self.Ny_mesh, -1)[:, :, -2]
-        # plt.imshow(gnn_input.cpu().detach().float().numpy())
-        # plt.show()
-        # print(gnn_input.shape)
-        # exit(9)
-
-        # 4) Flatten nodes and pass through GNN
         node_ft = node_ft.view(bs * seq_len, self.Npx_mesh * self.Npy_mesh, self.gnn_dim)
         graphs = []
         for single_graph in node_ft:
@@ -250,23 +239,8 @@ class MLPGNNDecoder(Decoder):
 
         preds = self.GNN.forward(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Npx_mesh*Ny_mesh, 3]
 
-        # print(preds.shape)
-        # analyse_num = 50
-        # neigbours = analyse_edge_idx(graphs.edge_index, analyse_num)
-        # preds[analyse_num] = 2.
-        # for n in neigbours:
-        #     preds[n] = 1.
-        #
-
         # 5) Reshape to image format
         preds = preds.view(bs, seq_len, self.Npx_mesh, self.Npy_mesh, 3)  # shape = [bs, seq_len, Nx_mesh, Ny_mesh, 3]
-
-        # preds = preds.detach().cpu()
-        # plt.imshow(preds[0, :, :, 0].T)
-        # plt.show()
-
-        # patch_vectors = patch_vectors.view(bs*seq_len, 120, 32, 3)
-        #
 
         return preds
 

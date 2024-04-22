@@ -40,22 +40,22 @@ decoder_params:
 #    mlp_hid_dim: 512
 
     type: MLPGNN
-    gnn_dim: 32
+    gnn_dim: 16
     gnn_hid_dim: 32
     gnn_layers: 2
     mlp_hid_dim: 512
 
 # Training params
 batch_size: 8
-num_epochs: 301
+num_epochs: 180
 epoch_size: 100
-learning_rate: 7e-4
+learning_rate: 10e-4
 weight_decay: 0
 optimizer: adam
 loss_function: ['mae', 'mse']
 loss_weighting: [0.2, 10]
 schedule_epoch: 50
-schedule_gamma: 0.8
+schedule_gamma: 0.75
 # Teacher forcing params
 teacher_forcing:
     ratio: 0.1
@@ -74,8 +74,8 @@ normalize_ds: false
 fit_diffs: true
 
 # Logging params
-enable_wandb: false
-save_on: false
+enable_wandb: true
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
