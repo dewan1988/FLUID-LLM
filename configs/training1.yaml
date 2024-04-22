@@ -47,7 +47,7 @@ decoder_params:
 
 # Training params
 batch_size: 8
-num_epochs: 180
+num_epochs: 181
 epoch_size: 100
 learning_rate: 10e-4
 weight_decay: 0
