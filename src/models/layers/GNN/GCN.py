@@ -44,7 +44,7 @@ class GCN_layers(torch.nn.Module):
         # Pass through each convolutional layer with ReLU activation
         for conv in self.convs:
             x = conv(x, edge_index)
-            x = F.relu(x)  # F.softplus(x)
+            x = F.softplus(x)
             # x = F.dropout(x, p=0.5, training=self.training)
 
         # Pass through the output convolutional layer
