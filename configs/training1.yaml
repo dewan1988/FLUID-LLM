@@ -16,7 +16,7 @@ half_precision: true
 flash_attention: true
 use_deepspeed: false
 use_bos_token: true
-diff_scale_factor: 0.03   # Scale factor for diffs
+diff_scale_factor: 0.1   # Scale factor for diffs
 
 #  Positional embedding params
 pos_embedding_params:
@@ -48,7 +48,6 @@ decoder_params:
 # Training params
 batch_size: 8
 num_epochs: 181
-epoch_size: 100
 learning_rate: 10e-4
 weight_decay: 0
 optimizer: adam
@@ -56,6 +55,7 @@ loss_function: ['mae', 'mse']
 loss_weighting: [0.2, 10]
 schedule_epoch: 50
 schedule_gamma: 0.75
+pressure_weight: 0.1
 # Teacher forcing params
 teacher_forcing:
     ratio: 0.1

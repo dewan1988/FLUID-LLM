@@ -4,8 +4,7 @@ Module defining the losses used for training.
 import torch
 import torch as t
 import torch.nn as nn
-
-
+from torch.nn import Parameter as P
 
 class MAPELoss(nn.Module):
     def __init__(self, eps=1e-5):
@@ -158,41 +157,44 @@ class MAELoss(nn.Module):
 
 
 class CombinedLoss(nn.Module):
-    def __init__(self, loss_fns, weighting):
+    def __init__(self, loss_fns, loss_weight: list, pressure_weight: float = 1.):
         super(CombinedLoss, self).__init__()
         self.loss_fns = nn.ModuleList([self.get_loss_fn(loss_fn) for loss_fn in loss_fns])
-        self.weighting = weighting
+        self.loss_weight = loss_weight
+        self.pressure_weight = pressure_weight
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.float:
         """
         Combined loss function.
 
-        :param preds: Forecast values. Shape:  (bs, seq_len*N_patch, 3, patch_x, patch_y)
-        :param target: Target values. Shape:  (bs, seq_len*N_patch, 3, patch_x, patch_y)
-        :param mask: 0/1 mask. Shape: (bs, seq_len*N_patch, 3, patch_x, patch_y)
+        :param preds: Forecast values. Shape:  (bs, seq_len, 3, tot_px, tot_py)
+        :param target: Target values. Shape:  (bs, seq_len, 3, tot_px, tot_py)
+        :param mask: 0/1 mask. Shape:  (bs, seq_len, 3, tot_px, tot_py)
         :return: Loss value
         """
 
-        # pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
-        # pressure_target = target[:, :, 2:, :]
-        # pressure_mask = mask[:, :, 0:, :]
-        # velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
-        # velocity_target = target[:, :, :2, :]
-        # velocity_mask = mask[:, :, :2, :]
+        pressure_preds = preds[:, :, 2:, :]  # shape = (bs, seq_len*N_patch, 1, 16, 16)
+        pressure_target = target[:, :, 2:, :]
+        pressure_mask = mask[:, :, 0:, :]
+        velocity_preds = preds[:, :, :2, :]  # shape = (bs, seq_len*N_patch, 2, 16, 16)
+        velocity_target = target[:, :, :2, :]
+        velocity_mask = mask[:, :, :2, :]
 
         tot_loss = 0
         all_losses = {}
-        for loss_fn, weighting in zip(self.loss_fns, self.weighting):
-            # loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
-            # loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
+        for loss_fn, weighting in zip(self.loss_fns, self.loss_weight):
+            loss_pressure = loss_fn(pressure_preds, pressure_target, pressure_mask)
+            loss_velocity = loss_fn(velocity_preds, velocity_target, velocity_mask)
 
-            # loss_val = loss_velocity + loss_pressure
-            # print(f'{preds.shape = }, {target.shape = }, {mask.shape = }')
-            # exit(7)
-            loss_val = loss_fn.forward(preds, target, mask)
+            loss_val = loss_velocity + self.pressure_weight * loss_pressure
             tot_loss += loss_val * weighting
 
-            all_losses[str(loss_fn)] = loss_val# .item()
+            # loss_val = loss_fn.forward(preds, target, mask)
+            # print(loss_val)
+            #
+            # exit(5)
+
+            all_losses[str(loss_fn)] = loss_val  # .item()
 
         return tot_loss, all_losses
 
@@ -209,5 +211,3 @@ class CombinedLoss(nn.Module):
             return SMAPELoss()
         else:
             raise ValueError(f"Unknown loss function: {loss_fn}")
-
-
