@@ -26,7 +26,10 @@ class Trainer:
 
         self.N_patch = ds_props.N_patch
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'], params['pressure_weight'])
-        self.loss_norm_eps = torch.tensor(params['loss_norm_eps'], device='cuda')
+
+        self.loss_norm_eps = params['loss_norm_eps']
+        if self.loss_norm_eps is not None:
+            self.loss_norm_eps = torch.nn.Parameter(torch.tensor(self.loss_norm_eps, device='cuda'), requires_grad=False)
 
     def run_train_step(self, batch):
         """
