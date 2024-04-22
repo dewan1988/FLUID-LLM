@@ -9,12 +9,12 @@ import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import time
+from cprint import c_print
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
-from utils_model import calc_n_rmse, patch_to_img
+from utils_model import calc_n_rmse, patch_to_img, get_data_loader
 from models.model import MultivariateTimeLLM
 import torch.nn.functional as F
-from trainer import get_data_loader
 
 from dataloader.simple_dataloader import MGNDataset
 
@@ -107,8 +107,9 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         true_states = patch_to_img(states, model.ds_props)
         true_diffs = patch_to_img(target, model.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), model.ds_props).bool()
-        # print(f'{pred_states.shape = }, {pred_diffs.shape = }')
-        # print(f'{true_states.shape = }, {true_diffs.shape = }')
+        pred_states = pred_states[:, :-1]
+        print(f'{pred_states.shape = }, {pred_diffs.shape = }')
+        print(f'{true_states.shape = }, {true_diffs.shape = }')
 
     # Plot diffs
     fig, axs = plt.subplots(3, 2, figsize=(20, 9))
@@ -118,9 +119,8 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         img_2 = pred_diffs[batch_num, plot_step, i].cpu()
 
         ax[0].imshow(img_1.T)  # Initial image
-        ax[0].axis('off')
         ax[1].imshow(img_2.T)  # Predictions
-        ax[1].axis('off')
+        ax[0].axis('off'), ax[1].axis('off')
     fig.tight_layout()
     fig.show()
 
@@ -132,23 +132,26 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
         img_2 = pred_states[batch_num, plot_step, i].cpu()
 
         ax[0].imshow(img_1.T)  # Initial image
-        ax[0].axis('off')
         ax[1].imshow(img_2.T)  # Predictions
-        ax[1].axis('off')
+        ax[0].axis('off'), ax[1].axis('off')
     fig.tight_layout()
     fig.show()
 
-    N_rmse = calc_n_rmse(pred_states[:, :-1], true_states, bc_mask)
-    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+    N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
+    c_print(f"Standard N_RMSE: {N_rmse}", color='cyan')
 
-    N_rmse = calc_n_rmse(pred_diffs, true_diffs, bc_mask)
-    logging.info(f"N_RMSE: {N_rmse.item():.7g}")
+    targ_std = true_states.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
+    true_states = true_states / (targ_std)
+    pred_states = pred_states / (targ_std)
+
+    N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
+    c_print(f"State normalised N_RMSE: {N_rmse}", color='cyan')
 
 
 def main(args):
-    load_no = -1
-    plot_step = 0
-    batch_num = 2
+    load_no = -2
+    plot_step = 25
+    batch_num = 3
     save_epoch = 300
 
     set_seed()
@@ -168,7 +171,7 @@ def main(args):
     ckpt_state_dict = ckpt['state_dict']
 
     # Get dataloader
-    dl, ds_props = get_data_loader(ckpt_params, mode="valid")
+    _, ds_props = get_data_loader(ckpt_params, mode="valid")
 
     # Get the model
     model = MultivariateTimeLLM(ckpt_params, ds_props=ds_props, device_map=get_available_device())

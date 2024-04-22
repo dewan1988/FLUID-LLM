@@ -37,7 +37,7 @@ def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Te
     rmse = torch.sqrt(mse)
 
     # Average over seq_len and batches
-    N_rmse = rmse.mean()
+    N_rmse = rmse.mean(dim=0)
     return N_rmse
 
 
