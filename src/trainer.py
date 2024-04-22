@@ -30,13 +30,6 @@ class Trainer:
         self.N_patch = ds_props.N_patch
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
 
-    def calculate_metrics(self, preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
-        """ input.shape = (bs, seq_len, 3, px, py)
-        """
-        N_rmse = calc_n_rmse(preds, target, bc_mask)
-
-        return N_rmse  # .item()
-
     def run_train_step(self, batch):
         """
         Returns
@@ -64,7 +57,7 @@ class Trainer:
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(preds, targs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+            N_rmse = calc_n_rmse(preds, targs, bc_mask).mean()  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
@@ -121,7 +114,7 @@ class Trainer:
 
         # Calculate metrics
         loss, all_losses = self.loss_fn.forward(preds=pred_diffs, target=targ_imgs, mask=bc_mask)
-        N_rmse = calc_n_rmse(pred_diffs, targ_imgs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+        N_rmse = calc_n_rmse(pred_diffs, targ_imgs, bc_mask).mean()  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss

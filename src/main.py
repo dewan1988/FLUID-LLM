@@ -119,8 +119,8 @@ def train_run(train_params, save_path, train_dataloader, valid_dataloader, train
 
         epoch_iterator.set_description(
             f"Epoch: {epoch_idx + 1}: "
-            f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.7g}) - "
-            f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.7g})"
+            f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.5g}) - "
+            f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.5g})"
         )
         epoch_iterator.refresh()
 

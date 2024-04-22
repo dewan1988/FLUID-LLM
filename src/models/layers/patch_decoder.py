@@ -3,7 +3,7 @@ from models.layers.MLP import MLP
 from models.layers.CNN import CNN
 from models.layers.GNN.decoders import MLPDecoder, GNNDecoder, MLPGNNDecoder
 from dataloader.ds_props import DSProps
-
+import torch
 
 class PatchDecoder(nn.Module):
     """Patch decoder layer to project from feature space to patch space."""
@@ -34,6 +34,7 @@ class PatchDecoder(nn.Module):
             self.decoder = GNNDecoder(in_dim=llm_dim, out_dim=out_dim, ds_props=ds_props, params=params)
         elif params['type'] == 'MLPGNN':
             self.decoder = MLPGNNDecoder(in_dim=llm_dim, out_dim=out_dim, ds_props=ds_props, params=params)
+            # self.decoder = torch.compile(self.decoder)
 
         else:
             raise ValueError(f"Unknown patch embedding type: {params['type']}")
