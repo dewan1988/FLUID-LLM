@@ -55,7 +55,7 @@ optimizer: adam
 loss_function: ['mae', 'mse']
 loss_weighting: [0.2, 10]
 schedule_epoch: 50
-schedule_gamma: 0.75
+schedule_gamma: 0.66
 # Teacher forcing params
 teacher_forcing:
     ratio: 0.1
