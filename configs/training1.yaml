@@ -35,15 +35,15 @@ encoder_params:
 
 # Decoder params
 decoder_params:
-    type: MLP0
-    mlp_layers: 2
-    mlp_hid_dim: 512
-
-#    type: MLPGNN
-#    gnn_dim: 8
-#    gnn_hid_dim: 32
-#    gnn_layers: 1
+#    type: MLP0
+#    mlp_layers: 2
 #    mlp_hid_dim: 512
+
+    type: MLPGNN
+    gnn_dim: 32
+    gnn_hid_dim: 32
+    gnn_layers: 2
+    mlp_hid_dim: 512
 
 # Training params
 batch_size: 8
