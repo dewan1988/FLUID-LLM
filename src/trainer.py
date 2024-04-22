@@ -3,41 +3,17 @@ Module defining a trainer for a LLM on a given dataset.
 """
 
 import torch
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
-from dataloader.simple_dataloader import MGNDataset
 from utils import get_available_device, get_trainable_parameters
-from utils_model import calc_n_rmse, patch_to_img
+from utils_model import calc_n_rmse, patch_to_img, normalise_diffs
 from losses import CombinedLoss, RMSELoss
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
 
 
-def get_data_loader(config, mode="train"):
-    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
-                    resolution=config['resolution'],
-                    patch_size=config['patch_size'],
-                    stride=config['stride'],
-                    seq_len=config['seq_len'],
-                    seq_interval=config['seq_interval'],
-                    mode=mode,
-                    fit_diffs=config['fit_diffs'],
-                    normalize=config['normalize_ds']
-                    )
 
-    dl = DataLoader(ds,
-                    batch_size=config['batch_size'],
-                    num_workers=config['num_workers'],
-                    prefetch_factor=2,
-                    pin_memory=True)
-
-    N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
-    seq_len = ds.seq_len - 1
-    ds_props = DSProps(Nx_patch=N_x_patch, Ny_patch=N_y_patch, patch_size=ds.patch_size,
-                       seq_len=seq_len)
-    return dl, ds_props
 
 
 class Trainer:
@@ -78,19 +54,17 @@ class Trainer:
             model_out = self.model(states, position_ids)
 
         # Reshape targets to images and downsample
-        targ_imgs = patch_to_img(target, self.ds_props)
+        targs = patch_to_img(target, self.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         # Normalise predictions so loss is well scaled
-        targ_std = targ_imgs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
-        targ_imgs = targ_imgs / (targ_std + 0.015)
-        model_out = model_out / (targ_std + 0.015)
+        targs, preds = normalise_diffs(targs, model_out)
 
-        loss, all_losses = self.loss_fn.forward(preds=model_out, target=targ_imgs, mask=bc_mask)
+        loss, all_losses = self.loss_fn.forward(preds=preds, target=targs, mask=bc_mask)
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(model_out, targ_imgs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+            N_rmse = calc_n_rmse(preds, targs, bc_mask)  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
@@ -131,9 +105,9 @@ class Trainer:
 
         return loss, log_metrics
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def run_val_step(self, batch):
-        """ Like above, but use model.eval()
+        """ Make predictions.
         """
         self.model.eval()
 

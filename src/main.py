@@ -14,7 +14,8 @@ import wandb
 from accelerate import Accelerator
 from tqdm import trange, tqdm
 
-from trainer import Trainer, get_data_loader
+from trainer import Trainer
+from utils_model import get_data_loader
 from utils import set_seed, load_yaml_from_file, get_available_device, get_accelerator, make_save_folder, save_cfg, process_metrics
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps

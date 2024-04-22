@@ -1,9 +1,33 @@
-"""
-Module defining metrics
-"""
 import torch
 import torch.nn.functional as F
 from dataloader.ds_props import DSProps
+from dataloader.simple_dataloader import MGNDataset
+from torch.utils.data import DataLoader
+
+
+def get_data_loader(config, mode="train"):
+    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
+                    resolution=config['resolution'],
+                    patch_size=config['patch_size'],
+                    stride=config['stride'],
+                    seq_len=config['seq_len'],
+                    seq_interval=config['seq_interval'],
+                    mode=mode,
+                    fit_diffs=config['fit_diffs'],
+                    normalize=config['normalize_ds']
+                    )
+
+    dl = DataLoader(ds,
+                    batch_size=config['batch_size'],
+                    num_workers=config['num_workers'],
+                    prefetch_factor=2,
+                    pin_memory=True)
+
+    N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
+    seq_len = ds.seq_len - 1
+    ds_props = DSProps(Nx_patch=N_x_patch, Ny_patch=N_y_patch, patch_size=ds.patch_size,
+                       seq_len=seq_len)
+    return dl, ds_props
 
 
 def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor = None):
@@ -68,3 +92,15 @@ def img_to_patch(img, ds_props: DSProps):
     patches = F.unfold(img, kernel_size=(px_patch, py_patch), stride=(px_patch, py_patch))
     patches = patches.view(bs, seq_len, channel, px_patch, py_patch, N_patch).permute(0, 1, 5, 2, 3, 4)
     return patches
+
+
+def normalise_diffs(targs, preds):
+    """ Normalise differences.
+        Scale predictions and targets between batch based on true targets
+    """
+
+    targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
+    targs = targs / (targ_std + 0.015)
+    preds = preds / (targ_std + 0.015)
+
+    return targs, preds
