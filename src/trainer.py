@@ -49,7 +49,8 @@ class Trainer:
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         # Normalise predictions so loss is well scaled
-        targs, preds = normalise_diffs(targs, preds, self.loss_norm_eps)
+        if self.loss_norm_eps is not None:
+            targs, preds = normalise_diffs(targs, preds, self.loss_norm_eps)
 
         loss, all_losses = self.loss_fn.forward(preds=preds, target=targs, mask=bc_mask)
 
