@@ -140,12 +140,34 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
     c_print(f"Standard N_RMSE: {N_rmse}", color='cyan')
 
-    targ_std = true_diffs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
+    targ_std = true_diffs.std(dim=(-1, -2, 0, -4), keepdim=True)  # Std pixels, channels and seq_len
     # true_diffs = true_diffs / (targ_std + 0.0005)
     # pred_diffs = pred_diffs / (targ_std + 0.0005)
 
-    print(f'{targ_std.shape = }')
     print(targ_std.squeeze())
+
+
+@torch.inference_mode()
+def get_ds_stats(model: MultivariateTimeLLM, eval_cfg):
+    dl = get_eval_dl(model, eval_cfg)
+
+    all_states, all_targets = [], []
+    for batch in dl:
+        states, target, _, _ = batch
+        all_states.append(states)
+        all_targets.append(target)
+
+    all_states = torch.cat(all_states, dim=0)
+    all_targets = torch.cat(all_targets, dim=0)
+
+    print(all_targets.shape)
+    diff_stds = all_targets.std(dim=(0, 1, 2, 4, 5))
+    diff_mean = all_targets.mean(dim=(0, 1, 2, 4, 5))
+    print(f'STD over channels {diff_stds = }')
+
+    all_stds = all_targets.std()
+    print(f'STD over entire dataset: {all_stds = }')
+
 
 
 def main(args):
@@ -182,7 +204,9 @@ def main(args):
     model = accelerator.prepare(model)
 
     # Run test_generate
-    test_generate(model, inference_params, plot_step, batch_num)
+    # test_generate(model, inference_params, plot_step, batch_num)
+
+    get_ds_stats(model, inference_params)
 
 
 if __name__ == '__main__':

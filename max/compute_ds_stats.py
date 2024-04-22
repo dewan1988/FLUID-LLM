@@ -11,7 +11,8 @@ def get_data_loader(config):
                     seq_len=300,
                     seq_interval=2,
                     normalize=True,
-                    fit_diffs=True
+                    fit_diffs=True,
+                    mode="valid"
                     )
     return ds
 
@@ -30,7 +31,7 @@ def update_variance_batch(existingAggregate, newValues):
 
 
 def get_var(existingAggregate):
-    return existingAggregate[2] / existingAggregate[0]
+    return np.sqrt(existingAggregate[2] / existingAggregate[0])
 
 
 def main():
@@ -46,13 +47,13 @@ def main():
     # Average variance
     state_vars, diff_vars = [[] for _ in range(3)], [[] for _ in range(3)]
 
-    for load_no in range(10): # range(len(ds)):
+    for load_no in range(40): # range(len(ds)):
 
         state, diff, mask, _ = ds.ds_get(load_no, step_num=0)
 
         for j in range(3):
-            s, d = state[:, j], diff[:, j]
-            m = mask[:, j]
+            s, d = state[:, :, j], diff[:, :, j]
+            m = mask[:, :, j]
 
             s = s[~m]
             d = d[~m]
@@ -72,7 +73,7 @@ def main():
         print(f"State {i}: {state_aggs[i][1]: .4g}, {get_var(state_aggs[i]):.4g}")
         print(f"Diff {i}: {diff_aggs[i][1]:.3g}, {get_var(diff_aggs[i]):.4g}")
 
-        print(f'{np.mean(state_vars[i]):.3g}, {np.mean(diff_vars[i]):.3g}')
+        print(f'{np.mean(state_vars[i]):.3g}, {np.sqrt(np.mean(diff_vars[i])):.3g}')
 
     # Coordinate
     # State 0:  0.823, 0.3315

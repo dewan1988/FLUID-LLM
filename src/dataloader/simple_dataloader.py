@@ -236,7 +236,7 @@ class MGNDataset(Dataset):
 
         # Normalise states
         states = states - means
-        states = states / stds
+        # states = states / stds
 
         return states
 
