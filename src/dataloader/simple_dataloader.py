@@ -24,7 +24,7 @@ class MGNDataset(Dataset):
     """ Load a single timestep from the dataset."""
 
     def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, fit_diffs: bool, seq_interval=1,
-                 pad=True, mode="train", normalize=True):
+                 pad=True, mode="train", normalize=True, noise=None):
         super(MGNDataset, self).__init__()
 
         assert mode in ["train", "valid", "test"]
@@ -40,6 +40,7 @@ class MGNDataset(Dataset):
         self.max_step_num = 600 - self.seq_len * self.seq_interval
         self.normalize = normalize
         self.fit_diffs = fit_diffs
+        self.noise = noise
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
         # Load a random file to get min and max values and patch size
@@ -214,18 +215,15 @@ class MGNDataset(Dataset):
 
     def _normalize(self, states):
         """ states.shape = [seq_len, N_patch, 3, patch_x, patch_y] """
-        # Coordinate
-        # State 0:  0.823, 0.3315
-        # Diff 0: 1.614e-05, 0.000512
-        # 0.195, 0.000515
-        # Coordinate
-        # State 1:  0.0005865, 0.01351
-        # Diff 1: 3.7e-06, 0.0005696
-        # 0.0135, 0.000572
-        # Coordinate
-        # State 2:  0.04763, 0.07536
-        # Diff 2: -0.002683, 0.00208
-        # 0.0739, 0.00208
+        # 0: 0.2237, 2.137
+        # 0: 6.47e-05, 0.1022
+        # 2.78, 0.072
+        # 1: -0.00288, 0.4678
+        # 1: -3.44e-06, 0.1083
+        # 0.22, 0.0735
+        # 2: -0.02546, 1.065
+        # 2: -0.0105, 0.177
+        # 1.13, 0.158
 
         s0_mean, s0_var = 0.823, 0.3315
         s1_mean, s1_var = 0.0005865, 0.01351

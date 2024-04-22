@@ -227,8 +227,9 @@ class MultivariateTimeLLM(nn.Module):
         all_diffs = patch_to_img(all_diffs, self.ds_props)
         return all_states, all_diffs
 
-    def forward_duplicate(self, states, position_ids, N_patch):
+    def forward_duplicate(self, states, position_ids):
         """ Repeat the first state so the model can see the entire initial conditions before making any predictions"""
+        raise NotImplementedError
         states = torch.cat([states[:, :N_patch], states], dim=1)
         position_ids = torch.cat([position_ids[:, :N_patch], position_ids], dim=1)
         _, preds = self.forward(states, position_ids)

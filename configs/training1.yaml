@@ -16,6 +16,9 @@ half_precision: true
 flash_attention: true
 use_deepspeed: false
 use_bos_token: true
+
+# Model params
+pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
 
 #  Positional embedding params
@@ -55,7 +58,7 @@ loss_function: ['mae', 'mse']
 loss_weighting: [0.2, 10]
 schedule_epoch: 50
 schedule_gamma: 0.75
-pressure_weight: 0.1
+
 # Teacher forcing params
 teacher_forcing:
     ratio: 0.1

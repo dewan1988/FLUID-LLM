@@ -156,7 +156,6 @@ def get_save_folder(save_dir, load_name=None, load_no=-1):
     all_items = os.listdir(save_dir)
     folders = [item for item in all_items if os.path.isdir(os.path.join(save_dir, item))]
     folders = sorted(folders)
-
     return os.path.join(save_dir, folders[load_no])
 
 

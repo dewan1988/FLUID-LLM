@@ -40,7 +40,7 @@ class Trainer:
         self.model.train()
         # Forward pass
         if self.params['see_init_state']:
-            preds = self.model.forward_duplicate(states, position_ids, self.N_patch)
+            preds = self.model.forward_duplicate(states, position_ids)
         else:
             preds = self.model(states, position_ids)
 

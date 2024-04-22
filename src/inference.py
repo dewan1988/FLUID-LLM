@@ -2,8 +2,6 @@
 Testing loading a saved model and running the test_generate function
 """
 import os
-import sys
-import argparse
 import logging
 import torch
 from torch.utils.data import DataLoader
@@ -22,13 +20,12 @@ logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
 
-def get_eval_dl(model, eval_cfg):
-    bs = eval_cfg['batch_size']
-    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}/valid",
+def get_eval_dl(model, bs, seq_len):
+    ds = MGNDataset(load_dir=f"./ds/MGN/cylinder_dataset/valid",
                     resolution=model.config['resolution'],
                     patch_size=model.config['patch_size'],
                     stride=model.config['stride'],
-                    seq_len=eval_cfg['seq_len'],
+                    seq_len=seq_len,
                     seq_interval=model.config['seq_interval'],
                     mode='valid',
                     fit_diffs=model.config['fit_diffs'],
@@ -89,9 +86,7 @@ def test_step(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     print(loss)
 
 
-def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
-    dl = get_eval_dl(model, eval_cfg)
-
+def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     model.eval()
     # Get batch and run through model
     batch = next(iter(dl))
@@ -138,7 +133,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     fig.show()
 
     N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
-    c_print(f"Standard N_RMSE: {N_rmse}", color='cyan')
+    c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
 
     targ_std = true_diffs.std(dim=(-1, -2, 0, -4), keepdim=True)  # Std pixels, channels and seq_len
     # true_diffs = true_diffs / (targ_std + 0.0005)
@@ -148,9 +143,7 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
 
 
 @torch.inference_mode()
-def get_ds_stats(model: MultivariateTimeLLM, eval_cfg):
-    dl = get_eval_dl(model, eval_cfg)
-
+def get_ds_stats(model: MultivariateTimeLLM, dl):
     all_states, all_targets = [], []
     for batch in dl:
         states, target, _, _ = batch
@@ -169,19 +162,19 @@ def get_ds_stats(model: MultivariateTimeLLM, eval_cfg):
     print(f'STD over entire dataset: {all_stds = }')
 
 
-
-def main(args):
+def main():
     load_no = -1
+    save_epoch = 160
+    seq_len = 27
+    bs = 100
+
     plot_step = 25
-    batch_num = 0
-    save_epoch = 20
+    batch_num = 2
 
     set_seed()
-    inference_params = load_yaml_from_file(args.config_path)
-    logging.info(f"Parameters for inference: {inference_params}")
 
     # Load the checkpoint
-    load_path = get_save_folder(inference_params['checkpoint_save_path'], load_no=load_no)
+    load_path = get_save_folder("./model_checkpoints", load_no=load_no)
     checkpoint_file_path = os.path.join(load_path, f'step_{save_epoch}.pth')
     logging.info(f"Loading checkpoint from: {checkpoint_file_path}")
 
@@ -199,21 +192,17 @@ def main(args):
     model = MultivariateTimeLLM(ckpt_params, ds_props=ds_props, device_map=get_available_device())
     # Load weights
     model.load_state_dict(ckpt_state_dict)
-
     accelerator = get_accelerator(use_deepspeed=False, precision='bf16')
     model = accelerator.prepare(model)
 
-    # Run test_generate
-    # test_generate(model, inference_params, plot_step, batch_num)
+    # Val dataloader
+    dl = get_eval_dl(model, bs, seq_len)
 
-    get_ds_stats(model, inference_params)
+    # Run test_generate
+    test_generate(model, dl, plot_step, batch_num)
+
+    # get_ds_stats(model, dl)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path',
-                        default="configs/inference1.yaml",
-                        help='Path to the json config for inference')
-
-    args = parser.parse_args(sys.argv[1:])
-    main(args)
+    main()

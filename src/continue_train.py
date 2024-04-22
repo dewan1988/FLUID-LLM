@@ -9,7 +9,8 @@ import torch
 
 from cprint import c_print
 
-from trainer import Trainer, get_data_loader
+from trainer import Trainer
+from utils_model import get_data_loader
 from utils import set_seed, load_yaml_from_file, get_available_device
 from models.model import MultivariateTimeLLM
 from main import run_everything
