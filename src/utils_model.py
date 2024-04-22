@@ -6,6 +6,11 @@ from torch.utils.data import DataLoader
 
 
 def get_data_loader(config, mode="train"):
+    if mode == "valid":
+        bs = 8
+    else:
+        bs = config['batch_size']
+
     ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
                     resolution=config['resolution'],
                     patch_size=config['patch_size'],
@@ -18,7 +23,7 @@ def get_data_loader(config, mode="train"):
                     )
 
     dl = DataLoader(ds,
-                    batch_size=config['batch_size'],
+                    batch_size=bs,
                     num_workers=config['num_workers'],
                     prefetch_factor=2,
                     pin_memory=True)
@@ -94,13 +99,13 @@ def img_to_patch(img, ds_props: DSProps):
     return patches
 
 
-def normalise_diffs(targs, preds):
+def normalise_diffs(targs, preds, norm_const):
     """ Normalise differences.
         Scale predictions and targets between batch based on true targets
     """
 
     targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
-    targs = targs / (targ_std + 0.015)
-    preds = preds / (targ_std + 0.015)
+    targs = targs / (targ_std + norm_const)
+    preds = preds / (targ_std + norm_const)
 
     return targs, preds

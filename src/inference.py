@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO,
 
 def get_eval_dl(model, eval_cfg):
     bs = eval_cfg['batch_size']
-    ds = MGNDataset(load_dir=eval_cfg['load_dir'],
+    ds = MGNDataset(load_dir=f"{eval_cfg['load_dir']}/valid",
                     resolution=model.config['resolution'],
                     patch_size=model.config['patch_size'],
                     stride=model.config['stride'],
@@ -140,19 +140,19 @@ def test_generate(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
     N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
     c_print(f"Standard N_RMSE: {N_rmse}", color='cyan')
 
-    targ_std = true_states.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
-    true_states = true_states / (targ_std)
-    pred_states = pred_states / (targ_std)
+    targ_std = true_diffs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
+    # true_diffs = true_diffs / (targ_std + 0.0005)
+    # pred_diffs = pred_diffs / (targ_std + 0.0005)
 
-    N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
-    c_print(f"State normalised N_RMSE: {N_rmse}", color='cyan')
+    print(f'{targ_std.shape = }')
+    print(targ_std.squeeze())
 
 
 def main(args):
-    load_no = -2
+    load_no = -1
     plot_step = 25
-    batch_num = 3
-    save_epoch = 300
+    batch_num = 0
+    save_epoch = 20
 
     set_seed()
     inference_params = load_yaml_from_file(args.config_path)

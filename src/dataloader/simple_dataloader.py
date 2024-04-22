@@ -197,7 +197,7 @@ class MGNDataset(Dataset):
         states = torch.permute(states, [0, 4, 1, 2, 3])
         masks = torch.permute(masks, [0, 3, 1, 2])
 
-        if self.normalize or True:
+        if self.normalize:
             states = self._normalize(states)
 
         if self.fit_diffs:
@@ -208,7 +208,6 @@ class MGNDataset(Dataset):
         states = states[:-1]
 
         # Reshape into a continuous sequence
-        seq_dim = (self.seq_len - 1) * self.N_patch
         masks = masks[1:].unsqueeze(2).repeat(1, 1, 3, 1, 1)
 
         return states, target, masks.bool()

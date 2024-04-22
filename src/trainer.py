@@ -8,12 +8,9 @@ from matplotlib import pyplot as plt
 
 from utils import get_available_device, get_trainable_parameters
 from utils_model import calc_n_rmse, patch_to_img, normalise_diffs
-from losses import CombinedLoss, RMSELoss
+from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
-
-
-
 
 
 class Trainer:
@@ -29,6 +26,7 @@ class Trainer:
 
         self.N_patch = ds_props.N_patch
         self.loss_fn = CombinedLoss(params['loss_function'], params['loss_weighting'])
+        self.loss_norm_eps = torch.tensor(params['loss_norm_eps'], device='cuda')
 
     def run_train_step(self, batch):
         """
@@ -42,16 +40,16 @@ class Trainer:
         self.model.train()
         # Forward pass
         if self.params['see_init_state']:
-            model_out = self.model.forward_duplicate(states, position_ids, self.N_patch)
+            preds = self.model.forward_duplicate(states, position_ids, self.N_patch)
         else:
-            model_out = self.model(states, position_ids)
+            preds = self.model(states, position_ids)
 
         # Reshape targets to images and downsample
         targs = patch_to_img(target, self.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         # Normalise predictions so loss is well scaled
-        targs, preds = normalise_diffs(targs, model_out)
+        targs, preds = normalise_diffs(targs, preds, self.loss_norm_eps)
 
         loss, all_losses = self.loss_fn.forward(preds=preds, target=targs, mask=bc_mask)
 
@@ -114,7 +112,7 @@ class Trainer:
 
         # Calculate metrics
         loss, all_losses = self.loss_fn.forward(preds=pred_diffs, target=targ_imgs, mask=bc_mask)
-        N_rmse = calc_n_rmse(pred_diffs, targ_imgs, bc_mask).mean()  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+        N_rmse = calc_n_rmse(pred_diffs, targ_imgs, bc_mask).mean()
 
         # Log metrics
         all_losses["loss"] = loss

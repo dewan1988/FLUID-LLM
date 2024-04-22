@@ -61,6 +61,7 @@ teacher_forcing:
     ratio: 0.1
     start_epoch: 5000
 see_init_state: false
+loss_norm_eps: 0.015
 
 # Dataloader params
 num_workers: 8
@@ -70,7 +71,7 @@ stride: [16, 16]
 seq_len: 10
 seq_interval: 2
 resolution: 238
-normalize_ds: false
+normalize_ds: true
 fit_diffs: true
 
 # Logging params
