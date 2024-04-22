@@ -35,8 +35,7 @@ def get_eval_dl(model, bs, seq_len):
     return dl
 
 
-def test_step(model: MultivariateTimeLLM, eval_cfg, plot_step, batch_num=0):
-    dl = get_eval_dl(model, eval_cfg)
+def test_step(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
     model.eval()
     # Get batch and run through model
@@ -163,12 +162,12 @@ def get_ds_stats(model: MultivariateTimeLLM, dl):
 
 
 def main():
-    load_no = -1
+    load_no = -2
     save_epoch = 160
-    seq_len = 27
+    seq_len = 10
     bs = 100
 
-    plot_step = 25
+    plot_step = 8
     batch_num = 2
 
     set_seed()
@@ -199,8 +198,8 @@ def main():
     dl = get_eval_dl(model, bs, seq_len)
 
     # Run test_generate
-    test_generate(model, dl, plot_step, batch_num)
-
+    # test_generate(model, dl, plot_step, batch_num)
+    test_step(model, dl, plot_step, batch_num)
     # get_ds_stats(model, dl)
 
 
