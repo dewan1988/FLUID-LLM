@@ -24,12 +24,12 @@ class InputEmbeddings(nn.Module):
         else:
             raise ValueError(f"Unknown positional embedding type: {emb_cfg['pos_embedding_type']}")
 
-        if enc_params['in_emb_ln_eps'] is not None:
-            self.LayerNorm = nn.LayerNorm(llm_dim, eps=enc_params['in_emb_ln_eps'])
+        if emb_cfg['in_emb_ln_eps'] is not None:
+            self.LayerNorm = nn.LayerNorm(llm_dim, eps=emb_cfg['in_emb_ln_eps'])
         else:
             self.LayerNorm = nn.Identity()
 
-        if enc_params['input_emb_layer_dropout'] is not None:
+        if emb_cfg['input_emb_layer_dropout'] is not None:
             self.dropout = nn.Dropout(emb_cfg['input_emb_layer_dropout'])
         else:
             self.dropout = nn.Identity()
