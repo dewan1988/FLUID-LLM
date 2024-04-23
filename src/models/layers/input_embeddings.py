@@ -24,7 +24,6 @@ class InputEmbeddings(nn.Module):
         else:
             raise ValueError(f"Unknown positional embedding type: {embedding_cfg['pos_embedding_type']}")
 
-        print(embedding_cfg)
         if embedding_cfg['in_emb_ln_eps'] is not None:
             self.LayerNorm = nn.LayerNorm(llm_dim, eps=embedding_cfg['in_emb_ln_eps'])
         else:
