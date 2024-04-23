@@ -15,10 +15,10 @@ class Rotary3DPositionalEmbeddings(nn.Module):
         x = x.view(bs, seq_len*N_patch, channel)
         position_ids = position_ids.view(bs, seq_len*N_patch, 3)
 
-        # Normalize position_ids to [0, 2*pi]
+        # All position ids may be 0
         max_vals = position_ids.max(dim=1, keepdim=True)[0]
         safe_max_vals = torch.where(max_vals > 0, max_vals, torch.tensor(1.0, device=max_vals.device))
-
+        # Normalize position_ids to [0, 2*pi]
         position_ids = (position_ids / safe_max_vals) * 2 * math.pi
 
         if torch.isnan(position_ids).any():
