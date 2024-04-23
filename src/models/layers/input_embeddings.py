@@ -10,27 +10,28 @@ from models.layers.self_attention import SelfAttention
 class InputEmbeddings(nn.Module):
     """Input embeddings layer adapter for time series data."""
 
-    def __init__(self, patch_dim, llm_dim, enc_params: dict, emb_cfg: dict):
+    def __init__(self, patch_dim, llm_dim, enc_cfg: dict, embedding_cfg: dict):
         super().__init__()
 
         # Patch embedding
-        self.patch_embeddings = PatchEmbeddings(in_dim=patch_dim, llm_dim=llm_dim, params=enc_params)
+        self.patch_embeddings = PatchEmbeddings(in_dim=patch_dim, llm_dim=llm_dim, params=enc_cfg)
 
         # Positional Embeddings
-        if emb_cfg['pos_embedding_type'] == "rope":
+        if embedding_cfg['pos_embedding_type'] == "rope":
             self.position_embeddings = Rotary3DPositionalEmbeddings(llm_dim)
-        elif emb_cfg['pos_embedding_type'] == "pos":
-            self.position_embeddings = PositionalEmbeddings(llm_dim, emb_cfg['max_num_embed'], emb_cfg['init_pos_embed'])
+        elif embedding_cfg['pos_embedding_type'] == "pos":
+            self.position_embeddings = PositionalEmbeddings(llm_dim, embedding_cfg['max_num_embed'], embedding_cfg['init_pos_embed'])
         else:
-            raise ValueError(f"Unknown positional embedding type: {emb_cfg['pos_embedding_type']}")
+            raise ValueError(f"Unknown positional embedding type: {embedding_cfg['pos_embedding_type']}")
 
-        if emb_cfg['in_emb_ln_eps'] is not None:
-            self.LayerNorm = nn.LayerNorm(llm_dim, eps=emb_cfg['in_emb_ln_eps'])
+        print(embedding_cfg)
+        if embedding_cfg['in_emb_ln_eps'] is not None:
+            self.LayerNorm = nn.LayerNorm(llm_dim, eps=embedding_cfg['in_emb_ln_eps'])
         else:
             self.LayerNorm = nn.Identity()
 
-        if emb_cfg['input_emb_layer_dropout'] is not None:
-            self.dropout = nn.Dropout(emb_cfg['input_emb_layer_dropout'])
+        if embedding_cfg['input_emb_layer_dropout'] is not None:
+            self.dropout = nn.Dropout(embedding_cfg['input_emb_layer_dropout'])
         else:
             self.dropout = nn.Identity()
 
