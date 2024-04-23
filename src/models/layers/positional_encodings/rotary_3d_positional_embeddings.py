@@ -10,6 +10,11 @@ class Rotary3DPositionalEmbeddings(nn.Module):
         self.cache = {}
 
     def generate_pos_embedding(self, x, position_ids):
+        bs, seq_len, N_patch, channel = x.shape
+
+        x = x.view(bs, seq_len*N_patch, channel)
+        position_ids = position_ids.view(bs, seq_len*N_patch, 3)
+
         # Normalize position_ids to [0, 2*pi]
         position_ids = (position_ids / position_ids.max(dim=1, keepdim=True)[0]) * 2 * math.pi
 
@@ -21,18 +26,19 @@ class Rotary3DPositionalEmbeddings(nn.Module):
         pos_embedding = torch.zeros_like(x)
         for i in range(3):  # Iterate over x, y, z
             pos_i = position_ids[:, :, i][:, :, None] / dim_t
-            pos_embedding_i = torch.stack((pos_i.sin(), pos_i.cos()), dim=3).flatten(start_dim=2)
+            pos_embedding_i = torch.stack((pos_i.sin(), pos_i.cos()), dim=2).flatten(start_dim=2)
 
             # Assign to the correct third of the hidden dimension
             d_start = i * (self.hidden_dim // 3)
             d_end = (i + 1) * (self.hidden_dim // 3)
             pos_embedding[:, :, d_start:d_end] = pos_embedding_i[:, :, :d_end - d_start]
 
+        pos_embedding = pos_embedding.view(bs, seq_len, N_patch, self.hidden_dim)
         return pos_embedding
 
     def forward(self, x, position_ids):
-        # x shape: [batch_size, seq_len, hidden_dim]
-        # position_ids shape: [batch_size, seq_len, 3] containing (x, y, z) coordinates
+        # x shape: [batch_size, seq_len, N_patch, hidden_dim]
+        # position_ids shape: [batch_size, seq_len, N_patch, 3] containing (x, y, z) coordinates
 
         # Create a cache key based on the positions' unique values and their shape
         cache_key = (tuple(position_ids.unique().tolist()), position_ids.shape)

@@ -26,8 +26,8 @@ loss_norm_eps: 0.1
 pos_embedding_params:
   input_emb_layer_norm_eps: 1.0e-05
   input_emb_layer_dropout: 0.1
-  pos_embedding_type: pos  # "pos", "rope"
-  init_pos_embed: "normal"   # "normal", "zero", "scaled"
+  pos_embedding_type: rope  # "pos", "rope"
+  init_pos_embed: "zero"   # "normal", "zero", "scaled"
   max_num_embed: 24
 
 # Encoder params

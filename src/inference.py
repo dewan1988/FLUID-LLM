@@ -162,13 +162,13 @@ def get_ds_stats(model: MultivariateTimeLLM, dl):
 
 
 def main():
-    load_no = -2
+    load_no = 0
     save_epoch = 160
-    seq_len = 10
+    seq_len = 27
     bs = 100
 
     plot_step = 8
-    batch_num = 2
+    batch_num = 0
 
     set_seed()
 
@@ -198,8 +198,8 @@ def main():
     dl = get_eval_dl(model, bs, seq_len)
 
     # Run test_generate
-    # test_generate(model, dl, plot_step, batch_num)
-    test_step(model, dl, plot_step, batch_num)
+    test_generate(model, dl, plot_step, batch_num)
+    # test_step(model, dl, plot_step, batch_num)
     # get_ds_stats(model, dl)
 
 
