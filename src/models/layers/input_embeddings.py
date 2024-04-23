@@ -22,10 +22,17 @@ class InputEmbeddings(nn.Module):
         elif emb_cfg['pos_embedding_type'] == "pos":
             self.position_embeddings = PositionalEmbeddings(llm_dim, emb_cfg['max_num_embed'], emb_cfg['init_pos_embed'])
         else:
-            raise ValueError(f"Unknown positional embedding type: {emb_cfg['pos_embedding_type'] }")
+            raise ValueError(f"Unknown positional embedding type: {emb_cfg['pos_embedding_type']}")
 
-        # self.LayerNorm = nn.LayerNorm(llm_dim, eps=layer_norm_eps)
-        self.dropout = nn.Dropout(emb_cfg['input_emb_layer_dropout'])
+        if enc_params['in_emb_ln_eps'] is not None:
+            self.LayerNorm = nn.LayerNorm(llm_dim, eps=enc_params['in_emb_ln_eps'])
+        else:
+            self.LayerNorm = nn.Identity()
+
+        if enc_params['input_emb_layer_dropout'] is not None:
+            self.dropout = nn.Dropout(emb_cfg['input_emb_layer_dropout'])
+        else:
+            self.dropout = nn.Identity()
 
     def forward(self, x, position_ids):
         """
@@ -41,6 +48,6 @@ class InputEmbeddings(nn.Module):
         # Add positional embeddings
         embeddings = self.position_embeddings(embeddings, position_ids)
 
-        # embeddings = self.LayerNorm(embeddings)
+        embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
