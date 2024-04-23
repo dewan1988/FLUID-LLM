@@ -163,12 +163,12 @@ def get_ds_stats(model: MultivariateTimeLLM, dl):
 
 def main():
     load_no = -1
-    save_epoch = 160
+    save_epoch = 500
     seq_len = 27
-    bs = 75
+    bs = 8
 
     plot_step = 25
-    batch_num = 2
+    batch_num = 4
 
     set_seed()
 

@@ -130,6 +130,7 @@ class Normalizer(nn.Module):
         if self.training is True:
             if self.count < self.max_accumulation:
                 self.count += x.shape[0]
+
                 self.accumulation.data = self.accumulation.data + torch.mean(x, dim=(0, 1))
                 self.accumulation_squarred.data = self.accumulation_squarred.data + torch.mean(x ** 2, dim=(0, 1))
                 self.mean.data = self.accumulation / (self.count + 1e-8)

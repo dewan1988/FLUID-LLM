@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-from Dataloader.eagle import EagleDataset
+from Dataloader.MGN import EagleMGNDataset
 import random
 import numpy as np
 from torch.utils.data import DataLoader
@@ -13,10 +13,10 @@ import wandb
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=1000, type=int, help="Number of epochs, set to 0 to evaluate")
 parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
-parser.add_argument('--dataset_path', default='', type=str, help="Dataset location")
+parser.add_argument('--dataset_path', default='/home/maccyz/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
-parser.add_argument('--horizon_val', default=25, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=6, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_val', default=4, type=int, help="Number of timestep to validate on")
+parser.add_argument('--horizon_train', default=2, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
@@ -31,7 +31,7 @@ BATCHSIZE = 1
 def evaluate():
     print(args)
     length = 400
-    dataset = EagleDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False)
+    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False)
     # wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
@@ -169,13 +169,14 @@ def main():
 
     name = args.name
 
-    train_dataset = EagleDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False)
-    valid_dataset = EagleDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False)
+    train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False)
+    valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=1, pin_memory=True)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batchsize, shuffle=False, num_workers=1, pin_memory=True)
 
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor)
+    model.to(device)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
@@ -198,6 +199,7 @@ def main():
             mask = torch.ones_like(mesh_pos)[..., 0]
 
             state = torch.cat([velocity, pressure], dim=-1)
+
             state_hat, output, target = model(mesh_pos, edges, state, node_type)
 
             costs = get_loss(velocity, pressure, output, state_hat, target, mask)
