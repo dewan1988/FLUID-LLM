@@ -54,7 +54,7 @@ batch_size: 8
 num_epochs: 181
 optimizer: adamw
 learning_rate: 10e-4
-weight_decay: 1.0e-4
+weight_decay: 5.0e-4
 loss_function: ['mae', 'mse']
 loss_weighting: [0.2, 10]
 schedule_epoch: 50

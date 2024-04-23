@@ -165,10 +165,10 @@ def main():
     load_no = -1
     save_epoch = 160
     seq_len = 27
-    bs = 100
+    bs = 75
 
-    plot_step = 8
-    batch_num = 0
+    plot_step = 25
+    batch_num = 2
 
     set_seed()
 
