@@ -16,7 +16,14 @@ class Rotary3DPositionalEmbeddings(nn.Module):
         position_ids = position_ids.view(bs, seq_len*N_patch, 3)
 
         # Normalize position_ids to [0, 2*pi]
-        position_ids = (position_ids / position_ids.max(dim=1, keepdim=True)[0]) * 2 * math.pi
+        max_vals = position_ids.max(dim=1, keepdim=True)[0]
+        safe_max_vals = torch.where(max_vals > 0, max_vals, torch.tensor(1.0, device=max_vals.device))
+
+        position_ids = (position_ids / safe_max_vals) * 2 * math.pi
+
+        if torch.isnan(position_ids).any():
+            print(safe_max_vals)
+            raise ValueError("Position ids contain NaN values.")
 
         # Calculate Rotary embeddings for x, y, and z separately
         dim_t = torch.arange(self.hidden_dim // 3).to(x.device)
@@ -34,6 +41,7 @@ class Rotary3DPositionalEmbeddings(nn.Module):
             pos_embedding[:, :, d_start:d_end] = pos_embedding_i[:, :, :d_end - d_start]
 
         pos_embedding = pos_embedding.view(bs, seq_len, N_patch, self.hidden_dim)
+
         return pos_embedding
 
     def forward(self, x, position_ids):
@@ -49,4 +57,5 @@ class Rotary3DPositionalEmbeddings(nn.Module):
 
         # Apply positional embeddings
         x_pe = x + pos_embedding
+
         return x_pe
