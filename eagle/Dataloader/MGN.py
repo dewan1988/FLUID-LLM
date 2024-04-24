@@ -32,7 +32,7 @@ class EagleMGNDataset(Dataset):
         self.window_length = window_length
         assert window_length <= 990, "window length must be smaller than 990"
 
-        self.fn = data_path
+        self.fn = os.path.join(data_path, mode)
         assert os.path.exists(self.fn), f"Path {self.fn} does not exist"
 
         self.apply_onehot = apply_onehot
@@ -45,6 +45,7 @@ class EagleMGNDataset(Dataset):
                 if filepath.endswith(".pkl"):
                     self.dataloc.append(filepath)
 
+        self.dataloc = self.dataloc[:500]
         self.with_cells = with_cells
         self.with_cluster = with_cluster
         self.n_cluster = n_cluster
@@ -145,6 +146,8 @@ def get_data(path, window_length, mode):
         save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
     pos = save_data['mesh_pos']
     faces = save_data['cells']
+    node_type = save_data['node_type']
+
     V = save_data['velocity'][t:t + window_length]
     P = save_data['pressure'][t:t + window_length]
 
@@ -153,7 +156,8 @@ def get_data(path, window_length, mode):
     faces = np.repeat(faces[np.newaxis], window_length, axis=0)
     num_cells = pos.shape[1]
     node_type = np.zeros((window_length, num_cells), dtype=np.int64)
-
+    print(save_data.keys())
+    exit(9)
     return pos, faces, node_type, t, V, P
 
 

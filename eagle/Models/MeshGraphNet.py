@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn as nn
 from Models.Base import MLP, GNN
 
+torch.set_float32_matmul_precision("high")
 NODE_NORMAL = 0
 NODE_INPUT = 4
 NODE_OUTPUT = 5
@@ -43,6 +44,10 @@ class MeshGraphNet(nn.Module):
 
             mask = (node_type[:, t, :, NODE_INPUT] == 1) | (node_type[:, t, :, NODE_WALL] == 1) | (
                     node_type[:, t, :, NODE_DISABLE] == 1)
+
+            # # print(f'{mask.shape = }')
+            # print(torch.any(node_type[:, t, :, NODE_INPUT] == 1))
+            # print(mask.sum())
 
             next_state[mask, :] = state[:, t][mask, :]
             state_hat.append(next_state)

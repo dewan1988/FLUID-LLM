@@ -9,14 +9,15 @@ from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
 import wandb
+from matplotlib import pyplot as plt
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=1000, type=int, help="Number of epochs, set to 0 to evaluate")
 parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
-parser.add_argument('--dataset_path', default='/home/maccyz/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
+parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
-parser.add_argument('--horizon_val', default=4, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=2, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
+parser.add_argument('--horizon_train', default=3, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
@@ -25,62 +26,7 @@ args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MSE = nn.MSELoss()
-BATCHSIZE = 1
-
-
-def evaluate():
-    print(args)
-    length = 400
-    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False)
-    # wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
-
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
-    model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
-
-    model.load_state_dict(torch.load(f"./eagle/trained_models/meshgraphnet/{args.name}.nn", map_location=device))
-
-    with torch.no_grad():
-        model.eval()
-        model.apply_noise = False
-
-        error_velocity = torch.zeros(length - 1).to(device)
-        error_pressure = torch.zeros(length - 1).to(device)
-
-        os.makedirs(f"./eagle/Results/meshgraphnet", exist_ok=True)
-        for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
-            mesh_pos = x["mesh_pos"].to(device)
-            edges = x['edges'].to(device).long()
-            velocity = x["velocity"].to(device)
-            pressure = x["pressure"].to(device)
-            node_type = x["node_type"].to(device)
-            mask = torch.ones_like(mesh_pos)[..., 0]
-
-            state = torch.cat([velocity, pressure], dim=-1)
-            state_hat, _, _ = model(mesh_pos, edges, state, node_type)
-            velocity = velocity[:, 1:]
-            pressure = pressure[:, 1:]
-            velocity_hat = state_hat[:, 1:, :, :2]
-            pressure_hat = state_hat[:, 1:, :, 2:]
-            mask = mask[:, 1:].unsqueeze(-1)
-
-            rmse_velocity = torch.sqrt((velocity[0] * mask[0] - velocity_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
-            rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
-
-            rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
-                                                                              device=device)
-            rmse_pressure = torch.cumsum(rmse_pressure, dim=0) / torch.arange(1, rmse_pressure.shape[0] + 1,
-                                                                              device=device)
-
-            error_velocity = error_velocity + rmse_velocity
-            error_pressure = error_pressure + rmse_pressure
-
-        error_velocity = error_velocity / len(dataloader)
-        error_pressure = error_pressure / len(dataloader)
-
-        np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(),
-                   delimiter=",")
-        np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
-                   delimiter=",")
+BATCHSIZE = 2
 
 
 def collate(X):
@@ -88,11 +34,19 @@ def collate(X):
     E_max = max([x["edges"].shape[-2] for x in X])
 
     for x in X:
-
         for key in ['mesh_pos', 'velocity', 'pressure', 'node_type']:
             tensor = x[key]
             T, N, S = tensor.shape
+
+            # if key == 'node_type':
+            #     print(f'{T = }, {N = }, {S = }')
+            #     print(torch.all(tensor[:, :, 0] == 1))
+            #     exit(9)
+
             x[key] = torch.cat([tensor, torch.zeros(T, N_max - N + 1, S)], dim=1)
+
+
+
 
         edges = x['edges']
         T, E, S = edges.shape
@@ -106,29 +60,19 @@ def collate(X):
             output[key] = torch.stack([x[key] for x in X], dim=0)
         else:
             output[key] = [x[key] for x in X]
-
     return output
 
 
 def get_loss(velocity, pressure, output, state_hat, target, mask):
-    velocity = velocity[:, 1:]
-    pressure = pressure[:, 1:]
-    velocity_hat = state_hat[:, 1:, :, :2]
+
     mask = mask[:, 1:].unsqueeze(-1)
 
-    rmse_velocity = torch.sqrt(((velocity * mask - velocity_hat * mask) ** 2).mean(dim=(-1)))
-    loss_velocity = torch.mean(rmse_velocity)
     loss = MSE(target[..., :2] * mask, output[..., :2] * mask)
-    losses = {}
-
-    pressure_hat = state_hat[:, 1:, :, 2:]
-    rmse_pressure = torch.sqrt(((pressure * mask - pressure_hat * mask) ** 2).mean(dim=(-1)))
-    loss_pressure = torch.mean(rmse_pressure)
     loss = loss + args.w_pressure * MSE(target[..., 2:] * mask, output[..., 2:] * mask)
 
-    losses['MSE_pressure'] = loss_pressure
+    losses = {}
     losses['loss'] = loss
-    losses['MSE_velocity'] = loss_velocity
+
     return losses
 
 
@@ -143,8 +87,7 @@ def validate(model, dataloader, epoch=0, vizu=False):
             velocity = x["velocity"].to(device).float()
             node_type = x["node_type"].to(device).long()
             pressure = x["pressure"].to(device).float()
-            # mask = x["mask"].to(device)
-            mask = torch.ones_like(mesh_pos)[..., 0]
+            mask = x["mask"].to(device).long()
             state = torch.cat([velocity, pressure], dim=-1)
 
             state_hat, output, target = model(mesh_pos, edges, state, node_type)
@@ -162,9 +105,9 @@ def validate(model, dataloader, epoch=0, vizu=False):
 
 def main():
     print(args)
-    torch.manual_seed(0)
-    random.seed(0)
-    np.random.seed(0)
+    torch.manual_seed(1)
+    random.seed(1)
+    np.random.seed(1)
     batchsize = BATCHSIZE
 
     name = args.name
@@ -172,12 +115,11 @@ def main():
     train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False)
     valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=1, pin_memory=True)
-    valid_dataloader = DataLoader(valid_dataset, batch_size=batchsize, shuffle=False, num_workers=1, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=0, pin_memory=True, collate_fn=collate)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batchsize, shuffle=False, num_workers=8, pin_memory=True, collate_fn=collate)
 
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor)
     model.to(device)
-
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print("#params:", params)
@@ -188,7 +130,7 @@ def main():
     memory = torch.inf
     for epoch in range(args.epoch):
         model.train()
-        model.apply_noise = True
+        model.apply_noise = False
 
         for i, x in enumerate(tqdm(train_dataloader, desc="Training")):
             mesh_pos = x["mesh_pos"].to(device).float()
@@ -196,17 +138,20 @@ def main():
             velocity = x["velocity"].to(device).float()
             pressure = x["pressure"].to(device).float()
             node_type = x["node_type"].to(device).long()
-            mask = torch.ones_like(mesh_pos)[..., 0]
+            mask = x['mask'].to(device).long()
 
             state = torch.cat([velocity, pressure], dim=-1)
-
             state_hat, output, target = model(mesh_pos, edges, state, node_type)
 
             costs = get_loss(velocity, pressure, output, state_hat, target, mask)
-            if epoch > 1:  # Wait to accumulate dataset stat...
-                optim.zero_grad()
-                costs['loss'].backward()
-                optim.step()
+
+            optim.zero_grad()
+            costs['loss'].backward()
+            optim.step()
+
+            # for n, p in model.named_parameters():
+            #     if p.grad is not None:
+            #         print(n, p.grad.std())
 
         if scheduler.get_last_lr()[0] > 1e-6 and epoch > 1:
             scheduler.step()
@@ -222,7 +167,4 @@ def main():
 
 
 if __name__ == '__main__':
-    if args.epoch == 0:
-        evaluate()
-    else:
-        main()
+    main()
