@@ -47,7 +47,7 @@ def main():
     # Average variance
     state_vars, diff_vars = [[] for _ in range(3)], [[] for _ in range(3)]
 
-    for load_no in range(0, 1000, 20):  # range(len(ds)):
+    for load_no in range(0, 1000, 5):  # range(len(ds)):
 
         state, diff, mask, _ = ds.ds_get(load_no, step_num=0)
 
