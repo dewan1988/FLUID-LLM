@@ -3,7 +3,6 @@ import numpy as np
 import torch.nn as nn
 from Models.Base import MLP, GNN
 
-torch.set_float32_matmul_precision("high")
 NODE_NORMAL = 0
 NODE_INPUT = 4
 NODE_OUTPUT = 5

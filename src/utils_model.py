@@ -41,20 +41,20 @@ def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Te
     mse = error.pow(2).mean(dim=(-1, -2, -3))
     rmse = torch.sqrt(mse)
 
-    # Average over seq_len and batches
+    # Average over batches
     N_rmse = rmse.mean(dim=0)
     return N_rmse
 
 
 def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
     # shape = (bs, seq_len, channel, px, py)
-    v_pred = preds[:, :, :2, :]
-    v_target = target[:, :, :2, :]
-    v_mask = bc_mask[:, :, :2, :]
+    v_pred = preds[:, :, :2]
+    v_target = target[:, :, :2]
+    v_mask = bc_mask[:, :, :2]
 
-    p_pred = preds[:, :, 2:, :]
-    p_target = target[:, :, 2:, :]
-    p_mask = bc_mask[:, :, 2:, :]
+    p_pred = preds[:, :, 2:]
+    p_target = target[:, :, 2:]
+    p_mask = bc_mask[:, :, 2:]
 
     v_N_rmse = aux_calc_n_rmse(v_pred, v_target, v_mask)
     p_N_rmse = aux_calc_n_rmse(p_pred, p_target, p_mask)

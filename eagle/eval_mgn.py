@@ -19,10 +19,10 @@ parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
 parser.add_argument('--horizon_train', default=4, type=int, help="Number of timestep to train on")
-parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
+parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
-parser.add_argument('--name', default='gat', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='mgn_test', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +39,6 @@ def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):
     mesh_pos = mesh_pos[0, step_no].cpu().numpy()
     velocity_hat = velocity_hat[0, step_no, :].cpu().numpy()
     velocity_true = velocity_true[0, step_no].cpu().numpy()
-    print(f'{velocity_true.shape}, {velocity_hat.shape}')
 
     fig, axs = plt.subplots(2, 2, figsize=(20, 8))
     for i, ax in enumerate(axs):
@@ -50,18 +49,19 @@ def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):
 
     plt.show()
 
+
 def evaluate():
     print(args)
-    length = 400
-    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False)
+    length = 51
+    dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length, with_cluster=False, normalize=False)
     # wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
 
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
 
     model.load_state_dict(torch.load(f"./eagle/trained_models/meshgraphnet/{args.name}.nn", map_location=device))
 
-    with torch.no_grad():
+    with torch.inference_mode():
         model.eval()
         model.apply_noise = False
 
@@ -86,10 +86,17 @@ def evaluate():
             pressure_hat = state_hat[:, 1:, :, 2:]
             mask = mask[:, 1:].unsqueeze(-1)
 
-            plot_preds(mesh_pos, velocity_hat, velocity, 48)
+            # plot_preds(mesh_pos, velocity_hat, velocity, 0)
+            # plot_preds(mesh_pos, velocity_hat, velocity, 48)
+            # exit(9)
 
-            rmse_velocity = torch.sqrt((velocity[0] * mask[0] - velocity_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
-            rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
+            vel_error = velocity[0] * mask[0] - velocity_hat[0] * mask[0]
+            pres_error = pressure[0] * mask[0] - pressure_hat[0] * mask[0]
+            pres_error = pres_error[:, :, 1:]
+
+            rmse_velocity = torch.sqrt(vel_error.pow(2).mean(dim=(-1, -2)))
+            rmse_pressure = torch.sqrt(pres_error.pow(2).mean(dim=(-1, -2)))
+            # rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
 
             rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
                                                                               device=device)
@@ -99,7 +106,6 @@ def evaluate():
             error_velocity = error_velocity + rmse_velocity
             error_pressure = error_pressure + rmse_pressure
             tot_error = error_velocity + error_pressure
-            print(f'{tot_error[-1] = }')
 
         error_velocity = error_velocity / len(dataloader)
         error_pressure = error_pressure / len(dataloader)
@@ -108,7 +114,6 @@ def evaluate():
                    delimiter=",")
         np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
                    delimiter=",")
-
 
 
 def collate(X):
@@ -138,10 +143,5 @@ def collate(X):
     return output
 
 
-
-
-
-
 if __name__ == '__main__':
     evaluate()
-

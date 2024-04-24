@@ -174,3 +174,4 @@ data/preprocessed/*.pkl
 model_checkpoints/*.pt
 **/*.pt
 **/**/*.pt
+/eagle/trained_models/graphvit/

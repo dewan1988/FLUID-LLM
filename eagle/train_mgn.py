@@ -9,6 +9,7 @@ from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+torch.set_float32_matmul_precision("high")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=1000, type=int, help="Number of epochs, set to 0 to evaluate")
@@ -16,11 +17,11 @@ parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=5, type=int, help="Number of timestep to train on")
-parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
+parser.add_argument('--horizon_train', default=4, type=int, help="Number of timestep to train on")
+parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
-parser.add_argument('--name', default='gat', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='mgn_test', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,7 +34,6 @@ def collate(X):
     E_max = max([x["edges"].shape[-2] for x in X])
 
     for x in X:
-
         for key in ['mesh_pos', 'velocity', 'pressure', 'node_type']:
             tensor = x[key]
             T, N, S = tensor.shape
@@ -108,7 +108,7 @@ def main():
     train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False)
     valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=0, pin_memory=True, collate_fn=collate)
+    train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=8, pin_memory=True, collate_fn=collate)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batchsize, shuffle=False, num_workers=8, pin_memory=True, collate_fn=collate)
 
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor)
