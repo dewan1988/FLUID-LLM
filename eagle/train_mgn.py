@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
-import wandb
 from matplotlib import pyplot as plt
 
 parser = argparse.ArgumentParser()
@@ -17,7 +16,7 @@ parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=3, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_train', default=5, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
@@ -26,7 +25,7 @@ args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MSE = nn.MSELoss()
-BATCHSIZE = 2
+BATCHSIZE = 4
 
 
 def collate(X):
@@ -34,19 +33,15 @@ def collate(X):
     E_max = max([x["edges"].shape[-2] for x in X])
 
     for x in X:
+
         for key in ['mesh_pos', 'velocity', 'pressure', 'node_type']:
             tensor = x[key]
             T, N, S = tensor.shape
 
-            # if key == 'node_type':
-            #     print(f'{T = }, {N = }, {S = }')
-            #     print(torch.all(tensor[:, :, 0] == 1))
-            #     exit(9)
-
-            x[key] = torch.cat([tensor, torch.zeros(T, N_max - N + 1, S)], dim=1)
-
-
-
+            if key == 'node_type':
+                x[key] = torch.cat([tensor, 0*torch.ones(T, N_max - N + 1, S)], dim=1)
+            else:
+                x[key] = torch.cat([tensor, torch.zeros(T, N_max - N + 1, S)], dim=1)
 
         edges = x['edges']
         T, E, S = edges.shape
@@ -60,18 +55,17 @@ def collate(X):
             output[key] = torch.stack([x[key] for x in X], dim=0)
         else:
             output[key] = [x[key] for x in X]
+
     return output
 
 
 def get_loss(velocity, pressure, output, state_hat, target, mask):
-
     mask = mask[:, 1:].unsqueeze(-1)
 
     loss = MSE(target[..., :2] * mask, output[..., :2] * mask)
     loss = loss + args.w_pressure * MSE(target[..., 2:] * mask, output[..., 2:] * mask)
 
-    losses = {}
-    losses['loss'] = loss
+    losses = {'loss': loss}
 
     return losses
 
@@ -99,7 +93,6 @@ def validate(model, dataloader, epoch=0, vizu=False):
         model.apply_noise = True
     results = total_loss / cpt
     print(f"=== EPOCH {epoch + 1} ===\n{results}")
-    # wandb.log(results, commit=True)
     return results
 
 
@@ -130,7 +123,7 @@ def main():
     memory = torch.inf
     for epoch in range(args.epoch):
         model.train()
-        model.apply_noise = False
+        model.apply_noise = True
 
         for i, x in enumerate(tqdm(train_dataloader, desc="Training")):
             mesh_pos = x["mesh_pos"].to(device).float()
@@ -148,10 +141,6 @@ def main():
             optim.zero_grad()
             costs['loss'].backward()
             optim.step()
-
-            # for n, p in model.named_parameters():
-            #     if p.grad is not None:
-            #         print(n, p.grad.std())
 
         if scheduler.get_last_lr()[0] > 1e-6 and epoch > 1:
             scheduler.step()

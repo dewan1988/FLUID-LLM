@@ -45,10 +45,6 @@ class MeshGraphNet(nn.Module):
             mask = (node_type[:, t, :, NODE_INPUT] == 1) | (node_type[:, t, :, NODE_WALL] == 1) | (
                     node_type[:, t, :, NODE_DISABLE] == 1)
 
-            # # print(f'{mask.shape = }')
-            # print(torch.any(node_type[:, t, :, NODE_INPUT] == 1))
-            # print(mask.sum())
-
             next_state[mask, :] = state[:, t][mask, :]
             state_hat.append(next_state)
             output_hat.append(next_output)

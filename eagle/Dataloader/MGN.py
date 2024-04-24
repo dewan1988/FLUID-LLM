@@ -45,7 +45,6 @@ class EagleMGNDataset(Dataset):
                 if filepath.endswith(".pkl"):
                     self.dataloc.append(filepath)
 
-        self.dataloc = self.dataloc[:500]
         self.with_cells = with_cells
         self.with_cluster = with_cluster
         self.n_cluster = n_cluster
@@ -146,7 +145,7 @@ def get_data(path, window_length, mode):
         save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
     pos = save_data['mesh_pos']
     faces = save_data['cells']
-    node_type = save_data['node_type']
+    node_type = save_data['node_type'].squeeze()
 
     V = save_data['velocity'][t:t + window_length]
     P = save_data['pressure'][t:t + window_length]
@@ -154,10 +153,8 @@ def get_data(path, window_length, mode):
     P = np.repeat(P, 2, axis=-1)
     pos = np.repeat(pos[np.newaxis], window_length, axis=0)
     faces = np.repeat(faces[np.newaxis], window_length, axis=0)
-    num_cells = pos.shape[1]
-    node_type = np.zeros((window_length, num_cells), dtype=np.int64)
-    print(save_data.keys())
-    exit(9)
+    node_type = np.repeat(node_type[np.newaxis], window_length, axis=0)
+
     return pos, faces, node_type, t, V, P
 
 
