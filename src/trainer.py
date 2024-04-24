@@ -131,7 +131,6 @@ class Trainer:
         optimizer_type = self.params['optimizer']
         self.params['learning_rate'] = float(self.params['learning_rate'])
         if optimizer_type == "adamw":
-            print(self.params['weight_decay'])
             optimizer = torch.optim.AdamW(list(params),
                                           lr=self.params['learning_rate'],
                                           weight_decay=self.params['weight_decay'])
