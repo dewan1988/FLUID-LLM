@@ -39,7 +39,7 @@ def collate(X):
             T, N, S = tensor.shape
 
             if key == 'node_type':
-                x[key] = torch.cat([tensor, 0*torch.ones(T, N_max - N + 1, S)], dim=1)
+                x[key] = torch.cat([tensor, torch.ones(T, N_max - N + 1, S)], dim=1)
             else:
                 x[key] = torch.cat([tensor, torch.zeros(T, N_max - N + 1, S)], dim=1)
 
