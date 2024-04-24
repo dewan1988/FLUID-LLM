@@ -10,7 +10,7 @@ def get_data_loader(config):
                     stride=config['stride'],
                     seq_len=300,
                     seq_interval=2,
-                    normalize=True,
+                    normalize=False,
                     fit_diffs=True,
                     mode="valid"
                     )
@@ -68,25 +68,21 @@ def main():
             #     print(d.mean(), d.var())
 
     for i in range(3):
-        print()
-        print(f"{i}")
+        # print()
         print(f"State {i}: {state_aggs[i][1]: .4g}, {get_std(state_aggs[i]):.4g}")
         print(f"Diff {i}: {diff_aggs[i][1]:.3g}, {get_std(diff_aggs[i]):.4g}")
 
         print(f'{np.mean(state_vars[i]):.3g}, {(np.mean(np.sqrt(diff_vars[i]))):.3g}')
 
-    # Coordinate
-    # State 0:  0.823, 0.3315
-    # Diff 0: 1.614e-05, 0.000512
-    # 0.195, 0.000515
-    # Coordinate
-    # State 1:  0.0005865, 0.01351
-    # Diff 1: 3.7e-06, 0.0005696
-    # 0.0135, 0.000572
-    # Coordinate
-    # State 2:  0.04763, 0.07536
-    # Diff 2: -0.002683, 0.00208
-    # 0.0739, 0.00208
+    # State 0:  0.8845, 0.5875
+    # Diff 0: 1.78e-05, 0.02811
+    # 0.21, 0.0198
+    # State 1: -0.0002054, 0.1286
+    # Diff 1: -9.47e-07, 0.02978
+    # 0.0166, 0.0202
+    # State 2:  0.04064, 0.2924
+    # Diff 2: -0.00288, 0.04859
+    # 0.0852, 0.0433
 
 
 if __name__ == "__main__":
