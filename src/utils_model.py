@@ -6,11 +6,6 @@ from torch.utils.data import DataLoader
 
 
 def get_data_loader(config, mode="train"):
-    if mode == "valid":
-        bs = 8
-    else:
-        bs = config['batch_size']
-
     ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
                     resolution=config['resolution'],
                     patch_size=config['patch_size'],
@@ -18,12 +13,11 @@ def get_data_loader(config, mode="train"):
                     seq_len=config['seq_len'],
                     seq_interval=config['seq_interval'],
                     mode=mode,
-                    fit_diffs=config['fit_diffs'],
                     normalize=config['normalize_ds']
                     )
 
     dl = DataLoader(ds,
-                    batch_size=bs,
+                    batch_size=config['batch_size'],
                     num_workers=config['num_workers'],
                     prefetch_factor=2,
                     pin_memory=True)

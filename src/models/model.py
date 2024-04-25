@@ -202,7 +202,7 @@ class MultivariateTimeLLM(nn.Module):
     def gen_seq(self, batch_data, pred_steps, start_state=1):
         """ Evaluate the model by generating the next steps in the sequence.
             Output is reshaped to image format. return.shape = (bs, seq_len, 3, tot_px, tot_py)"""
-        states, _, bc_mask, position_ids = batch_data
+        states, _, _, bc_mask, position_ids = batch_data
         bs, seq_len, N_patch, channel, px, py = states.shape
 
         assert pred_steps + start_state - 1 <= seq_len, \

@@ -39,10 +39,6 @@ encoder_params:
 
 # Decoder params
 decoder_params:
-#    type: MLP0
-#    mlp_layers: 2
-#    mlp_hid_dim: 512
-
     type: MLPGNN
     gnn_dim: 16
     gnn_hid_dim: 32
@@ -62,8 +58,8 @@ schedule_gamma: 0.75
 
 # Teacher forcing params
 teacher_forcing:
-    ratio: 0.1
-    start_epoch: 5000
+    tf_prob: 1
+    start_epoch: 1000
 see_init_state: false
 
 # Dataloader params
@@ -75,7 +71,6 @@ seq_len: 10
 seq_interval: 2
 resolution: 238
 normalize_ds: true
-fit_diffs: true
 
 # Logging params
 enable_wandb: false

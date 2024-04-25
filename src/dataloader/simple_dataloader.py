@@ -23,7 +23,7 @@ def num_patches(dim_size, kern_size, stride, padding=0):
 class MGNDataset(Dataset):
     """ Load a single timestep from the dataset."""
 
-    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, fit_diffs: bool, seq_interval=1,
+    def __init__(self, load_dir, resolution: int, patch_size: tuple, stride: tuple, seq_len: int, seq_interval=1,
                  pad=True, mode="train", normalize=True, noise=None):
         super(MGNDataset, self).__init__()
 
@@ -39,7 +39,6 @@ class MGNDataset(Dataset):
         self.seq_interval = seq_interval
         self.max_step_num = 600 - self.seq_len * self.seq_interval
         self.normalize = normalize
-        self.fit_diffs = fit_diffs
         self.noise = noise
 
         self.save_files = sorted([f for f in os.listdir(f"{self.load_dir}/") if f.endswith('.pkl')])
@@ -74,24 +73,33 @@ class MGNDataset(Dataset):
         """
         Returns as all patches as a single sequence, ready to be encoded by the LLM as a single element of batch.
         Return:
-             state.shape = ((seq_len - 1), num_patches, 3, H, W)
-             diff.shape = ((seq_len - 1), num_patches, 3, H, W)
+             states.shape = ((seq_len - 1), num_patches, 3, H, W)
              patch_idx: [x_idx, y_idx, t_idx] for each patch
-
         """
+
         to_patches = self._get_full_seq(save_file, step_num)
-        states, diffs, mask = self._ds_get_pt(to_patches)
+        to_patches = torch.from_numpy(to_patches).float()
 
-        # Get positions / times for each patch
-        seq_dim = (self.seq_len - 1) * self.N_patch
-        arange = np.arange(seq_dim)
-        x_idx = arange % self.N_x_patch
-        y_idx = (arange // self.N_x_patch) % self.N_y_patch
-        t_idx = arange // self.N_patch
+        patches = self._patch(to_patches)
+        states = patches[:, :-1]
+        masks = patches[:, -1]
+        # Permute to (seq_len, num_patches, C, H, W)
+        states = torch.permute(states, [0, 4, 1, 2, 3])
+        masks = torch.permute(masks, [0, 3, 1, 2])
 
-        position_ids = np.stack([x_idx, y_idx, t_idx], axis=1).reshape(self.seq_len - 1, self.N_patch, 3)
+        if self.normalize:
+            states = self._normalize(states)
 
-        return states, diffs, mask, torch.from_numpy(position_ids)
+        diffs = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
+        next_state = states[1:]
+
+        # Compute targets and discard last state that has no diff
+        input_states = states[:-1]
+
+        # Reshape into a continuous sequence
+        masks = masks[1:].unsqueeze(2).repeat(1, 1, 3, 1, 1).bool()
+
+        return input_states, next_state, diffs, masks, self._get_pos_id()
 
     def _get_step(self, triang, tri_index, grid_x, grid_y, save_data, step_num):
         """
@@ -184,35 +192,6 @@ class MGNDataset(Dataset):
 
         return np.stack(to_patches)
 
-    def _ds_get_pt(self, to_patches: np.ndarray):
-        """ Pytorch section of ds_get to avoid multiprocessing bug.
-            to_patches.shape = (seq_len, C+1, H, W) where last channel dim is mask.
-        """
-
-        to_patches = torch.from_numpy(to_patches).float()
-
-        patches = self._patch(to_patches)
-        states = patches[:, :-1]
-        masks = patches[:, -1]
-        # Permute to (seq_len, num_patches, C, H, W)
-        states = torch.permute(states, [0, 4, 1, 2, 3])
-        masks = torch.permute(masks, [0, 3, 1, 2])
-
-        if self.normalize:
-            states = self._normalize(states)
-
-        if self.fit_diffs:
-            target = states[1:] - states[:-1]  # shape = (seq_len, num_patches, C, H, W)
-        else:
-            target = states[1:]
-        # Compute targets and discard last state that has no diff
-        states = states[:-1]
-
-        # Reshape into a continuous sequence
-        masks = masks[1:].unsqueeze(2).repeat(1, 1, 3, 1, 1)
-
-        return states, target, masks.bool()
-
     def _normalize(self, states):
         """ states.shape = [seq_len, N_patch, 3, patch_x, patch_y] """
         # State 0:  0.8845, 0.5875
@@ -238,6 +217,16 @@ class MGNDataset(Dataset):
 
         return states
 
+    def _get_pos_id(self):
+        # Get positions / times for each patch
+        seq_dim = (self.seq_len - 1) * self.N_patch
+        arange = np.arange(seq_dim)
+        x_idx = arange % self.N_x_patch
+        y_idx = (arange // self.N_x_patch) % self.N_y_patch
+        t_idx = arange // self.N_patch
+        position_ids = np.stack([x_idx, y_idx, t_idx], axis=1).reshape(self.seq_len - 1, self.N_patch, 3)
+        return torch.from_numpy(position_ids)
+
     def __len__(self):
         return len(self.save_files)
 
@@ -246,12 +235,12 @@ def plot_all_patches():
     patch_size = (16, 16)
 
     seq_dl = MGNDataset(load_dir="./ds/MGN/cylinder_dataset/train", resolution=238, patch_size=patch_size, stride=patch_size,
-                        seq_len=10, seq_interval=2, normalize=False, fit_diffs=True)
+                        seq_len=10, seq_interval=2, normalize=False)
 
     ds = DataLoader(seq_dl, batch_size=8, shuffle=True)
 
     for batch in ds:
-        state, diffs, mask, pos_id = batch
+        state, next_state, diffs, mask, pos_id = batch
         print(f'{state.shape = }, {diffs.shape = }. {pos_id.shape = }')
         break
 
@@ -264,9 +253,14 @@ def plot_all_patches():
     p_shows = diffs[0, 0, :, 0]
     plot_patches(p_shows, (seq_dl.N_x_patch, seq_dl.N_y_patch))
 
+    p_shows = next_state[0, 0, :, 0]
+    plot_patches(p_shows, (seq_dl.N_x_patch, seq_dl.N_y_patch))
+
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
     from dataloader.mesh_utils import plot_patches
+    from utils import set_seed
 
+    set_seed()
     plot_all_patches()

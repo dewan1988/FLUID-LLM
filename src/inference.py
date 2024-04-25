@@ -28,7 +28,6 @@ def get_eval_dl(model, bs, seq_len):
                     seq_len=seq_len,
                     seq_interval=model.config['seq_interval'],
                     mode='valid',
-                    fit_diffs=model.config['fit_diffs'],
                     normalize=model.config['normalize_ds'])
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
@@ -91,15 +90,14 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     batch = next(iter(dl))
 
     with torch.inference_mode():
-        states, target, bc_mask, position_ids = batch
-        states, target, bc_mask, position_ids = (states.cuda(), target.cuda(), bc_mask.cuda(), position_ids.cuda())
-        batch = (states, target, bc_mask, position_ids)
+        batch = [t.cuda() for t in batch]
+        states, n_state, diffs, bc_mask, position_ids = batch
 
         bs, seq_len, N_patch, channel, px, py = states.shape
         pred_states, pred_diffs = model.gen_seq(batch, pred_steps=seq_len - 1)
 
         true_states = patch_to_img(states, model.ds_props)
-        true_diffs = patch_to_img(target, model.ds_props)
+        true_diffs = patch_to_img(diffs, model.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), model.ds_props).bool()
         pred_states = pred_states[:, :-1]
         print(f'{pred_states.shape = }, {pred_diffs.shape = }')
@@ -163,7 +161,7 @@ def get_ds_stats(model: MultivariateTimeLLM, dl):
 
 def main():
     load_no = -1
-    save_epoch = 180
+    save_epoch = 0
     seq_len = 27
     bs = 8
 

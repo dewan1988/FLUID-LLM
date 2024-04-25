@@ -39,14 +39,11 @@ def get_model(training_params, ds_props):
 
 
 def select_run_mode(trainer: Trainer, gen_cfg, epoch):
-    if gen_cfg['ratio'] < 0.0 or gen_cfg['ratio'] > 1.0:
-        raise ValueError("Invalid teacher forcing ratio. Must be between 0 and 1.")
-
     if gen_cfg['start_epoch'] != 0 and epoch < gen_cfg['start_epoch']:
         return trainer.run_train_step, "Autoreg"
 
-    use_teacher_forcing = random() < gen_cfg['ratio']
-    if not use_teacher_forcing:
+    use_teacher_forcing = random() < gen_cfg['tf_prob']
+    if use_teacher_forcing:
         return trainer.run_gen_train_step, "Gen"
     else:
         return trainer.run_train_step, "Autoreg"
@@ -56,9 +53,7 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
     metrics_per_epoch = []
     dataloader_iterator = tqdm(dataloader, desc="Training", leave=False)
     for batch_idx, batch in enumerate(dataloader_iterator):
-        states, diffs, bc_mask, position_ids = batch
-        batch = (states.to(accelerator.device), diffs.to(accelerator.device),
-                 bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
+        batch = [t.to(accelerator.device, non_blocking=True) for t in batch]
 
         optimizer.zero_grad(set_to_none=True)
         with accelerator.accumulate([trainer.model]):
@@ -84,9 +79,7 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
     val_metrics_ep = []
     dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
     for batch_idx, batch in enumerate(dl_iterator):
-        states, diffs, bc_mask, position_ids = batch
-        batch = (states.to(accelerator.device), diffs.to(accelerator.device),
-                 bc_mask.to(accelerator.device), position_ids.to(accelerator.device))
+        batch = [t.to(accelerator.device, non_blocking=True) for t in batch]
 
         log_metrics_dict = trainer.run_val_step(batch)
 
@@ -166,14 +159,18 @@ def run_everything(training_params, train_dataloader, valid_dataloader, model_co
 
 def main(args):
     set_seed()
-    training_params = load_yaml_from_file(args.config_path)
-    logging.info(f"Parameters for training: {training_params}")
+    train_cfg = load_yaml_from_file(args.config_path)
+    logging.info(f"Parameters for training: {train_cfg}")
 
-    train_dataloader, ds_props = get_data_loader(training_params, mode="train")
-    valid_dataloader, _ = get_data_loader(training_params, mode="valid")
-    model_components = get_model(training_params, ds_props)
+    gen_cfg = dict(train_cfg)
+    gen_cfg['fit_diffs'] = False
 
-    run_everything(training_params, train_dataloader, valid_dataloader, model_components, args)
+    train_dataloader, ds_props = get_data_loader(train_cfg, mode="train")       # Dataloader target diffs
+    gen_dataloader, _ = get_data_loader(gen_cfg, mode="train")                  # Dataloader returns next state
+    valid_dataloader, _ = get_data_loader(train_cfg, mode="valid")
+    model_components = get_model(train_cfg, ds_props)
+
+    run_everything(train_cfg, train_dataloader, valid_dataloader, model_components, args)
 
 
 if __name__ == '__main__':
