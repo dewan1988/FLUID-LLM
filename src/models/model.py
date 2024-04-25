@@ -175,7 +175,7 @@ class MultivariateTimeLLM(nn.Module):
             seq_len = len(input_buff)
             # Get correct position ids
             start_pos = (pred_step - seq_len)
-            seq_pos_ids = position_ids[:, start_pos:pred_step]  # shape = [bs, seq_len, N_patch, 3]
+            seq_pos_ids = position_ids[:, start_pos:pred_step].clone()  # shape = [bs, seq_len, N_patch, 3]
             # Normalise timestep so first state is t=0
             min_t = seq_pos_ids[:, :, :, 2].min()
             seq_pos_ids[:, :, :, 2] = seq_pos_ids[:, :, :, 2] - min_t
@@ -186,7 +186,6 @@ class MultivariateTimeLLM(nn.Module):
             s = torch.cat(list(input_buff), dim=1)
             diffs = self._gen_step(s, seq_pos_ids)
             diffs[mask] = 0.
-            # Calculate diffs in fp32
             diffs = diffs.to(torch.float32)
             all_diffs.append(diffs)
 
@@ -206,7 +205,7 @@ class MultivariateTimeLLM(nn.Module):
         bs, seq_len, N_patch, channel, px, py = states.shape
 
         assert pred_steps + start_state - 1 <= seq_len, \
-            f'Prediction steps ({pred_steps}) must be less than total sequence length ({seq_len}+ 1)!'
+            f'Prediction steps ({pred_steps}) must be less than total sequence length ({seq_len} + 1)!'
 
         # Make sure the model can see everything before making the first prediction, duplicate the first state if start=1
         if start_state == 1:
@@ -227,13 +226,12 @@ class MultivariateTimeLLM(nn.Module):
         all_diffs = patch_to_img(all_diffs, self.ds_props)
         return all_states, all_diffs
 
-    def forward_duplicate(self, states, position_ids):
+    def forward_see_init(self, states, position_ids):
         """ Repeat the first state so the model can see the entire initial conditions before making any predictions"""
-        raise NotImplementedError
-        states = torch.cat([states[:, :N_patch], states], dim=1)
-        position_ids = torch.cat([position_ids[:, :N_patch], position_ids], dim=1)
-        _, preds = self.forward(states, position_ids)
 
-        preds = preds[:, N_patch:]
+        states = torch.cat([states[:, :1], states], dim=1)
+        position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
+        pred_diffs = self.forward(states, position_ids)
+        pred_diffs = pred_diffs[:, 1:]
 
-        return preds
+        return pred_diffs

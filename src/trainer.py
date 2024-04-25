@@ -43,7 +43,7 @@ class Trainer:
         self.model.train()
         # Forward pass
         if self.params['see_init_state']:
-            pred_diff = self.model.forward_duplicate(states, position_ids)
+            pred_diff = self.model.forward_see_init(states, position_ids)
         else:
             pred_diff = self.model(states, position_ids)
 
@@ -59,7 +59,7 @@ class Trainer:
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(pred_diff, diffs, bc_mask).mean()  # self.calculate_metrics(model_out, targ_imgs, bc_mask)
+            N_rmse = calc_n_rmse(pred_diff, diffs, bc_mask).mean()
 
         # Log metrics
         all_losses["loss"] = loss
@@ -106,37 +106,28 @@ class Trainer:
         """
         self.model.train()
 
-        states, target, bc_mask, position_ids = batch
+        states, next_state, diffs, bc_mask, position_ids = batch
         bs, seq_len, N_patch, channel, px, py = states.shape
 
-        print(states.shape)
-        exit(9)
+        # Model predictions
+        pred_states, pred_diffs = self.model.gen_seq(batch, seq_len-1)
+        pred_states = pred_states[:, 1:]
 
-        _, model_out = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len)
-        loss, all_losses = self.loss_fn(preds=model_out, target=target, mask=bc_mask)
+        # Reshape targets + mask
+        next_state = patch_to_img(next_state, self.ds_props)
+        bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
-        # Calculate loss
-        if self.params['fit_diffs']:
-            true_state = states + target
-            preds = states + model_out
-        else:
-            true_state = states
-            preds = model_out
+        loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
 
         # Calculate metrics
         with torch.no_grad():
-            BS, _, channel, px, py = preds.shape
-
-            N_rmse = calc_n_rmse(preds.view(BS, -1, self.N_patch, channel, px, py),
-                                 true_state.view(BS, -1, self.N_patch, channel, px, py),
-                                 bc_mask.view(BS, -1, self.N_patch, channel, px, py))
+            N_rmse = calc_n_rmse(pred_states, next_state, bc_mask).mean()
 
         # Log metrics
-        log_metrics = {"loss": loss}
-        log_metrics.update(all_losses)
-        log_metrics['N_RMSE'] = N_rmse
+        all_losses["loss"] = loss
+        all_losses['N_RMSE'] = N_rmse
 
-        return loss, log_metrics
+        return loss, all_losses
 
     @torch.inference_mode()
     def run_val_step(self, batch):
