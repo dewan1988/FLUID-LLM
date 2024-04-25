@@ -168,7 +168,7 @@ def main(args):
     logging.info(f"Parameters for training: {train_cfg}")
 
     gen_cfg = dict(train_cfg)
-    gen_cfg['seq_len'] = 3
+    gen_cfg['seq_len'] = train_cfg['tf_seq_len']
 
 
     autoreg_dl, ds_props = get_data_loader(train_cfg, mode="train")  # Dataloader target diffs

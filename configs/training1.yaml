@@ -47,7 +47,7 @@ decoder_params:
     mlp_hid_dim: 512
 
 # Training params
-batch_size: 4
+batch_size: 8
 num_epochs: 181
 optimizer: adamw
 learning_rate: 10e-4
@@ -61,6 +61,7 @@ schedule_gamma: 0.75
 teacher_forcing:
     tf_prob: 1
     start_epoch: 1000
+tf_seq_len: 5
 
 # Dataloader params
 num_workers: 8
