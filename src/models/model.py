@@ -7,7 +7,6 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from cprint import c_print
 from collections import deque
-from contextlib import nullcontext
 from matplotlib import pyplot as plt
 
 from dataloader.ds_props import DSProps
