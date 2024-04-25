@@ -18,6 +18,17 @@ use_deepspeed: false
 use_bos_token: true
 see_init_state: true
 
+# Training params
+batch_size: 8
+num_epochs: 181
+optimizer: adamw
+learning_rate: 10e-4
+weight_decay: 1.0e-5
+loss_function: ['mae', 'mse']
+loss_weighting: [0.2, 10]
+schedule_epoch: 50
+schedule_gamma: 0.75
+
 # Model weights
 pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
@@ -46,35 +57,27 @@ decoder_params:
     gnn_layers: 2
     mlp_hid_dim: 512
 
-# Training params
-batch_size: 8
-num_epochs: 181
-optimizer: adamw
-learning_rate: 10e-4
-weight_decay: 1.0e-5
-loss_function: ['mae', 'mse']
-loss_weighting: [0.2, 10]
-schedule_epoch: 50
-schedule_gamma: 0.75
-
 # Teacher forcing params
 teacher_forcing:
     tf_prob: 1
     start_epoch: 10000
-tf_seq_len: 5
 
 # Dataloader params
+autoreg_seq_len: 4
+tf_seq_len: 4
+val_seq_len: 10
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
 stride: [16, 16]
-seq_len: 10
-seq_interval: 2
 resolution: 238
 normalize_ds: true
+seq_interval: 2
+seq_len: null
+
 
 # Logging params
-enable_wandb: true
+enable_wandb: false
 save_on: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints

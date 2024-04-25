@@ -162,14 +162,19 @@ def main(args):
     train_cfg = load_yaml_from_file(args.config_path)
     logging.info(f"Parameters for training: {train_cfg}")
 
+    # Modify configs for dataloaders
+    autoreg_cfg = dict(train_cfg)
+    autoreg_cfg['seq_len'] = train_cfg['autoreg_seq_len']
     gen_cfg = dict(train_cfg)
     gen_cfg['seq_len'] = train_cfg['tf_seq_len']
+    val_cfg = dict(train_cfg)
+    val_cfg['seq_len'] = train_cfg['val_seq_len']
 
-    autoreg_dl, ds_props = get_data_loader(train_cfg, mode="train")  # Dataloader target diffs
+    autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Dataloader target diffs
     gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
-    valid_dl, _ = get_data_loader(train_cfg, mode="valid")
-    model_components = get_model(train_cfg, ds_props)
+    valid_dl, _ = get_data_loader(val_cfg, mode="valid")
 
+    model_components = get_model(train_cfg, ds_props)
     run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, args)
 
 
