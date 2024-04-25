@@ -81,7 +81,6 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
     val_metrics_ep = []
     dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
     for batch_idx, batch in enumerate(dl_iterator):
-
         log_metrics_dict = trainer.run_val_step(batch)
 
         val_metrics_ep.append(log_metrics_dict)
@@ -145,7 +144,7 @@ def run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, ar
     # Wandb, save and logging
     if train_cfg['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
-    wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=train_cfg)
+    wandb.init(project="llm4multivariatets", entity="adrianbzgteam", tags=["NewValidation"], config=train_cfg)
     wandb.save(args.config_path)
 
     save_path = make_save_folder(train_cfg['checkpoint_save_path'], args.save_folder, save_on=train_cfg['save_on'])
@@ -165,7 +164,6 @@ def main(args):
 
     gen_cfg = dict(train_cfg)
     gen_cfg['seq_len'] = train_cfg['tf_seq_len']
-
 
     autoreg_dl, ds_props = get_data_loader(train_cfg, mode="train")  # Dataloader target diffs
     gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state

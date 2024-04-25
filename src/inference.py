@@ -91,7 +91,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
     with torch.inference_mode():
         batch = [t.cuda() for t in batch]
-        states, n_state, diffs, bc_mask, position_ids = batch
+        states, _, diffs, bc_mask, position_ids = batch
 
         bs, seq_len, N_patch, channel, px, py = states.shape
         pred_states, pred_diffs = model.gen_seq(batch, pred_steps=seq_len - 1)

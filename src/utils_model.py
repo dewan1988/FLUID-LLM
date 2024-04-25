@@ -54,6 +54,7 @@ def calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor
     p_N_rmse = aux_calc_n_rmse(p_pred, p_target, p_mask)
 
     N_rmse = v_N_rmse + p_N_rmse
+
     return N_rmse
 
 

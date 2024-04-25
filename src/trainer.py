@@ -135,17 +135,18 @@ class Trainer:
         """
         self.model.eval()
 
-        states, _, diffs, bc_mask, position_ids = batch
+        states, _, _, bc_mask, position_ids = batch
 
         bs, seq_len, N_patch, channel, px, py = states.shape
-        _, pred_diffs = self.model.gen_seq(batch, pred_steps=seq_len - 1)
+        pred_states, pred_diffs = self.model.gen_seq(batch, pred_steps=seq_len - 1)
+        pred_states = pred_states[:, :-1]
 
-        diffs_img = patch_to_img(diffs, self.ds_props)
+        states_img = patch_to_img(states, self.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         # Calculate metrics
-        loss, all_losses = self.loss_fn.forward(preds=pred_diffs, target=diffs_img, mask=bc_mask)
-        N_rmse = calc_n_rmse(pred_diffs, diffs_img, bc_mask).mean()
+        loss, all_losses = self.loss_fn.forward(preds=pred_states, target=states_img, mask=bc_mask)
+        N_rmse = calc_n_rmse(pred_states, states_img, bc_mask).mean()
 
         # Log metrics
         all_losses["loss"] = loss

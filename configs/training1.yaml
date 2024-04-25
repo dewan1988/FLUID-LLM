@@ -60,7 +60,7 @@ schedule_gamma: 0.75
 # Teacher forcing params
 teacher_forcing:
     tf_prob: 1
-    start_epoch: 100
+    start_epoch: 10000
 tf_seq_len: 5
 
 # Dataloader params
@@ -74,7 +74,7 @@ resolution: 238
 normalize_ds: true
 
 # Logging params
-enable_wandb: false
+enable_wandb: true
 save_on: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
