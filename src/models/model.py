@@ -162,7 +162,6 @@ class MultivariateTimeLLM(nn.Module):
         bs, init_len, N_patch, channel, px, py = init_states.shape
 
         # All states and diffs, including input and predictions for output.
-        init_states = init_states.to(torch.float32)
         all_states = [init_states]
         all_diffs = []
         # Keep a buffer of the last N states as model input
@@ -186,7 +185,6 @@ class MultivariateTimeLLM(nn.Module):
             s = torch.cat(list(input_buff), dim=1)
             diffs = self._gen_step(s, seq_pos_ids)
             diffs[mask] = 0.
-            diffs = diffs.to(torch.float32)
             all_diffs.append(diffs)
 
             # Add on next state
@@ -222,7 +220,7 @@ class MultivariateTimeLLM(nn.Module):
         if start_state == 1:
             all_states = all_states[:, 1:]
 
-        all_states = patch_to_img(all_states.contiguous(), self.ds_props)
+        all_states = patch_to_img(all_states, self.ds_props)
         all_diffs = patch_to_img(all_diffs, self.ds_props)
         return all_states, all_diffs
 

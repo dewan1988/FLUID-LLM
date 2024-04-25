@@ -60,7 +60,7 @@ schedule_gamma: 0.75
 # Teacher forcing params
 teacher_forcing:
     tf_prob: 1
-    start_epoch: 1000
+    start_epoch: 100
 tf_seq_len: 5
 
 # Dataloader params

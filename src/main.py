@@ -20,8 +20,6 @@ from utils import set_seed, load_yaml_from_file, get_available_device, get_accel
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
 
-torch.autograd.set_detect_anomaly(True)
-
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
@@ -58,7 +56,6 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
     metrics_per_epoch = []
     dataloader_iterator = tqdm(dataloader, desc="Training", leave=False)
     for batch_idx, batch in enumerate(dataloader_iterator):
-        batch = [t.to(accelerator.device, non_blocking=True) for t in batch]
 
         optimizer.zero_grad(set_to_none=True)
         with accelerator.accumulate([trainer.model]):
@@ -84,7 +81,6 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
     val_metrics_ep = []
     dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
     for batch_idx, batch in enumerate(dl_iterator):
-        batch = [t.to(accelerator.device, non_blocking=True) for t in batch]
 
         log_metrics_dict = trainer.run_val_step(batch)
 
@@ -143,7 +139,7 @@ def run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, ar
 
     # Prepare accelerator
     accelerator = get_accelerator(precision='bf16')
-    model, optimizer, autoreg_dl, scheduler = accelerator.prepare(model, optimizer, autoreg_dl, scheduler)
+    model, optimizer, autoreg_dl, gen_dl, valid_dl, scheduler = accelerator.prepare(model, optimizer, autoreg_dl, gen_dl, valid_dl, scheduler)
     trainer.model = model
 
     # Wandb, save and logging

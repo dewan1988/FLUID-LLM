@@ -48,5 +48,5 @@ class GCN_layers(torch.nn.Module):
             # x = F.dropout(x, p=0.5, training=self.training)
 
         # Pass through the output convolutional layer
-        x = self.out_conv.forward(x, edge_index)
+        x = self.out_conv(x, edge_index)
         return x

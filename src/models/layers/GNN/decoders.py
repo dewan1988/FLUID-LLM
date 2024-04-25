@@ -238,7 +238,7 @@ class MLPGNNDecoder(Decoder):
             graphs.append(graph)
         graphs = Batch.from_data_list(graphs)
 
-        preds = self.GNN.forward(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Npx_mesh*Ny_mesh, 3]
+        preds = self.GNN(graphs.x, graphs.edge_index)  # shape = [bs*seq_len*Npx_mesh*Ny_mesh, 3]
 
         # 5) Reshape to image format
         preds = preds.view(bs, seq_len, self.Npx_mesh, self.Npy_mesh, 3)  # shape = [bs, seq_len, Nx_mesh, Ny_mesh, 3]
