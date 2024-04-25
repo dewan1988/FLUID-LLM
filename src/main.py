@@ -147,6 +147,8 @@ def run_everything(training_params, train_dataloader, valid_dataloader, model_co
     if training_params['enable_wandb'] is False:
         os.environ['WANDB_MODE'] = 'disabled'
     wandb.init(project="llm4multivariatets", entity="adrianbzgteam", config=training_params)
+    wandb.save(args.config_path)
+
     save_path = make_save_folder(training_params['checkpoint_save_path'], args.save_folder, save_on=training_params['save_on'])
     logging.info(f"Saving checkpoints to: {save_path}")
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
@@ -165,8 +167,8 @@ def main(args):
     gen_cfg = dict(train_cfg)
     gen_cfg['fit_diffs'] = False
 
-    train_dataloader, ds_props = get_data_loader(train_cfg, mode="train")       # Dataloader target diffs
-    gen_dataloader, _ = get_data_loader(gen_cfg, mode="train")                  # Dataloader returns next state
+    train_dataloader, ds_props = get_data_loader(train_cfg, mode="train")  # Dataloader target diffs
+    gen_dataloader, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
     valid_dataloader, _ = get_data_loader(train_cfg, mode="valid")
     model_components = get_model(train_cfg, ds_props)
 
