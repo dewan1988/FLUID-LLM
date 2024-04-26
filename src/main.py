@@ -146,10 +146,13 @@ def run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, ar
         os.environ['WANDB_MODE'] = 'disabled'
     wandb.init(project="llm4multivariatets", entity="adrianbzgteam", tags=["NewValidation"], config=train_cfg)
     wandb.save(args.config_path)
+    run_name = wandb.run.name
 
     save_path = make_save_folder(train_cfg['checkpoint_save_path'], args.save_folder, save_on=train_cfg['save_on'])
     logging.info(f"Saving checkpoints to: {save_path}")
     save_cfg(args.config_path, save_path)  # WandB saves it, but make another copy anyway.
+    with open(f"{save_path}/{run_name}", 'w') as f:
+        f.write(run_name)
 
     train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optimizer, scheduler, accelerator, start_ep=start_ep)
 
