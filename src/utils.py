@@ -162,8 +162,21 @@ def get_save_folder(save_dir, load_name=None, load_no=-1):
 def process_metrics(metrics_per_epoch, epoch_len, run_mode, mode: str):
     # === Aggregate metrics across iterations in the epoch ===
     metrics_names = metrics_per_epoch[0].keys()
-    metrics_agg = {f"{mode}/{run_mode}_{metric_name}": sum(d[metric_name] for d in metrics_per_epoch)
-                                                       / epoch_len
-                   for metric_name in metrics_names}
+
+    metrics_agg = {}
+    # Iterate through each metric name provided in metrics_names
+    for metric_name in metrics_names:
+        all_values = [d[metric_name] for d in metrics_per_epoch]
+
+        if metric_name != 'N_RMSE':
+            all_values = torch.stack(all_values)
+            average_metric = torch.mean(all_values)
+        else:
+            all_values = torch.cat(all_values)
+            all_values = all_values.mean(dim=0)
+            average_metric = all_values.mean()
+        # Construct the key using the specified format and store the result in the dictionary
+        key = f"{mode}/{run_mode}_{metric_name}"
+        metrics_agg[key] = average_metric
 
     return metrics_agg, metrics_agg[f"{mode}/{run_mode}_loss"], metrics_agg[f"{mode}/{run_mode}_N_RMSE"]

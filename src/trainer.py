@@ -110,7 +110,7 @@ class Trainer:
         bs, seq_len, N_patch, channel, px, py = states.shape
 
         # Model predictions
-        pred_states, pred_diffs = self.model.gen_seq(batch, seq_len-1)
+        pred_states, _ = self.model.gen_seq(batch, seq_len-1)
         pred_states = pred_states[:, 1:]
 
         # Reshape targets + mask
@@ -146,7 +146,8 @@ class Trainer:
 
         # Calculate metrics
         loss, all_losses = self.loss_fn.forward(preds=pred_states, target=states_img, mask=bc_mask)
-        N_rmse = calc_n_rmse(pred_states, states_img, bc_mask).mean()
+        N_rmse = calc_n_rmse(pred_states, states_img, bc_mask)
+        N_rmse = N_rmse # .mean(dim=0)
 
         # Log metrics
         all_losses["loss"] = loss

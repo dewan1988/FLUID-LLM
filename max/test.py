@@ -1,16 +1,9 @@
 import torch
+import numpy as np
 
-# Initialize example tensors
-large_tensor = torch.zeros(8, 60, 3, 16, 16)  # The larger tensor with shape [8, 60, 3, 16, 16]
-small_tensor = torch.randn(8, 1, 3, 16, 16)  # The smaller tensor to be added, with shape [8, 1, 3, 16, 16]
+x  = [0.0000, 0.0238, 0.0408, 0.0557, 0.0690, 0.0818, 0.0952, 0.1079, 0.1202,
+        0.1329, 0.1451]
 
-i = 5  # The index in the second dimension to which you want to add the small_tensor
+print(np.mean(x))
 
-# Add the small_tensor to the i-th slice of the larger tensor
-# Ensure the operation is in-place for the large tensor
-out = large_tensor[:, i, :, :, :] + small_tensor.squeeze(1)
 
-# Verify the shape of the updated large_tensor
-print(out[:, 0])
-
-print(out.shape)

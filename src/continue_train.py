@@ -40,20 +40,28 @@ def load_model(save_file, training_params, ds_props):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "04-19_22-35-52"
-    load_num = 290
+    load_file = "2"
+    load_num = 180
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
     # Use saved .yaml config for easier editing
-    training_params = load_yaml_from_file(f'{load_dir}/{load_file}/training1.yaml')
+    train_cfg = load_yaml_from_file(f'{load_dir}/{load_file}/training1.yaml')
     c_print("Loading Config", color='bright_green')
-    c_print(training_params, color='green')
+    c_print(train_cfg, color='green')
 
-    train_dataloader, ds_props = get_data_loader(training_params, mode="train")
-    valid_dataloader, _ = get_data_loader(training_params, mode="valid")
-    model_components = load_model(save_file, training_params, ds_props)
+    autoreg_cfg = dict(train_cfg)
+    autoreg_cfg['seq_len'] = train_cfg['autoreg_seq_len']
+    gen_cfg = dict(train_cfg)
+    gen_cfg['seq_len'] = train_cfg['tf_seq_len']
+    val_cfg = dict(train_cfg)
+    val_cfg['seq_len'] = train_cfg['val_seq_len']
 
-    run_everything(training_params, train_dataloader, valid_dataloader, model_components, args, start_ep=load_num)
+    autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Dataloader target diffs
+    gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
+    valid_dl, _ = get_data_loader(val_cfg, mode="valid")
+
+    model_components = load_model(save_file, train_cfg, ds_props)
+    run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, args, start_ep=load_num)
 
 
 if __name__ == '__main__':
