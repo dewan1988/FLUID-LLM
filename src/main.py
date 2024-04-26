@@ -6,7 +6,6 @@ import sys
 import argparse
 import logging
 from random import random
-from statistics import mean
 from cprint import c_print
 import numpy as np
 import torch
@@ -168,13 +167,13 @@ def main(args):
     # Modify configs for dataloaders
     autoreg_cfg = dict(train_cfg)
     autoreg_cfg['seq_len'] = train_cfg['autoreg_seq_len']
-    gen_cfg = dict(train_cfg)
-    gen_cfg['seq_len'] = train_cfg['tf_seq_len']
+    # gen_cfg = dict(train_cfg)
+    # gen_cfg['seq_len'] = train_cfg['tf_seq_len']
     val_cfg = dict(train_cfg)
     val_cfg['seq_len'] = train_cfg['val_seq_len']
 
     autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Main dataloader for model params max_seq_len.
-    gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
+    gen_dl = autoreg_dl # get_data_loader(gen_cfg, mode="train")
     valid_dl, _ = get_data_loader(val_cfg, mode="valid")
 
     model_components = get_model(train_cfg, ds_props)

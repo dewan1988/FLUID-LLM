@@ -77,7 +77,7 @@ seq_len: null
 
 # Logging params
 enable_wandb: false
-save_on: true
+save_on: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 
