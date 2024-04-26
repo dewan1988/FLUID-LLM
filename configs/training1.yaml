@@ -63,9 +63,9 @@ teacher_forcing:
     start_epoch: 10000
 
 # Dataloader params
-autoreg_seq_len: 4
-tf_seq_len: 4
-val_seq_len: 10
+autoreg_seq_len: 10
+tf_seq_len: 10
+val_seq_len: 15
 num_workers: 8
 load_dir: ./ds/MGN/cylinder_dataset
 patch_size: [16, 16]
