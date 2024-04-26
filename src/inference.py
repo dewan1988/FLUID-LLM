@@ -35,7 +35,6 @@ def get_eval_dl(model, bs, seq_len):
 
 
 def test_step(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
-
     model.eval()
     # Get batch and run through model
     batch_data = next(iter(dl))
@@ -95,13 +94,16 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
         bs, seq_len, N_patch, channel, px, py = states.shape
         pred_states, pred_diffs = model.gen_seq(batch, pred_steps=seq_len - 1)
+        pred_states = pred_states[:, :-1]
 
         true_states = patch_to_img(states, model.ds_props)
         true_diffs = patch_to_img(diffs, model.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), model.ds_props).bool()
-        pred_states = pred_states[:, :-1]
-        print(f'{pred_states.shape = }, {pred_diffs.shape = }')
-        print(f'{true_states.shape = }, {true_diffs.shape = }')
+        # print(f'{pred_states.shape = }, {pred_diffs.shape = }')
+        # print(f'{true_states.shape = }, {true_diffs.shape = }')
+
+        N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
+        c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
 
     # Plot diffs
     fig, axs = plt.subplots(3, 2, figsize=(20, 9))
@@ -129,13 +131,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     fig.tight_layout()
     fig.show()
 
-    N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
-    c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
-
     targ_std = true_diffs.std(dim=(-1, -2, 0, -4), keepdim=True)  # Std pixels, channels and seq_len
-    # true_diffs = true_diffs / (targ_std + 0.0005)
-    # pred_diffs = pred_diffs / (targ_std + 0.0005)
-
     print(targ_std.squeeze())
 
 
@@ -161,7 +157,7 @@ def get_ds_stats(model: MultivariateTimeLLM, dl):
 
 def main():
     load_no = -1
-    save_epoch = 0
+    save_epoch = 500
     seq_len = 27
     bs = 8
 
