@@ -4,13 +4,12 @@ from torch import nn
 from models.layers.patch_encoder import PatchEmbeddings
 from models.layers.positional_encodings.positional_embeddings import PositionalEmbeddings
 from models.layers.positional_encodings.rotary_3d_positional_embeddings import Rotary3DPositionalEmbeddings
-from models.layers.self_attention import SelfAttention
 
 
 class InputEmbeddings(nn.Module):
     """Input embeddings layer adapter for time series data."""
 
-    def __init__(self, patch_dim, llm_dim, enc_cfg: dict, embedding_cfg: dict):
+    def __init__(self, patch_dim, llm_dim, max_embeds, enc_cfg: dict, embedding_cfg: dict):
         super().__init__()
 
         # Patch embedding
@@ -20,7 +19,7 @@ class InputEmbeddings(nn.Module):
         if embedding_cfg['pos_embedding_type'] == "rope":
             self.position_embeddings = Rotary3DPositionalEmbeddings(llm_dim)
         elif embedding_cfg['pos_embedding_type'] == "pos":
-            self.position_embeddings = PositionalEmbeddings(llm_dim, embedding_cfg['max_num_embed'], embedding_cfg['init_pos_embed'])
+            self.position_embeddings = PositionalEmbeddings(llm_dim, max_embeds, embedding_cfg['init_pos_embed'])
         else:
             raise ValueError(f"Unknown positional embedding type: {embedding_cfg['pos_embedding_type']}")
 

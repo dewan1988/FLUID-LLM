@@ -59,7 +59,7 @@ class Trainer:
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(pred_diff, diffs, bc_mask).mean()
+            N_rmse = calc_n_rmse(pred_diff, diffs, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
@@ -121,7 +121,7 @@ class Trainer:
 
         # Calculate metrics
         with torch.no_grad():
-            N_rmse = calc_n_rmse(pred_states, next_state, bc_mask).mean()
+            N_rmse = calc_n_rmse(pred_states, next_state, bc_mask)
 
         # Log metrics
         all_losses["loss"] = loss
@@ -147,7 +147,6 @@ class Trainer:
         # Calculate metrics
         loss, all_losses = self.loss_fn.forward(preds=pred_states, target=states_img, mask=bc_mask)
         N_rmse = calc_n_rmse(pred_states, states_img, bc_mask)
-        N_rmse = N_rmse # .mean(dim=0)
 
         # Log metrics
         all_losses["loss"] = loss

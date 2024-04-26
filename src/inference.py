@@ -168,7 +168,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 def main():
     load_no = -1
-    save_epoch = 180
+    save_epoch = 0
     seq_len = 27
     bs = 8
 
@@ -190,6 +190,7 @@ def main():
     ckpt_params = load_yaml_from_file(f'{load_path}/training1.yaml')
 
     # Get dataloader
+    ckpt_params['seq_len'] = ckpt_params['autoreg_seq_len']
     _, ds_props = get_data_loader(ckpt_params, mode="valid")
 
     # Get the model

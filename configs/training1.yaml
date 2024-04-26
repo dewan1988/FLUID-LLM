@@ -40,7 +40,6 @@ pos_embedding_params:
   input_emb_layer_dropout: 0.1    # null to disable input dropout
   pos_embedding_type: pos  # "pos", "rope"
   init_pos_embed: "normal"   # "normal", "zero", "scaled"
-  max_num_embed: 24
 
 # Encoder params
 encoder_params:

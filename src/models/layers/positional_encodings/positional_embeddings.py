@@ -6,11 +6,14 @@ import random
 class PositionalEmbeddings(nn.Module):
     """Positional embeddings layer, for time, x and y."""
 
-    def __init__(self, hidden_size, max_pos_embeddings, init_pos_embed):
+    def __init__(self, hidden_size, max_embeds, init_pos_embed):
         super().__init__()
-        self.x_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
-        self.y_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
-        self.time_embeddings = nn.Embedding(max_pos_embeddings, hidden_size)
+
+        max_x, max_y, max_t = max_embeds
+
+        self.x_embeddings = nn.Embedding(max_x, hidden_size)
+        self.y_embeddings = nn.Embedding(max_y, hidden_size)
+        self.time_embeddings = nn.Embedding(max_t, hidden_size)
 
         if init_pos_embed == "zero":
             # Zero init embeddings

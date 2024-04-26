@@ -67,7 +67,7 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
 
             if batch_idx % 5 == 0:
                 dataloader_iterator.set_description(
-                    f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics['loss']:.3g} | N_RMSE: {log_metrics['N_RMSE']:.3g})")
+                    f"Iterating batches (Batch Idx: {batch_idx + 1} | Loss: {log_metrics['loss']:.3g} | N_RMSE: {log_metrics['N_RMSE'].mean():.3g})")
                 dataloader_iterator.refresh()
         # Keep track of metrics
         metrics_per_epoch.append(log_metrics)
@@ -173,7 +173,7 @@ def main(args):
     val_cfg = dict(train_cfg)
     val_cfg['seq_len'] = train_cfg['val_seq_len']
 
-    autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Dataloader target diffs
+    autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Main dataloader for model params max_seq_len.
     gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
     valid_dl, _ = get_data_loader(val_cfg, mode="valid")
 

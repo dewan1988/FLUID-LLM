@@ -1,7 +1,0 @@
-# Load location
-checkpoint_save_path: model_checkpoints
-
-# DL param
-load_dir: ./ds/MGN/cylinder_dataset
-seq_len: 27
-batch_size: 16

@@ -72,11 +72,13 @@ class MultivariateTimeLLM(nn.Module):
         self.patch_in_dim = self.N_px_patch * self.N_py_patch * 3
         self.patch_shape = (3, self.N_px_patch, self.N_py_patch)
         self.max_seq_len = ds_props.seq_len + 1 if config['see_init_state'] else ds_props.seq_len
+        self.Nx_patch, self.Ny_patch = ds_props.Nx_patch, ds_props.Ny_patch
         self.N_patch = ds_props.N_patch
 
         # Input and output embeddings
         self.input_embeddings = InputEmbeddings(self.patch_in_dim,
                                                 self.llm_in_dim,
+                                                (self.Nx_patch, self.Ny_patch, self.max_seq_len),
                                                 self.config['encoder_params'],
                                                 self.config['pos_embedding_params'],
                                                 )

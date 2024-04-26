@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime
 import shutil
 from cprint import c_print
+import natsort
 
 from transformers import AutoTokenizer, AutoModel
 from accelerate import Accelerator, DeepSpeedPlugin
@@ -155,7 +156,7 @@ def get_save_folder(save_dir, load_name=None, load_no=-1):
     # Get nth folder in directory
     all_items = os.listdir(save_dir)
     folders = [item for item in all_items if os.path.isdir(os.path.join(save_dir, item))]
-    folders = sorted(folders)
+    folders = natsort.natsorted(folders)
     return os.path.join(save_dir, folders[load_no])
 
 
