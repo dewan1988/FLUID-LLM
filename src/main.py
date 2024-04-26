@@ -168,7 +168,7 @@ def main(args):
     autoreg_cfg = dict(train_cfg)
     autoreg_cfg['seq_len'] = train_cfg['autoreg_seq_len']
     # gen_cfg = dict(train_cfg)
-    # gen_cfg['seq_len'] = train_cfg['tf_seq_len']
+    # gen_cfg['seq_len'] = train_cfg['gen_seq_len']
     val_cfg = dict(train_cfg)
     val_cfg['seq_len'] = train_cfg['val_seq_len']
 
