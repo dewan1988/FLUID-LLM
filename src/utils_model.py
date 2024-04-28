@@ -73,7 +73,6 @@ def patch_to_img(patches, ds_props: DSProps):
     img = F.fold(patches, output_size=(tot_px, tot_py), kernel_size=(px_patch, py_patch), stride=(px_patch, py_patch))
 
     img = img.view(bs, seq_len, channel, tot_px, tot_py)
-    # img = img[:, :, :, ::2, ::2]
     return img
 
 
