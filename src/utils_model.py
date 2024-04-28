@@ -104,3 +104,18 @@ def normalise_diffs(targs, preds, norm_const):
     preds = preds / (targ_std + norm_const)
 
     return targs, preds
+
+
+def normalise_states(diffs, targs, preds, norm_const):
+    """ Normalise states.
+        Scale predictions and targets between batch based on diffs
+        diffs.shape = (bs, seq_len, N_patch, channel, px, py)
+        targs.shape = (bs, seq_len, channel, tot_px, tot_py)
+    """
+
+    diff_std = diffs.std(dim=(-1, -2, -3, -4)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)  # Std pixels, channels and seq_len]
+
+    targs = targs / (diff_std + norm_const)
+    preds = preds / (diff_std + norm_const)
+
+    return targs, preds

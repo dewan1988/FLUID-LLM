@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 from utils import get_available_device, get_trainable_parameters
-from utils_model import calc_n_rmse, patch_to_img, normalise_diffs
+from utils_model import calc_n_rmse, patch_to_img, normalise_diffs, normalise_states
 from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
@@ -53,9 +53,10 @@ class Trainer:
 
         # Normalise predictions so loss is well scaled
         if self.loss_norm_eps is not None:
-            diffs, pred_diff = normalise_diffs(diffs, pred_diff, self.loss_norm_eps)
-
-        loss, all_losses = self.loss_fn.forward(preds=pred_diff, target=diffs, mask=bc_mask)
+            norm_true_diffs, norm_pred_diff = normalise_diffs(diffs, pred_diff, self.loss_norm_eps)
+            loss, all_losses = self.loss_fn.forward(preds=norm_pred_diff, target=norm_true_diffs, mask=bc_mask)
+        else:
+            loss, all_losses = self.loss_fn.forward(preds=pred_diff, target=diffs, mask=bc_mask)
 
         # Calculate metrics
         with torch.no_grad():
@@ -117,7 +118,11 @@ class Trainer:
         next_state = patch_to_img(next_state, self.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
-        loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
+        if self.loss_norm_eps is not None:
+            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps)
+            loss, all_losses = self.loss_fn(preds=norm_pred_states, target=norm_next_state, mask=bc_mask)
+        else:
+            loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
 
         # Calculate metrics
         with torch.no_grad():
