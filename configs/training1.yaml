@@ -59,7 +59,8 @@ decoder_params:
 
 # Teacher forcing params
 teacher_forcing:
-    tf_prob: 1
+    tf_mode: "notf" # "gen", "notf"
+    tf_prob: 0
     start_epoch: 0
 
 # Dataloader params

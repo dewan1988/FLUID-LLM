@@ -37,8 +37,9 @@ def get_model(training_params, ds_props):
     return model, optimizer, scheduler, trainer
 
 
-def select_run_mode(trainer: Trainer, gen_cfg, train_dl, gen_dl, epoch):
+def select_run_mode(trainer: Trainer, gen_cfg: dict, train_dl, gen_dl, epoch):
     gen_settings = (trainer.run_gen_train_step, gen_dl, 'Gen')
+    notf_settings = (trainer.run_notf_train_step, gen_dl, 'Gen')
     autoreg_settings = (trainer.run_train_step, train_dl, 'Autoreg')
 
     if gen_cfg['start_epoch'] != 0 and epoch < gen_cfg['start_epoch']:
@@ -46,9 +47,14 @@ def select_run_mode(trainer: Trainer, gen_cfg, train_dl, gen_dl, epoch):
 
     use_teacher_forcing = random() < gen_cfg['tf_prob']
     if use_teacher_forcing:
-        return gen_settings
-    else:
         return autoreg_settings
+    else:
+        if gen_cfg['tf_mode'] == 'gen':
+            return gen_settings
+        elif gen_cfg['tf_mode'] == 'notf':
+            return notf_settings
+    assert False, "Invalid configuration "
+
 
 
 def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, scheduler, accelerator: Accelerator):
