@@ -30,6 +30,8 @@ class Trainer:
         self.loss_norm_eps = params['loss_norm_eps']
         if self.loss_norm_eps is not None:
             self.loss_norm_eps = torch.nn.Parameter(torch.tensor(self.loss_norm_eps, device='cuda'), requires_grad=False)
+        self.norm_channel_independent = params['channel_independent']
+
 
     def run_train_step(self, batch):
         """
@@ -53,7 +55,7 @@ class Trainer:
 
         # Normalise predictions so loss is well scaled
         if self.loss_norm_eps is not None:
-            norm_true_diffs, norm_pred_diff = normalise_diffs(diffs, pred_diff, self.loss_norm_eps)
+            norm_true_diffs, norm_pred_diff = normalise_diffs(diffs, pred_diff, self.loss_norm_eps, self.norm_channel_independent)
             loss, all_losses = self.loss_fn.forward(preds=norm_pred_diff, target=norm_true_diffs, mask=bc_mask)
         else:
             loss, all_losses = self.loss_fn.forward(preds=pred_diff, target=diffs, mask=bc_mask)

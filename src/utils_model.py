@@ -93,12 +93,18 @@ def img_to_patch(img, ds_props: DSProps):
     return patches
 
 
-def normalise_diffs(targs, preds, norm_const):
+def normalise_diffs(targs, preds, norm_const, channel_independent):
     """ Normalise differences.
         Scale predictions and targets between batch based on true targets
-    """
 
-    targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
+        shape = [bs, seq_len, 3, tot_px, tot_py]
+    """
+    # print(f'{targs.shape = }, {preds.shape = }')
+
+    if channel_independent:
+        targ_std = targs.std(dim=(-1, -2, -4), keepdim=True)  # Std pixels and seq_len
+    else:
+        targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)    # Std pixels, channels and seq_len
     targs = targs / (targ_std + norm_const)
     preds = preds / (targ_std + norm_const)
 
