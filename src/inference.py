@@ -134,6 +134,8 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
     N_rmses = torch.cat(N_rmses, dim=0)
     N_rmse = torch.mean(N_rmses, dim=0)
+    first_rmses = torch.mean(N_rmse[:15])
+    c_print(f"First 15 N_RMSE: {first_rmses:.3g}", color='green')
     c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
 
     # Plotting
@@ -168,9 +170,9 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 def main():
     load_no = -1
-    save_epoch = 0
+    save_epoch = 180
     seq_len = 27
-    bs = 8
+    bs = 16
 
     plot_step = 25
     plot_batch_num = 2
