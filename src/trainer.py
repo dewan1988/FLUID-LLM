@@ -32,7 +32,6 @@ class Trainer:
             self.loss_norm_eps = torch.nn.Parameter(torch.tensor(self.loss_norm_eps, device='cuda'), requires_grad=False)
         self.norm_channel_independent = params['channel_independent']
 
-
     def run_train_step(self, batch):
         """
         Returns
@@ -113,7 +112,7 @@ class Trainer:
         bs, seq_len, N_patch, channel, px, py = states.shape
 
         # Model predictions
-        pred_states, _ = self.model.gen_seq(batch, seq_len-1)
+        pred_states, _ = self.model.gen_seq(batch, seq_len - 1)
         pred_states = pred_states[:, 1:]
 
         # Reshape targets + mask
