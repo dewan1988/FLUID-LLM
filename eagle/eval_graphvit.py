@@ -18,11 +18,11 @@ torch.set_float32_matmul_precision('high')
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
 parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
-parser.add_argument('--dataset_path', default="../ds/MGN/cylinder_dataset", type=str,
+parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
-parser.add_argument('--name', default='INSERT_NAME', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -76,8 +76,8 @@ def collate(X):
 
 def evaluate():
     print(args)
-    length = 50
-    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length,
+    length = 27
+    dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length,
                               with_cluster=True, n_cluster=args.n_cluster, normalize=True, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True,
@@ -85,7 +85,7 @@ def evaluate():
     model = GraphViT(state_size=4, w_size=args.w_size).to(device)
 
     model.load_state_dict(
-        torch.load(f"./trained_models/graphvit/{args.name}.nn", map_location=device))
+        torch.load(f"./eagle/trained_models/graphvit/{args.name}.nn", map_location=device))
 
     with torch.no_grad():
         model.eval()
@@ -128,20 +128,22 @@ def evaluate():
             error_velocity = error_velocity + rmse_velocity
             error_pressure = error_pressure + rmse_pressure
 
-            plot_preds(mesh_pos, velocity_hat, velocity, 48)
-            print(f'{rmse_velocity = }')
-            exit(5)
+            # if i == 4:
+            #     t = 15
+            #     plot_preds(mesh_pos, velocity_hat, velocity, t, title=f"Step {i}, t = {t}")
+            #     print(f'{rmse_velocity = }')
+            #     exit(5)
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)
 
-    np.savetxt(f"./Eagle/Results/graphvit/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(), delimiter=",")
-    np.savetxt(f"./Eagle/Results/graphvit/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(), delimiter=",")
+    np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(), delimiter=",")
+    np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(), delimiter=",")
 
 
-def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):
+def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no, title=None):
     mesh_pos = mesh_pos[0, step_no].cpu().numpy()
-    velocity_hat = velocity_hat[0, step_no, :].cpu().numpy()
+    velocity_hat = velocity_hat[0, step_no].cpu().numpy()
     velocity_true = velocity_true[0, step_no].cpu().numpy()
     print(f'{velocity_true.shape}, {velocity_hat.shape}')
 
@@ -152,6 +154,8 @@ def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):
         plot_graph(mesh_pos, vel_true, ax[0])
         plot_graph(mesh_pos, vel_hat, ax[1])
 
+    if title is not None:
+        plt.suptitle(title)
     plt.show()
 
 

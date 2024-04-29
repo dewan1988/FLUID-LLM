@@ -85,32 +85,33 @@ class EagleMGNDataset(Dataset):
 
         if self.with_cluster:
             # If you want to use our clusters, you need to download them, and update this path
-            cluster_path = self.dataloc[item].replace("Eagle_dataset", "Eagle_cluster")
+            cluster_path = self.dataloc[item]
             assert os.path.exists(cluster_path), f'Pre-computed cluster are not found, check path: {cluster_path}.\n' \
                                                  f'or update the path in the Dataloader.'
             if self.n_cluster == 0:
                 clusters = torch.arange(mesh_pos.shape[1] + 1).view(1, -1, 1).repeat(velocity.shape[0], 1, 1)
             else:
                 save_name = cluster_path.split("/")[-1][:-4]
-                clusters = np.load(os.path.join(self.fn, f"constrained_kmeans__{self.n_cluster}_{save_name}.npy"),
+                clusters = np.load(os.path.join(self.fn, f"constrained_kmeans_{self.n_cluster}_{save_name}.npy"),
                                    mmap_mode='r')[t:t + self.window_length].copy()
                 clusters = torch.from_numpy(clusters).long()
 
             output['cluster'] = clusters
+
         return output
 
     def normalize(self, velocity=None, pressure=None):
         if pressure is not None:
             pressure_shape = pressure.shape
-            mean = torch.tensor([-0.8322, 4.6050]).to(pressure.device)
-            std = torch.tensor([7.4013, 9.7232]).to(pressure.device)
+            mean = torch.tensor([0.8845, -0.0002054]).to(pressure.device)
+            std = torch.tensor([0.5875, 0.1286]).to(pressure.device)
             pressure = pressure.reshape(-1, 2)
             pressure = (pressure - mean) / std
             pressure = pressure.reshape(pressure_shape)
         if velocity is not None:
             velocity_shape = velocity.shape
-            mean = torch.tensor([-0.0015, 0.2211]).to(velocity.device).view(-1, 2)
-            std = torch.tensor([1.7970, 2.0258]).to(velocity.device).view(-1, 2)
+            mean = torch.tensor([0.04064, 0.04064]).to(velocity.device).view(-1, 2)
+            std = torch.tensor([0.2924, 0.2924]).to(velocity.device).view(-1, 2)
             velocity = velocity.reshape(-1, 2)
             velocity = (velocity - mean) / std
             velocity = velocity.reshape(velocity_shape)
@@ -120,15 +121,15 @@ class EagleMGNDataset(Dataset):
     def denormalize(self, velocity=None, pressure=None):
         if pressure is not None:
             pressure_shape = pressure.shape
-            mean = torch.tensor([-0.8322, 4.6050]).to(pressure.device)
-            std = torch.tensor([7.4013, 9.7232]).to(pressure.device)
+            mean = torch.tensor([0.8845, -0.0002054]).to(pressure.device)
+            std = torch.tensor([0.5875, 0.1286]).to(pressure.device)
             pressure = pressure.reshape(-1, 2)
             pressure = (pressure * std) + mean
             pressure = pressure.reshape(pressure_shape)
         if velocity is not None:
             velocity_shape = velocity.shape
-            mean = torch.tensor([-0.0015, 0.2211]).to(velocity.device).view(-1, 2)
-            std = torch.tensor([1.7970, 2.0258]).to(velocity.device).view(-1, 2)
+            mean = torch.tensor([0.04064, 0.04064]).to(velocity.device).view(-1, 2)
+            std = torch.tensor([0.2924, 0.2924]).to(velocity.device).view(-1, 2)
             velocity = velocity.reshape(-1, 2)
             velocity = velocity * std + mean
             velocity = velocity.reshape(velocity_shape)

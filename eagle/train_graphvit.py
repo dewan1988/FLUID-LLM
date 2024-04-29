@@ -9,18 +9,19 @@ from Models.GraphViT import GraphViT
 import argparse
 from tqdm import tqdm
 import os
+from collections import deque
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
-parser.add_argument('--lr', default=3e-4, type=float, help="Learning rate")
+parser.add_argument('--epoch', default=180, type=int, help="Number of epochs, set to 0 to evaluate")
+parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=4, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_train', default=6, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
-parser.add_argument('--batchsize', default=8, type=int, help="Batch size")
+parser.add_argument('--batchsize', default=1, type=int, help="Batch size")
 parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
@@ -75,26 +76,11 @@ def collate(X):
 
 
 def get_loss(velocity, pressure, output, state_hat, target, mask):
-    velocity = velocity[:, 1:]
-    pressure = pressure[:, 1:]
-    velocity_hat = state_hat[:, 1:, :, :2]
     mask = mask[:, 1:].unsqueeze(-1)
-
-    rmse_velocity = torch.sqrt(((velocity * mask - velocity_hat * mask) ** 2).mean(dim=(-1)))
-    loss_velocity = torch.mean(rmse_velocity)
-    losses = {}
-
-    pressure_hat = state_hat[:, 1:, :, 2:]
-    rmse_pressure = torch.sqrt(((pressure * mask - pressure_hat * mask) ** 2).mean(dim=(-1)))
-    loss_pressure = torch.mean(rmse_pressure)
-
     loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask,
                                                                                   output[..., 2:] * mask)
-    loss = loss
 
-    losses['MSE_pressure'] = loss_pressure
-    losses['loss'] = loss
-    losses['MSE_velocity'] = loss_velocity
+    losses = {'loss': loss}
 
     return losses
 
@@ -141,9 +127,9 @@ def main():
     name = args.name
 
     train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=True,
-                               n_cluster=args.n_cluster, normalize=True)
+                                    n_cluster=args.n_cluster, normalize=True)
     valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=True,
-                               n_cluster=args.n_cluster, normalize=True)
+                                    n_cluster=args.n_cluster, normalize=True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCHSIZE, shuffle=True, num_workers=4,
                                   pin_memory=False, collate_fn=collate)
@@ -157,11 +143,15 @@ def main():
     params = sum([np.prod(p.size()) for p in model_parameters])
     print("#params:", params)
 
+    loss_buff = []
+
     memory = torch.inf
     for epoch in range(args.epoch):
+        print()
         model.train()
 
-        for i, x in enumerate(tqdm(train_dataloader, desc="Training")):
+        tqdm_iter = tqdm(train_dataloader, desc="Training")
+        for i, x in enumerate(tqdm_iter):
             mesh_pos = x["mesh_pos"].to(device)
             edges = x['edges'].to(device).long()
             velocity = x["velocity"].to(device)
@@ -172,6 +162,7 @@ def main():
             clusters_mask = x["cluster_mask"].to(device).long()
 
             state = torch.cat([velocity, pressure], dim=-1)
+
             state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
                                               apply_noise=True)
 
@@ -184,6 +175,16 @@ def main():
             optim.zero_grad()
             costs['loss'].backward()
             optim.step()
+
+            loss_buff.append(costs['loss'])
+
+            if i % 10 == 0:
+                with torch.no_grad():
+                    avg_loss = torch.stack(loss_buff[-10:]).mean()
+                    tqdm_iter.set_description(f'Loss : {avg_loss.item() :.4g}')
+                    tqdm_iter.refresh()
+
+        print(f"Average loss: {torch.stack(loss_buff).mean().item():4g}")
 
         error = validate(model, valid_dataloader, epoch=epoch)
         if error < memory:

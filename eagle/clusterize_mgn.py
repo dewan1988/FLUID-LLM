@@ -6,12 +6,13 @@ from tqdm import tqdm
 import os
 import numba
 import pickle
+from matplotlib import pyplot as plt
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--max_cluster_size', type=int, default=10)
 args = parser.parse_args()
 
-PATH = "../ds/MGN/cylinder_dataset"
+PATH = "./ds/MGN/cylinder_dataset/valid"
 
 
 class FluentDataset:
@@ -36,7 +37,6 @@ class FluentDataset:
 
         mesh_pos = data["mesh_pos"].astype(np.float32)
 
-        # node_type = data['mask'].astype(np.int32)
         node_type = data["node_type"]
         node_type = node_type.reshape(-1)
 
@@ -238,8 +238,6 @@ def main():
     dataloader = FluentDataset()
     for i in range(len(dataloader)):
         print(f"Processing {i} ({args.max_cluster_size}):")
-        save_name = dataloader.dataloc[i].split("/")[-1][:-4]
-        path = os.path.join(PATH, f"constrained_kmeans__{args.max_cluster_size}_{save_name}.npy")
 
         x = dataloader[i]
 
@@ -261,6 +259,9 @@ def main():
 
         stacked_clusters = process(labels, args.max_cluster_size)
         stacked_clusters = np.array(stacked_clusters).astype(np.int32)
+
+        save_name = dataloader.dataloc[i].split("/")[-1][:-4]
+        path = os.path.join(PATH, f"constrained_kmeans_{args.max_cluster_size}_{save_name}.npy")
         np.save(path, stacked_clusters)
 
 
