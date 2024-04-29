@@ -60,7 +60,7 @@ decoder_params:
 # Teacher forcing params
 teacher_forcing:
     tf_prob: 1
-    start_epoch: 1000
+    start_epoch: 0
 
 # Dataloader params
 autoreg_seq_len: 10
@@ -77,8 +77,8 @@ seq_len: null
 
 
 # Logging params
-enable_wandb: true
-save_on: true
+enable_wandb: false
+save_on: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

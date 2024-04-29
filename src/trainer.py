@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 from utils import get_available_device, get_trainable_parameters
-from utils_model import calc_n_rmse, patch_to_img, normalise_diffs, normalise_states
+from utils_model import calc_n_rmse, patch_to_img, normalise_diffs, normalise_states, img_to_patch
 from losses import CombinedLoss
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
@@ -69,40 +69,47 @@ class Trainer:
 
         return loss, all_losses
 
-    # def run_gen_train_step(self, batch):
-    #     """ No teacher forcing. Model makes predictions for a sequence, then tries to predict diffs given generated sequence.
-    #         No grad when making predictions.
-    #     """
-    #
-    #     states, diffs, bc_mask, position_ids = batch
-    #     bs, tot_patch, channel, px, py = states.shape
-    #     seq_len = tot_patch // self.N_patch
-    #
-    #     # 1) Model makes prediction of the sequence as guide
-    #     self.model.eval()
-    #     with torch.no_grad():
-    #         guide_states, _ = self.model.gen_seq(batch, self.N_patch, pred_steps=seq_len - 1)
-    #
-    #     # 2) Model tries to predict diffs between generated sequence and next step to true sequence
-    #     # Reshape to be easier to work with
-    #     f_states = states.view(bs, seq_len, self.N_patch, channel, px, py)
-    #     f_guide_states = guide_states.view(bs, seq_len, self.N_patch, channel, px, py)
-    #     # Difference to predict
-    #     f_guide_error = f_states[:, 1:] - f_guide_states[:, :-1]
-    #     guide_error = f_guide_error.view(bs, -1, channel, px, py)
-    #     # Last guide state has no diff to predict anymore. Delete last state
-    #     guide_states = f_guide_states[:, :-1].view(bs, -1, channel, px, py)
-    #     bc_mask = bc_mask[:, :-self.N_patch]
-    #     position_ids = position_ids[:, :-self.N_patch]
-    #
-    #     # Forward pass like normal
-    #     self.model.train()
-    #     guide_batch = (guide_states, guide_error, bc_mask, position_ids)
-    #     loss, log_metrics = self.run_train_step(guide_batch)
-    #
-    #     return loss, log_metrics
-
     def run_gen_train_step(self, batch):
+        """ No teacher forcing. Model makes predictions for a sequence, then tries to predict diffs given generated sequence.
+            No grad when making predictions.
+        """
+
+        states, next_state, diffs, bc_mask, position_ids = batch
+        bs, seq_len, N_patch, channel, px, py = states.shape
+
+        self.model.eval()
+        with torch.no_grad():
+            # 1) Model makes prediction of the sequence as guide
+            guide_states, _ = self.model.gen_seq(batch, seq_len - 1)
+            guide_states = guide_states[:, :-1].contiguous()  # Predictions for current states.
+            guide_states_patch = img_to_patch(guide_states, self.ds_props)
+
+        # 2) Model tries to predict true state based on guide_state
+        self.model.train()
+        pred_diffs = self.model.forward_see_init(guide_states_patch, position_ids)  # Predictions for next states
+        pred_states = guide_states + pred_diffs
+
+        # 3) Calculate loss based on pred_state and true_state
+        next_state = patch_to_img(next_state, self.ds_props)
+        bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
+
+        if self.loss_norm_eps is not None:
+            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps)
+            loss, all_losses = self.loss_fn(preds=norm_pred_states, target=norm_next_state, mask=bc_mask)
+        else:
+            loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
+
+        # Calculate metrics
+        with torch.no_grad():
+            N_rmse = calc_n_rmse(pred_states, next_state, bc_mask)
+
+        # Log metrics
+        all_losses["loss"] = loss
+        all_losses['N_RMSE'] = N_rmse
+
+        return loss, all_losses
+
+    def run_notf_train_step(self, batch):
         """
         No teacher forcing version.
         """
