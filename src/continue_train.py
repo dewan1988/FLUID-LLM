@@ -40,7 +40,7 @@ def load_model(save_file, training_params, ds_props):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "2"
+    load_file = "04-29_03-45-04"
     load_num = 180
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
@@ -51,13 +51,13 @@ def main(args):
 
     autoreg_cfg = dict(train_cfg)
     autoreg_cfg['seq_len'] = train_cfg['autoreg_seq_len']
-    gen_cfg = dict(train_cfg)
-    gen_cfg['seq_len'] = train_cfg['tf_seq_len']
+    # gen_cfg = dict(train_cfg)
+    # gen_cfg['seq_len'] = train_cfg['tf_seq_len']
     val_cfg = dict(train_cfg)
     val_cfg['seq_len'] = train_cfg['val_seq_len']
 
     autoreg_dl, ds_props = get_data_loader(autoreg_cfg, mode="train")  # Dataloader target diffs
-    gen_dl, _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
+    gen_dl = autoreg_dl # , _ = get_data_loader(gen_cfg, mode="train")  # Dataloader returns next state
     valid_dl, _ = get_data_loader(val_cfg, mode="valid")
 
     model_components = load_model(save_file, train_cfg, ds_props)
