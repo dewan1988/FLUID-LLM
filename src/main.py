@@ -53,8 +53,7 @@ def select_run_mode(trainer: Trainer, gen_cfg: dict, train_dl, gen_dl, epoch):
             return gen_settings
         elif gen_cfg['tf_mode'] == 'notf':
             return notf_settings
-    assert False, "Invalid configuration "
-
+    assert False, f"Invalid configuration {gen_cfg['tf_mode']}"
 
 
 def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, scheduler, accelerator: Accelerator):

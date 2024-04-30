@@ -94,7 +94,7 @@ class Trainer:
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         if self.loss_norm_eps is not None:
-            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps)
+            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps, self.norm_channel_independent)
             loss, all_losses = self.loss_fn(preds=norm_pred_states, target=norm_next_state, mask=bc_mask)
         else:
             loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
@@ -127,7 +127,7 @@ class Trainer:
         bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
 
         if self.loss_norm_eps is not None:
-            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps)
+            norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_states, self.loss_norm_eps, self.norm_channel_independent)
             loss, all_losses = self.loss_fn(preds=norm_pred_states, target=norm_next_state, mask=bc_mask)
         else:
             loss, all_losses = self.loss_fn(preds=pred_states, target=next_state, mask=bc_mask)
