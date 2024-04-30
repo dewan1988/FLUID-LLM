@@ -169,13 +169,13 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 
 def main():
-    load_no = -2
+    load_no = -1
     save_epoch = 180
     seq_len = 27
     bs = 16
 
     plot_step = 25
-    plot_batch_num = 2
+    plot_batch_num = 0
 
     set_seed()
 
@@ -190,7 +190,7 @@ def main():
     ckpt = torch.load(checkpoint_file_path)
     ckpt_state_dict = ckpt['state_dict']
     ckpt_params = load_yaml_from_file(f'{load_path}/training1.yaml')
-    ckpt_params['compile'] = False
+    # ckpt_params['compile'] = False
 
     # Get dataloader
     ckpt_params['seq_len'] = ckpt_params['autoreg_seq_len']

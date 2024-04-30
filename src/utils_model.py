@@ -29,7 +29,7 @@ def get_data_loader(config, mode="train"):
     return dl, ds_props
 
 
-def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor = None):
+def aux_calc_n_rmse(preds: torch.Tensor, target: torch.Tensor, bc_mask: torch.Tensor):
     error = (preds - target) * (~bc_mask)
     # RMSE of each state
     mse = error.pow(2).mean(dim=(-1, -2, -3))

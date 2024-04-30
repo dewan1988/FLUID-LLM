@@ -165,8 +165,6 @@ class MGNDataset(Dataset):
 
     def _get_full_seq(self, save_file=None, step_num=None):
         """ Returns numpy arrays of sequence, ready to be patched.
-            Required to avoid pytorch multiprocessing bug.
-
             Return shape: (seq_len, C+1, H, W)
         """
         if save_file is None:
