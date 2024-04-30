@@ -209,7 +209,7 @@ class MGNDataset(Dataset):
         s2_mean, s2_var = 0.04763, 0.07536
 
         means = torch.tensor([s0_mean, s1_mean, s2_mean]).reshape(1, 1, 3, 1, 1)
-        stds = torch.tensor([0.275, 0.275, 0.2745]).reshape(1, 1, 3, 1, 1)
+        stds = torch.tensor([0.275, 0.275, 0.275]).reshape(1, 1, 3, 1, 1)
 
         # Normalise states
         states = states - means
