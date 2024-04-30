@@ -145,7 +145,7 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     mask = torch.from_numpy(mask)
     mask = mask.view(1, 1, 1, mask.shape[0], mask.shape[1]).repeat(1, seq_len, 3, 1, 1)
 
-    print(f'{true_imgs.shape = }, {pred_imgs.shape = }, {mask.shape = }')
+    # print(f'{true_imgs.shape = }, {pred_imgs.shape = }, {mask.shape = }')
     rmse = calc_n_rmse(pred_imgs, true_imgs, mask).mean()
     return rmse
     #
