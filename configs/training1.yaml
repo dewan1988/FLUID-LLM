@@ -33,7 +33,7 @@ schedule_gamma: 0.75
 pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
 loss_norm_eps: 0.1
-channel_independent: true
+channel_independent: false
 
 #  Positional embedding params
 pos_embedding_params:
@@ -59,12 +59,12 @@ decoder_params:
 
 # Teacher forcing params
 teacher_forcing:
-    tf_mode: "notf" # "gen", "notf"
+    tf_mode: "gen" # "gen", "notf"
     tf_prob: 0
     start_epoch: 0
 
 # Dataloader params
-autoreg_seq_len: 10
+autoreg_seq_len: 6
 # gen_seq_len: 10
 val_seq_len: 26
 num_workers: 8
@@ -76,10 +76,9 @@ normalize_ds: true
 seq_interval: 2
 seq_len: null
 
-
 # Logging params
-enable_wandb: false
-save_on: false
+enable_wandb: true
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 

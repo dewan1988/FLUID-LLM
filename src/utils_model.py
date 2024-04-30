@@ -93,7 +93,7 @@ def img_to_patch(img, ds_props: DSProps):
     return patches
 
 
-def normalise_diffs(targs, preds, norm_const, channel_independent):
+def normalise_diffs(targs, preds, norm_const, channel_indep):
     """ Normalise differences.
         Scale predictions and targets between batch based on true targets
 
@@ -101,7 +101,7 @@ def normalise_diffs(targs, preds, norm_const, channel_independent):
     """
     # print(f'{targs.shape = }, {preds.shape = }')
 
-    if channel_independent:
+    if channel_indep:
         targ_std = targs.std(dim=(-1, -2, -4), keepdim=True)  # Std pixels and seq_len
     else:
         targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)    # Std pixels, channels and seq_len
@@ -111,14 +111,17 @@ def normalise_diffs(targs, preds, norm_const, channel_independent):
     return targs, preds
 
 
-def normalise_states(diffs, targs, preds, norm_const):
+def normalise_states(diffs, targs, preds, norm_const, channel_indep):
     """ Normalise states.
         Scale predictions and targets between batch based on diffs
         diffs.shape = (bs, seq_len, N_patch, channel, px, py)
         targs.shape = (bs, seq_len, channel, tot_px, tot_py)
     """
 
-    diff_std = diffs.std(dim=(-1, -2, -3, -4)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)  # Std pixels, channels and seq_len]
+    if channel_indep:
+        diff_std = diffs.std(dim=(-1, -2, -4, -5), keepdim=True).squeeze(1)
+    else:
+        diff_std = diffs.std(dim=(-1, -2, -3, -4, -5), keepdim=True).squeeze(-1)  # Std pixels, channels and seq_len]
 
     targs = targs / (diff_std + norm_const)
     preds = preds / (diff_std + norm_const)
