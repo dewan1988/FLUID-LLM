@@ -163,7 +163,7 @@ def main():
 
             state = torch.cat([velocity, pressure], dim=-1)
 
-            state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
+            state_hat, output, target = model.forward(mesh_pos, edges, state, node_type, clusters, clusters_mask,
                                               apply_noise=True)
 
             state_hat[..., :2], state_hat[..., 2:] = train_dataset.denormalize(state_hat[..., :2],

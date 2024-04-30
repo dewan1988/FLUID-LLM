@@ -25,15 +25,16 @@ optimizer: adamw
 learning_rate: 10e-4
 weight_decay: 1.0e-5
 loss_function: ['mae', 'mse']
-loss_weighting: [0.2, 10]
+loss_weighting: [0.1, 10]
 schedule_epoch: 50
 schedule_gamma: 0.75
 
-# Model weights
+# Train modifications
 pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
 loss_norm_eps: 0.1
 channel_independent: false
+noise: null
 
 #  Positional embedding params
 pos_embedding_params:
@@ -61,10 +62,10 @@ decoder_params:
 teacher_forcing:
     tf_mode: "gen" # "gen", "notf"
     tf_prob: 0
-    start_epoch: 0
+    start_epoch: 10000
 
 # Dataloader params
-autoreg_seq_len: 6
+autoreg_seq_len: 10
 # gen_seq_len: 10
 val_seq_len: 26
 num_workers: 8

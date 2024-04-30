@@ -117,7 +117,7 @@ def normalise_states(diffs, targs, preds, norm_const, channel_indep):
         diffs.shape = (bs, seq_len, N_patch, channel, px, py)
         targs.shape = (bs, seq_len, channel, tot_px, tot_py)
     """
-
+    # print(f'{diffs.shape = }, {targs.shape = }, {preds.shape = }')
     if channel_indep:
         diff_std = diffs.std(dim=(-1, -2, -4, -5), keepdim=True).squeeze(1)
     else:
