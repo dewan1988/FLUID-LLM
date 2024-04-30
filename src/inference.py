@@ -190,6 +190,7 @@ def main():
     ckpt = torch.load(checkpoint_file_path)
     ckpt_state_dict = ckpt['state_dict']
     ckpt_params = load_yaml_from_file(f'{load_path}/training1.yaml')
+    ckpt_params['compile'] = False
 
     # Get dataloader
     ckpt_params['seq_len'] = ckpt_params['autoreg_seq_len']

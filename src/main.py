@@ -4,20 +4,23 @@ Main entrypoint for training
 import os
 import sys
 import argparse
-import logging
 from random import random
 from cprint import c_print
 import numpy as np
 import torch
 import wandb
 from accelerate import Accelerator
-from tqdm import trange, tqdm
+from tqdm import tqdm
+import time
+import logging
 
 from trainer import Trainer
 from utils_model import get_data_loader
 from utils import set_seed, load_yaml_from_file, get_available_device, get_accelerator, make_save_folder, save_cfg, process_metrics
 from models.model import MultivariateTimeLLM
 from dataloader.ds_props import DSProps
+
+torch._logging.set_logs(dynamo=logging.CRITICAL)
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
@@ -92,13 +95,11 @@ def val_epoch(val_dl, trainer, accelerator: Accelerator):
 
 
 def train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optimizer, scheduler, accelerator, start_ep=0):
+    st = time.time()
     val_steps = len(valid_dl)
-
-    epoch_iterator = trange(train_cfg["num_epochs"], desc="Training", position=0, leave=True)
-    for epoch_idx, epoch in enumerate(epoch_iterator):
-        print()
+    for epoch_idx in range(train_cfg["num_epochs"]):
         # Train Step
-        run_fn, run_dl, run_mode = select_run_mode(trainer, train_cfg['teacher_forcing'], autoreg_dl, gen_dl, epoch + start_ep)
+        run_fn, run_dl, run_mode = select_run_mode(trainer, train_cfg['teacher_forcing'], autoreg_dl, gen_dl, epoch_idx + start_ep)
 
         train_log_metrics = run_train_epoch(run_fn=run_fn,
                                             dataloader=run_dl,
@@ -116,12 +117,14 @@ def train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optim
         val_log, val_loss, val_nmrse = process_metrics(val_metrics, val_steps, "Gen", "val")
         wandb.log(val_log, step=epoch_idx + start_ep)
 
-        epoch_iterator.set_description(
+        t = time.time() - st
+        st = time.time()
+        print(
             f"Epoch: {epoch_idx + 1}: "
             f"Training (Loss: {loss:.4g} | N_RMSE: {nrmse:.5g}) - "
             f"Validation (Loss: {val_loss:.4g} | N_RMSE: {val_nmrse:.5g})"
+            f"      Time: {t:.1f}"
         )
-        epoch_iterator.refresh()
 
         # Save model checkpoint
         if train_cfg['save_on'] and train_cfg['save_model_each'] > 0 and epoch_idx % train_cfg['save_model_each'] == 0 and epoch_idx > 0:

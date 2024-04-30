@@ -34,7 +34,7 @@ pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
 loss_norm_eps: 0.1
 channel_independent: false
-noise: null
+noise: 0.05
 
 #  Positional embedding params
 pos_embedding_params:
@@ -82,5 +82,5 @@ enable_wandb: true
 save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
-
+compile: true
 
