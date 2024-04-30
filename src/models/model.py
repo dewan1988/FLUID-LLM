@@ -54,6 +54,10 @@ class MultivariateTimeLLM(nn.Module):
             attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
         )
 
+        if config['compile']:
+            c_print("Compiling LLM", color='green')
+            self.backbone = torch.compile(self.backbone)
+
         # BOS token if needed
         if config['use_bos_token']:
             self.tokenizer = AutoTokenizer.from_pretrained(
