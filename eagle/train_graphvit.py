@@ -198,7 +198,7 @@ def main():
         print(f"Average loss: {torch.stack(loss_buff).mean().item():4g}")
 
         error = validate(model, valid_dataloader, epoch=epoch)
-        if error < memory:
+        if error < memory or epoch % 5 == 0:
             memory = error
             os.makedirs(f"./eagle/trained_models/graphvit/", exist_ok=True)
 
