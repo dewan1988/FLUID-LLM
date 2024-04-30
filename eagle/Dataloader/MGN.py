@@ -170,3 +170,63 @@ def faces_to_edges(faces):
     unique_edges = torch.cat([unique_edges, torch.flip(unique_edges, dims=[-1])], dim=1)
 
     return unique_edges
+
+
+if __name__ == "__main__":
+    from torch.utils.data import DataLoader
+
+
+    def collate(X):
+        """ Convoluted function to stack simulations together in a batch. Basically, we add ghost nodes
+        and ghost edges so that each sim has the same dim. This is useless when batchsize=1 though..."""
+        N_max = max([x["mesh_pos"].shape[-2] for x in X])
+        E_max = max([x["edges"].shape[-2] for x in X])
+        C_max = max([x["cluster"].shape[-2] for x in X])
+
+        for batch, x in enumerate(X):
+            # This step add fantom nodes to reach N_max + 1 nodes
+            for key in ['mesh_pos', 'velocity', 'pressure']:
+                tensor = x[key]
+                T, N, S = tensor.shape
+                x[key] = torch.cat([tensor, torch.zeros(T, N_max - N + 1, S)], dim=1)
+
+            tensor = x["node_type"]
+            T, N, S = tensor.shape
+            x["node_type"] = torch.cat([tensor, 2 * torch.ones(T, N_max - N + 1, S)], dim=1)
+
+            x["cluster_mask"] = torch.ones_like(x["cluster"])
+            x["cluster_mask"][x["cluster"] == -1] = 0
+            x["cluster"][x["cluster"] == -1] = N_max
+
+            if x["cluster"].shape[1] < C_max:
+                c = x["cluster"].shape[1]
+                x["cluster"] = torch.cat(
+                    [x["cluster"], N_max * torch.ones(x["cluster"].shape[0], C_max - c, x['cluster'].shape[-1])], dim=1)
+                x["cluster_mask"] = torch.cat(
+                    [x["cluster_mask"], torch.zeros(x["cluster_mask"].shape[0], C_max - c, x['cluster'].shape[-1])], dim=1)
+
+            edges = x['edges']
+            T, E, S = edges.shape
+            x['edges'] = torch.cat([edges, N_max * torch.ones(T, E_max - E + 1, S)], dim=1)
+
+            x['mask'] = torch.cat([torch.ones(T, N), torch.zeros(T, N_max - N + 1)], dim=1)
+
+        output = {key: None for key in X[0].keys()}
+        for key in output.keys():
+            if key != "example":
+                output[key] = torch.stack([x[key] for x in X], dim=0)
+            else:
+                output[key] = [x[key] for x in X]
+
+        return output
+
+
+    train_dataset = EagleMGNDataset("./ds/MGN/cylinder_dataset", mode="train", window_length=6, with_cluster=True,
+                                    n_cluster=10, normalize=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=4,
+                                  pin_memory=True, collate_fn=collate)
+
+    for _ in range(1000):
+        for i, _ in enumerate(train_dataloader):
+            print(i)
+            pass

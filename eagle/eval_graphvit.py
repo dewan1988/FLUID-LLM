@@ -76,7 +76,7 @@ def collate(X):
 
 def evaluate():
     print(args)
-    length = 27
+    length = 51
     dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length,
                               with_cluster=True, n_cluster=args.n_cluster, normalize=True, with_cells=True)
 

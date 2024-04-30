@@ -10,6 +10,7 @@ import argparse
 from tqdm import tqdm
 import os
 from collections import deque
+import gc
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', default=180, type=int, help="Number of epochs, set to 0 to evaluate")
@@ -22,7 +23,7 @@ parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes p
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--batchsize', default=1, type=int, help="Batch size")
-parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='test', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 BATCHSIZE = args.batchsize
@@ -118,14 +119,7 @@ def validate(model, dataloader, epoch=0, vizu=False):
     return results
 
 
-def main():
-    print(args)
-    torch.manual_seed(0)
-    random.seed(0)
-    np.random.seed(0)
-
-    name = args.name
-
+def get_components(args, load=None):
     train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=True,
                                     n_cluster=args.n_cluster, normalize=True)
     valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=True,
@@ -135,10 +129,27 @@ def main():
                                   pin_memory=False, collate_fn=collate)
     valid_dataloader = DataLoader(valid_dataset, batch_size=BATCHSIZE, shuffle=False, num_workers=4,
                                   pin_memory=True, collate_fn=collate)
-
     model = GraphViT(state_size=4, w_size=args.w_size).to(device)
-
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
+    if load is not None:
+        ckpt = torch.load(load)
+        model.load_state_dict(ckpt['model_state_dict'])
+        optim.load_state_dict(ckpt['optimizer_state_dict'])
+
+    return model, optim, train_dataloader, valid_dataloader, train_dataset, valid_dataset
+
+
+def main():
+    print(args)
+    torch.manual_seed(0)
+    random.seed(0)
+    np.random.seed(0)
+
+    name = args.name
+
+    load_dir = "./eagle/trained_models/graphvit/test_10.nn"
+    model, optim, train_dataloader, valid_dataloader, train_dataset, valid_dataset = get_components(args, load_dir)
+
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print("#params:", params)
@@ -190,8 +201,18 @@ def main():
         if error < memory:
             memory = error
             os.makedirs(f"./eagle/trained_models/graphvit/", exist_ok=True)
-            torch.save(model.state_dict(), f"./eagle/trained_models/graphvit/{name}.nn")
+
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optim.state_dict(),
+            }, f"./eagle/trained_models/graphvit/{name}_{epoch}.nn")
+
+            # torch.save(model.state_dict(), f"./eagle/trained_models/graphvit/{name}.nn")
             print("Saved!")
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
     validate(model, valid_dataloader)
 
 
