@@ -16,18 +16,18 @@ class GCN_layers(torch.nn.Module):
         """
         super().__init__()
 
-        layer_fn = GATv2Conv
+        # layer_fn = GATv2Conv
         # Create a list of all GCN convolutional layers
         self.convs = torch.nn.ModuleList()
         if num_layers == 1:
-            self.out_conv = layer_fn(input_dim, output_dim, add_self_loops=True, bias=False)
+            self.out_conv = GATv2Conv(input_dim, output_dim, dropout=0.1, add_self_loops=True, bias=False)
         else:
-            self.convs.append(layer_fn(input_dim, hidden_dim, add_self_loops=True))
+            self.convs.append(GATv2Conv(input_dim, hidden_dim, dropout=0.1, add_self_loops=True))
             for l in range(num_layers - 2):
-                self.convs.append(layer_fn(hidden_dim, hidden_dim, add_self_loops=True))
+                self.convs.append(GATv2Conv(hidden_dim, hidden_dim, dropout=0.1, add_self_loops=True))
 
             # Output layer
-            self.out_conv = layer_fn(hidden_dim, output_dim, add_self_loops=True)
+            self.out_conv = GATv2Conv(hidden_dim, output_dim, dropout=0.1, add_self_loops=True)
 
     def forward(self, x, edge_index):
         """
