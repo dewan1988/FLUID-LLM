@@ -4,7 +4,6 @@ Main entrypoint for training
 import os
 import sys
 import argparse
-import logging
 from random import random
 from cprint import c_print
 import numpy as np
