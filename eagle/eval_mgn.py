@@ -26,7 +26,7 @@ BATCHSIZE = 1
 @torch.inference_mode()
 def evaluate():
     print(args)
-    length = 51
+    length = 251
     dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length, with_cluster=False, normalize=False, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
@@ -59,9 +59,7 @@ def evaluate():
         pressure_hat = state_hat[:, 1:, :, 2:]
         mask = mask[:, 1:].unsqueeze(-1)
 
-        faces = x['cells']
-
-        rmse = get_nrmse(state, state_hat, mesh_pos, faces)
+        rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse)
         # plot_imgs(state, state_hat, mesh_pos, faces, plot_t)
         # plot_preds(mesh_pos, velocity_hat, velocity, 0)

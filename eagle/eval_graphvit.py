@@ -10,8 +10,6 @@ import argparse
 from tqdm import tqdm
 import os
 
-from matplotlib import pyplot as plt
-import matplotlib.tri as tri
 from eagle_utils import get_nrmse, plot_preds
 
 torch.set_float32_matmul_precision('high')
@@ -92,8 +90,8 @@ def evaluate():
 
     model.eval()
 
-    error_velocity = torch.zeros(length - 1).to(device)
-    error_pressure = torch.zeros(length - 1).to(device)
+    error_velocity = torch.zeros(length).to(device)
+    error_pressure = torch.zeros(length).to(device)
 
     os.makedirs(f"../Results/graphvit", exist_ok=True)
     rmses = []
@@ -110,15 +108,15 @@ def evaluate():
         state = torch.cat([velocity, pressure], dim=-1)
         state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
                                           apply_noise=False)
-        state_hat[..., :2], state_hat[..., 2:] = dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
 
+        state_hat[..., :2], state_hat[..., 2:] = dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
         velocity, pressure = dataset.denormalize(velocity, pressure)
 
-        velocity = velocity[:, 1:]
-        pressure = pressure[:, 1:]
-        velocity_hat = state_hat[:, 1:, :, :2]
-        pressure_hat = state_hat[:, 1:, :, 2:]
-        mask = mask[:, 1:].unsqueeze(-1)
+        velocity = velocity[:, ]
+        pressure = pressure[:, :]
+        velocity_hat = state_hat[:, :, :, :2]
+        pressure_hat = state_hat[:, :, :, 2:]
+        mask = mask[:, :].unsqueeze(-1)
 
         rmse_velocity = torch.sqrt((velocity[0] * mask[0] - velocity_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
         rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
@@ -131,17 +129,17 @@ def evaluate():
         error_velocity = error_velocity + rmse_velocity
         error_pressure = error_pressure + rmse_pressure
 
-        # if i == 4:
-        #     t = 15
-        #     plot_preds(mesh_pos, velocity_hat, velocity, t, title=f"Step {i}, t = {t}")
-        #     print(f'{rmse_velocity = }')
-        #     exit(5)
-        faces = x['cells']
-
         # print(f'{state.shape = }, {state_hat.shape = }, {mesh_pos.shape = }, {faces.shape = }')
         state = torch.cat([velocity, pressure], dim=-1)
-        rmse = get_nrmse(state, state_hat, mesh_pos, faces)
+        rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse)
+
+        # if i == 10:
+        #     t = 49
+        #     plot_preds(mesh_pos, state_hat, state, t, title=f"Step {i}, t = {t}")
+        #     rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
+        #     print(f'{rmse = }')
+        #     exit(5)
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)

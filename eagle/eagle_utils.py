@@ -10,19 +10,20 @@ def plot_graph(mesh_pos, velocity_hat, ax):
     ax.tripcolor(triangulation, velocity_hat)
 
 
-def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no, title=None):
+def plot_preds(mesh_pos, state_hat, state_true, step_no, title=None):
     mesh_pos = mesh_pos[0, step_no].cpu().numpy()
-    velocity_hat = velocity_hat[0, step_no, :].cpu().numpy()
-    velocity_true = velocity_true[0, step_no].cpu().numpy()
+    state_hat = state_hat[0, step_no].cpu().numpy()
+    state_true = state_true[0, step_no].cpu().numpy()
 
-    fig, axs = plt.subplots(2, 2, figsize=(20, 8))
+    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
     fig.suptitle(title)
     for i, ax in enumerate(axs):
-        vel_hat = velocity_hat[:, i]
-        vel_true = velocity_true[:, i]
+        vel_hat = state_hat[:, i]
+        vel_true = state_true[:, i]
         plot_graph(mesh_pos, vel_true, ax[0])
         plot_graph(mesh_pos, vel_hat, ax[1])
-
+        ax[0].axis('off'), ax[1].axis('off')
+    plt.tight_layout()
     plt.show()
 
 
@@ -112,7 +113,16 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     true_imgs, pred_imgs = true_imgs.unsqueeze(0), pred_imgs.unsqueeze(0)
     mask = torch.from_numpy(mask)
     mask = mask.view(1, 1, 1, mask.shape[0], mask.shape[1]).repeat(1, seq_len, 3, 1, 1)
-
+    #
+    # print(pred_imgs.shape)
+    # plt.imshow(pred_imgs[0, 49, 0].cpu().numpy().T)
+    # plt.tight_layout()
+    # plt.show()
+    #
+    # plt.imshow(true_imgs[0, 49, 0].cpu().numpy().T)
+    # plt.tight_layout()
+    # plt.show()
+    # exit(7)
     rmse = calc_n_rmse(pred_imgs, true_imgs, mask).mean()
 
     return rmse

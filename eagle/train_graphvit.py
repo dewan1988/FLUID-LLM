@@ -18,12 +18,12 @@ parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=5, type=int, help="Number of timestep to train on")
-parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
+parser.add_argument('--horizon_train', default=3, type=int, help="Number of timestep to train on")
+parser.add_argument('--n_cluster', default=0, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--batchsize', default=1, type=int, help="Batch size")
-parser.add_argument('--name', default='test', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='no_clust', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 BATCHSIZE = args.batchsize
@@ -146,7 +146,7 @@ def main():
 
     name = args.name
 
-    load_dir = "./eagle/trained_models/graphvit/test_10.nn"
+    load_dir = None # "./eagle/trained_models/graphvit/test_10.nn"
     model, optim, train_dataloader, valid_dataloader, train_dataset, valid_dataset = get_components(args, load_dir)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
