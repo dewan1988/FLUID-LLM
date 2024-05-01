@@ -177,8 +177,7 @@ def main():
             state_hat, output, target = model.forward(mesh_pos, edges, state, node_type, clusters, clusters_mask,
                                                       apply_noise=True)
 
-            state_hat[..., :2], state_hat[..., 2:] = train_dataset.denormalize(state_hat[..., :2],
-                                                                               state_hat[..., 2:])
+            state_hat[..., :2], state_hat[..., 2:] = train_dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
             velocity, pressure = train_dataset.denormalize(velocity, pressure)
 
             costs = get_loss(velocity, pressure, output, state_hat, target, mask)
