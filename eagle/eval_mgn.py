@@ -28,7 +28,6 @@ def evaluate():
     print(args)
     length = 51
     dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length, with_cluster=False, normalize=False, with_cells=True)
-    # wandb.init(project="FluidFlow", entity="sj777", config={}, mode='disabled', name=args.name)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
     model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
@@ -74,7 +73,6 @@ def evaluate():
 
         rmse_velocity = torch.sqrt(vel_error.pow(2).mean(dim=(-1, -2)))
         rmse_pressure = torch.sqrt(pres_error.pow(2).mean(dim=(-1, -2)))
-        # rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
 
         rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
                                                                           device=device)
@@ -83,7 +81,6 @@ def evaluate():
 
         error_velocity = error_velocity + rmse_velocity
         error_pressure = error_pressure + rmse_pressure
-        tot_error = error_velocity + error_pressure
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)
