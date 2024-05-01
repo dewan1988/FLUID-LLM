@@ -196,6 +196,7 @@ def main():
                     tqdm_iter.refresh()
 
         print(f"Average loss: {torch.stack(loss_buff).mean().item():4g}")
+        loss_buff = []
 
         error = validate(model, valid_dataloader, epoch=epoch)
         if error < memory or epoch % 5 == 0:
