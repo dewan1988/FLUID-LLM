@@ -170,7 +170,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 def main():
     load_no = -1
-    save_epoch = 180
+    save_epoch = 160
     seq_len = 27
     bs = 16
 
