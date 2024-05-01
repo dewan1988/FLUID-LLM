@@ -206,7 +206,7 @@ class MLPGNNDecoder(Decoder):
         self.input_mlp = MLP(in_dim, self.mlp_out_dim, hid_dim=self.mlp_hid_dim, num_layers=2, act='softplus', zero_last=False)
         # GNN
         self.GNN = GCN_layers(self.gnn_dim, self.gnn_hid_dim, 3, num_layers=self.gnn_layers)
-        self.GNN = torch.compile(self.GNN)
+        self.GNN = torch.compile(self.GNN, mode='max-autotune')
 
         # Indices for edges
         mesh_edges = make_edge_idx(self.Npy_mesh, self.Npx_mesh)

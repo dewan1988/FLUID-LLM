@@ -126,7 +126,7 @@ def get_components(args, load=None):
                                     n_cluster=args.n_cluster, normalize=True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCHSIZE, shuffle=True, num_workers=4,
-                                  pin_memory=False, collate_fn=collate)
+                                  pin_memory=True, collate_fn=collate)
     valid_dataloader = DataLoader(valid_dataset, batch_size=BATCHSIZE, shuffle=False, num_workers=4,
                                   pin_memory=True, collate_fn=collate)
     model = GraphViT(state_size=4, w_size=args.w_size).to(device)
