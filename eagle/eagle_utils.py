@@ -10,12 +10,13 @@ def plot_graph(mesh_pos, velocity_hat, ax):
     ax.tripcolor(triangulation, velocity_hat)
 
 
-def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no):
+def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no, title=None):
     mesh_pos = mesh_pos[0, step_no].cpu().numpy()
     velocity_hat = velocity_hat[0, step_no, :].cpu().numpy()
     velocity_true = velocity_true[0, step_no].cpu().numpy()
 
     fig, axs = plt.subplots(2, 2, figsize=(20, 8))
+    fig.suptitle(title)
     for i, ax in enumerate(axs):
         vel_hat = velocity_hat[:, i]
         vel_true = velocity_true[:, i]
@@ -113,4 +114,5 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     mask = mask.view(1, 1, 1, mask.shape[0], mask.shape[1]).repeat(1, seq_len, 3, 1, 1)
 
     rmse = calc_n_rmse(pred_imgs, true_imgs, mask).mean()
+
     return rmse

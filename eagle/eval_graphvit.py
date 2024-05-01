@@ -23,7 +23,7 @@ parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
-parser.add_argument('--name', default='Eagle3', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='test_137', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,7 +87,8 @@ def evaluate():
     model = GraphViT(state_size=4, w_size=args.w_size).to(device)
 
     model.load_state_dict(
-        torch.load(f"./eagle/trained_models/graphvit/{args.name}.nn", map_location=device))
+        torch.load(f"./eagle/trained_models/graphvit/{args.name}.nn", map_location=device)['model_state_dict']
+    )
 
     model.eval()
 
@@ -137,6 +138,8 @@ def evaluate():
         #     exit(5)
         faces = x['cells']
 
+        # print(f'{state.shape = }, {state_hat.shape = }, {mesh_pos.shape = }, {faces.shape = }')
+        state = torch.cat([velocity, pressure], dim=-1)
         rmse = get_nrmse(state, state_hat, mesh_pos, faces)
         rmses.append(rmse)
 

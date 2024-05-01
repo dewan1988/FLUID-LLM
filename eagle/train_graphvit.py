@@ -18,7 +18,7 @@ parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=6, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_train', default=5, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
@@ -175,7 +175,7 @@ def main():
             state = torch.cat([velocity, pressure], dim=-1)
 
             state_hat, output, target = model.forward(mesh_pos, edges, state, node_type, clusters, clusters_mask,
-                                              apply_noise=True)
+                                                      apply_noise=True)
 
             state_hat[..., :2], state_hat[..., 2:] = train_dataset.denormalize(state_hat[..., :2],
                                                                                state_hat[..., 2:])
