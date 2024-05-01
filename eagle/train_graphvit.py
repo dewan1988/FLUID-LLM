@@ -78,8 +78,7 @@ def collate(X):
 
 def get_loss(velocity, pressure, output, state_hat, target, mask):
     mask = mask[:, 1:].unsqueeze(-1)
-    loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask,
-                                                                                  output[..., 2:] * mask)
+    loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask, output[..., 2:] * mask)
 
     losses = {'loss': loss}
 
