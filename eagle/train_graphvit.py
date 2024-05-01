@@ -208,7 +208,6 @@ def main():
                 'optimizer_state_dict': optim.state_dict(),
             }, f"./eagle/trained_models/graphvit/{name}_{epoch}.nn")
 
-            # torch.save(model.state_dict(), f"./eagle/trained_models/graphvit/{name}.nn")
             print("Saved!")
 
         gc.collect()
