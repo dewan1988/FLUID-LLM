@@ -196,6 +196,7 @@ class GNNDecoder(Decoder):
 class MLPGNNDecoder(Decoder):
     def __init__(self, in_dim, out_dim, ds_props: DSProps, params):
         super().__init__(ds_props)
+        self.dropout = params['dropout']
         self.gnn_dim = params['gnn_dim']
         self.gnn_layers = params['gnn_layers']
         self.gnn_hid_dim = params['gnn_hid_dim']
@@ -205,8 +206,8 @@ class MLPGNNDecoder(Decoder):
         # Trainable MLP input layer
         self.input_mlp = MLP(in_dim, self.mlp_out_dim, hid_dim=self.mlp_hid_dim, num_layers=2, act='softplus', zero_last=False)
         # GNN
-        self.GNN = GCN_layers(self.gnn_dim, self.gnn_hid_dim, 3, num_layers=self.gnn_layers)
-        self.GNN = torch.compile(self.GNN, mode='max-autotune')
+        self.GNN = GCN_layers(self.gnn_dim, self.gnn_hid_dim, 3, num_layers=self.gnn_layers, dropout=self.dropout)
+        self.GNN = torch.compile(self.GNN)
 
         # Indices for edges
         mesh_edges = make_edge_idx(self.Npy_mesh, self.Npx_mesh)

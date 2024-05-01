@@ -12,6 +12,7 @@ import os
 
 from matplotlib import pyplot as plt
 import matplotlib.tri as tri
+from eagle_utils import get_nrmse, plot_preds
 
 torch.set_float32_matmul_precision('high')
 
@@ -74,6 +75,7 @@ def collate(X):
     return output
 
 
+@torch.inference_mode
 def evaluate():
     print(args)
     length = 51
@@ -87,52 +89,56 @@ def evaluate():
     model.load_state_dict(
         torch.load(f"./eagle/trained_models/graphvit/{args.name}.nn", map_location=device))
 
-    with torch.no_grad():
-        model.eval()
+    model.eval()
 
-        error_velocity = torch.zeros(length - 1).to(device)
-        error_pressure = torch.zeros(length - 1).to(device)
+    error_velocity = torch.zeros(length - 1).to(device)
+    error_pressure = torch.zeros(length - 1).to(device)
 
-        os.makedirs(f"../Results/graphvit", exist_ok=True)
-        for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
-            mesh_pos = x["mesh_pos"].to(device)
-            edges = x['edges'].to(device).long()
-            velocity = x["velocity"].to(device)
-            pressure = x["pressure"].to(device)
-            node_type = x["node_type"].to(device)
-            mask = x["mask"].to(device)
-            clusters = x["cluster"].to(device).long()
-            clusters_mask = x["cluster_mask"].to(device).long()
+    os.makedirs(f"../Results/graphvit", exist_ok=True)
+    rmses = []
+    for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
+        mesh_pos = x["mesh_pos"].to(device)
+        edges = x['edges'].to(device).long()
+        velocity = x["velocity"].to(device)
+        pressure = x["pressure"].to(device)
+        node_type = x["node_type"].to(device)
+        mask = x["mask"].to(device)
+        clusters = x["cluster"].to(device).long()
+        clusters_mask = x["cluster_mask"].to(device).long()
 
-            state = torch.cat([velocity, pressure], dim=-1)
-            state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
-                                              apply_noise=False)
-            state_hat[..., :2], state_hat[..., 2:] = dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
+        state = torch.cat([velocity, pressure], dim=-1)
+        state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
+                                          apply_noise=False)
+        state_hat[..., :2], state_hat[..., 2:] = dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
 
-            velocity, pressure = dataset.denormalize(velocity, pressure)
+        velocity, pressure = dataset.denormalize(velocity, pressure)
 
-            velocity = velocity[:, 1:]
-            pressure = pressure[:, 1:]
-            velocity_hat = state_hat[:, 1:, :, :2]
-            pressure_hat = state_hat[:, 1:, :, 2:]
-            mask = mask[:, 1:].unsqueeze(-1)
+        velocity = velocity[:, 1:]
+        pressure = pressure[:, 1:]
+        velocity_hat = state_hat[:, 1:, :, :2]
+        pressure_hat = state_hat[:, 1:, :, 2:]
+        mask = mask[:, 1:].unsqueeze(-1)
 
-            rmse_velocity = torch.sqrt((velocity[0] * mask[0] - velocity_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
-            rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
+        rmse_velocity = torch.sqrt((velocity[0] * mask[0] - velocity_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
+        rmse_pressure = torch.sqrt((pressure[0] * mask[0] - pressure_hat[0] * mask[0]).pow(2).mean(dim=-1)).mean(1)
 
-            rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
-                                                                              device=device)
-            rmse_pressure = torch.cumsum(rmse_pressure, dim=0) / torch.arange(1, rmse_pressure.shape[0] + 1,
-                                                                              device=device)
+        rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
+                                                                          device=device)
+        rmse_pressure = torch.cumsum(rmse_pressure, dim=0) / torch.arange(1, rmse_pressure.shape[0] + 1,
+                                                                          device=device)
 
-            error_velocity = error_velocity + rmse_velocity
-            error_pressure = error_pressure + rmse_pressure
+        error_velocity = error_velocity + rmse_velocity
+        error_pressure = error_pressure + rmse_pressure
 
-            # if i == 4:
-            #     t = 15
-            #     plot_preds(mesh_pos, velocity_hat, velocity, t, title=f"Step {i}, t = {t}")
-            #     print(f'{rmse_velocity = }')
-            #     exit(5)
+        # if i == 4:
+        #     t = 15
+        #     plot_preds(mesh_pos, velocity_hat, velocity, t, title=f"Step {i}, t = {t}")
+        #     print(f'{rmse_velocity = }')
+        #     exit(5)
+        faces = x['cells']
+
+        rmse = get_nrmse(state, state_hat, mesh_pos, faces)
+        rmses.append(rmse)
 
     error_velocity = error_velocity / len(dataloader)
     error_pressure = error_pressure / len(dataloader)
@@ -140,52 +146,7 @@ def evaluate():
     np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(), delimiter=",")
     np.savetxt(f"./eagle/Results/graphvit/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(), delimiter=",")
 
-
-def plot_preds(mesh_pos, velocity_hat, velocity_true, step_no, title=None):
-    mesh_pos = mesh_pos[0, step_no].cpu().numpy()
-    velocity_hat = velocity_hat[0, step_no].cpu().numpy()
-    velocity_true = velocity_true[0, step_no].cpu().numpy()
-    print(f'{velocity_true.shape}, {velocity_hat.shape}')
-
-    fig, axs = plt.subplots(2, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        vel_hat = velocity_hat[:, i]
-        vel_true = velocity_true[:, i]
-        plot_graph(mesh_pos, vel_true, ax[0])
-        plot_graph(mesh_pos, vel_hat, ax[1])
-
-    if title is not None:
-        plt.suptitle(title)
-    plt.show()
-
-
-def plot_graph(mesh_pos, velocity_hat, ax):
-    triangulation = tri.Triangulation(mesh_pos[:, 0], mesh_pos[:, 1])
-    ax.tripcolor(triangulation, velocity_hat)
-
-
-def get_loss(velocity, pressure, output, state_hat, target, mask):
-    velocity = velocity[:, 1:]
-    pressure = pressure[:, 1:]
-    velocity_hat = state_hat[:, 1:, :, :2]
-    mask = mask[:, 1:].unsqueeze(-1)
-
-    rmse_velocity = torch.sqrt(((velocity * mask - velocity_hat * mask) ** 2).mean(dim=(-1)))
-    loss_velocity = torch.mean(rmse_velocity)
-    losses = {}
-
-    pressure_hat = state_hat[:, 1:, :, 2:]
-    rmse_pressure = torch.sqrt(((pressure * mask - pressure_hat * mask) ** 2).mean(dim=(-1)))
-    loss_pressure = torch.mean(rmse_pressure)
-    loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask,
-                                                                                  output[..., 2:] * mask)
-    loss = loss
-
-    losses['MSE_pressure'] = loss_pressure
-    losses['loss'] = loss
-    losses['MSE_velocity'] = loss_velocity
-
-    return losses
+    print(f"Mean NRMSE: {np.mean(rmses)}")
 
 
 if __name__ == '__main__':
