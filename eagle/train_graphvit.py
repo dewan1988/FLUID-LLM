@@ -19,7 +19,7 @@ parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
 parser.add_argument('--horizon_train', default=3, type=int, help="Number of timestep to train on")
-parser.add_argument('--n_cluster', default=0, type=int, help="Number of nodes per cluster. 0 means no clustering")
+parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
 parser.add_argument('--alpha', default=0.1, type=float, help="Weighting for the pressure term in the loss")
 parser.add_argument('--batchsize', default=1, type=int, help="Batch size")
@@ -78,24 +78,27 @@ def collate(X):
 
 def get_loss(velocity, pressure, output, state_hat, target, mask):
     mask = mask[:, 1:].unsqueeze(-1)
-    loss = MSE(target[..., :2] * mask, output[..., :2] * mask) + args.alpha * MSE(target[..., 2:] * mask, output[..., 2:] * mask)
+
+    output, target = output * 10, target * 10
+    loss = MSE(target[..., :2] * mask, output[..., :2] * mask)
+    loss = loss + args.alpha * MSE(target[..., 2:] * mask, output[..., 2:] * mask)
 
     losses = {'loss': loss}
 
     return losses
 
 
-def validate(model, dataloader, epoch=0, vizu=False):
+def validate(model, dataloader, epoch=0):
     with torch.no_grad():
         total_loss, cpt = 0, 0
         model.eval()
         for i, x in enumerate(tqdm(dataloader, desc="Validation", total=50)):
-            mesh_pos = x["mesh_pos"].to(device)
+            mesh_pos = x["mesh_pos"].to(device).float()
             edges = x['edges'].to(device).long()
-            velocity = x["velocity"].to(device)
-            pressure = x["pressure"].to(device)
-            node_type = x["node_type"].to(device)
-            mask = x["mask"].to(device)
+            velocity = x["velocity"].to(device).float()
+            pressure = x["pressure"].to(device).float()
+            node_type = x["node_type"].to(device).long()
+            mask = x["mask"].to(device).long()
             clusters = x["cluster"].to(device).long()
             clusters_mask = x["cluster_mask"].to(device).long()
 
@@ -111,8 +114,6 @@ def validate(model, dataloader, epoch=0, vizu=False):
             total_loss += costs['loss'].item()
             cpt += mesh_pos.shape[0]
 
-            if i > 50:
-                break
     results = total_loss / cpt
     print(f"=== EPOCH {epoch + 1} ===\n{results}")
     return results
@@ -146,7 +147,7 @@ def main():
 
     name = args.name
 
-    load_dir = None # "./eagle/trained_models/graphvit/test_10.nn"
+    load_dir = None  # "./eagle/trained_models/graphvit/test_10.nn"
     model, optim, train_dataloader, valid_dataloader, train_dataset, valid_dataset = get_components(args, load_dir)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())

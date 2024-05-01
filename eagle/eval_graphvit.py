@@ -106,7 +106,7 @@ def evaluate():
         clusters_mask = x["cluster_mask"].to(device).long()
 
         state = torch.cat([velocity, pressure], dim=-1)
-        state_hat, output, target = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
+        state_hat, _, _ = model(mesh_pos, edges, state, node_type, clusters, clusters_mask,
                                           apply_noise=False)
 
         state_hat[..., :2], state_hat[..., 2:] = dataset.denormalize(state_hat[..., :2], state_hat[..., 2:])
@@ -135,8 +135,9 @@ def evaluate():
         rmses.append(rmse)
 
         # if i == 10:
-        #     t = 49
-        #     plot_preds(mesh_pos, state_hat, state, t, title=f"Step {i}, t = {t}")
+        #     t = 0
+        #     print(f'{output.shape, target.shape}')
+        #     plot_preds(mesh_pos, output, target, t, title=f"Step {i}, t = {t}")
         #     rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         #     print(f'{rmse = }')
         #     exit(5)
