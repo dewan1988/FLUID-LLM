@@ -198,7 +198,7 @@ def main():
         loss_buff = []
 
         error = validate(model, valid_dataloader, epoch=epoch)
-        if error < memory or epoch % 5 == 0:
+        if epoch % 5 == 0:
             memory = error
             os.makedirs(f"./eagle/trained_models/graphvit/", exist_ok=True)
 

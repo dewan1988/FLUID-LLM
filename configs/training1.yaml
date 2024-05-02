@@ -79,8 +79,8 @@ seq_interval: 2
 seq_len: null
 
 # Logging params
-enable_wandb: true
-save_on: true
+enable_wandb: false
+save_on: false
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 compile: true

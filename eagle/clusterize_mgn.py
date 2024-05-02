@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--max_cluster_size', type=int, default=10)
 args = parser.parse_args()
 
-PATH = "./ds/MGN/cylinder_dataset/valid"
+PATH = "./ds/MGN/cylinder_dataset/train"
 
 
 class FluentDataset:

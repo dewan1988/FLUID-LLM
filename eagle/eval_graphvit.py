@@ -15,13 +15,11 @@ from eagle_utils import get_nrmse, plot_preds
 torch.set_float32_matmul_precision('high')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=10, type=int, help="Number of epochs, set to 0 to evaluate")
-parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default="./ds/MGN/cylinder_dataset", type=str,
                     help="Dataset path, caution, the cluster location is induced from this path, make sure this is Ok")
 parser.add_argument('--n_cluster', default=10, type=int, help="Number of nodes per cluster. 0 means no clustering")
 parser.add_argument('--w_size', default=512, type=int, help="Dimension of the latent representation of a cluster")
-parser.add_argument('--name', default='test_137', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='no_clust_121', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
