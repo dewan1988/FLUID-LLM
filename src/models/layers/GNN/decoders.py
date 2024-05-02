@@ -199,6 +199,7 @@ class MLPGNNDecoder(Decoder):
         self.dropout = params['dropout']
         self.gnn_dim = params['gnn_dim']
         self.gnn_layers = params['gnn_layers']
+        self.gnn_heads = params['gnn_heads']
         self.gnn_hid_dim = params['gnn_hid_dim']
         self.mlp_hid_dim = params['mlp_hid_dim']
         self.mlp_out_dim = (self.out_patch_size[0] * self.out_patch_size[1]) * self.gnn_dim
@@ -206,7 +207,7 @@ class MLPGNNDecoder(Decoder):
         # Trainable MLP input layer
         self.input_mlp = MLP(in_dim, self.mlp_out_dim, hid_dim=self.mlp_hid_dim, num_layers=2, act='softplus', zero_last=False)
         # GNN
-        self.GNN = GCN_layers(self.gnn_dim, self.gnn_hid_dim, 3, num_layers=self.gnn_layers, dropout=self.dropout)
+        self.GNN = GCN_layers(in_dim=self.gnn_dim, hid_dim=self.gnn_hid_dim, out_dim=3, num_layers=self.gnn_layers, heads=self.gnn_heads, dropout=self.dropout)
         self.GNN = torch.compile(self.GNN)
 
         # Indices for edges

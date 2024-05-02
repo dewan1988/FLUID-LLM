@@ -4,7 +4,7 @@ from torch_geometric.nn import GCNConv, GATv2Conv
 
 
 class GCN_layers(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers, dropout):
+    def __init__(self, in_dim, hid_dim, out_dim, num_layers, dropout, heads):
         """
         Initializes the Graph Convolutional Network with variable input dimensions,
         output dimensions, and hidden layers.
@@ -20,14 +20,14 @@ class GCN_layers(torch.nn.Module):
         # Create a list of all GCN convolutional layers
         self.convs = torch.nn.ModuleList()
         if num_layers == 1:
-            self.out_conv = GATv2Conv(input_dim, output_dim, dropout=dropout, add_self_loops=True, bias=False)
+            self.out_conv = GATv2Conv(in_dim, out_dim, dropout=dropout, add_self_loops=True, bias=False)
         else:
-            self.convs.append(GATv2Conv(input_dim, hidden_dim, dropout=dropout, add_self_loops=True))
+            self.convs.append(GATv2Conv(in_dim, hid_dim//heads, heads=heads, dropout=dropout, add_self_loops=True))
             for l in range(num_layers - 2):
-                self.convs.append(GATv2Conv(hidden_dim, hidden_dim, dropout=dropout, add_self_loops=True))
+                self.convs.append(GATv2Conv(hid_dim, hid_dim//heads, heads=heads, dropout=dropout, add_self_loops=True))
 
             # Output layer
-            self.out_conv = GATv2Conv(hidden_dim, output_dim, dropout=dropout, add_self_loops=True)
+            self.out_conv = GATv2Conv(hid_dim, out_dim, dropout=dropout, add_self_loops=True)
 
     def forward(self, x, edge_index):
         """

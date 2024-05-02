@@ -84,7 +84,7 @@ def run_train_epoch(run_fn: callable, dataloader, trainer: Trainer, optimizer, s
     return metrics_per_epoch
 
 
-def val_epoch(val_dl, trainer, accelerator: Accelerator):
+def val_epoch(val_dl, trainer):
     val_metrics_ep = []
     dl_iterator = tqdm(val_dl, desc="Validation", leave=False)
     for batch_idx, batch in enumerate(dl_iterator):
@@ -113,9 +113,12 @@ def train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optim
         wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
-        val_metrics = val_epoch(valid_dl, trainer, accelerator)
-        val_log, val_loss, val_nmrse = process_metrics(val_metrics, val_steps, "Gen", "val")
-        wandb.log(val_log, step=epoch_idx + start_ep)
+        if epoch_idx % 2 == 0:
+            val_metrics = val_epoch(valid_dl, trainer)
+            val_log, val_loss, val_nmrse = process_metrics(val_metrics, val_steps, "Gen", "val")
+            wandb.log(val_log, step=epoch_idx + start_ep)
+        else:
+            val_loss, val_nmrse = 0., 0.
 
         t = time.time() - st
         st = time.time()
