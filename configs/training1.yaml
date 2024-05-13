@@ -32,7 +32,7 @@ schedule_gamma: 0.75
 # Train modifications
 pressure_weight: 0.1
 diff_scale_factor: 0.1   # Scale factor for diffs
-loss_norm_eps: 0.1
+loss_norm_eps: null
 channel_independent: false
 noise: null
 

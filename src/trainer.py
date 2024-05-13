@@ -102,7 +102,12 @@ class Trainer:
             norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_state, self.loss_norm_eps, self.norm_channel_independent)
             loss, all_losses = self.loss_fn.forward(preds=norm_pred_states, target=norm_next_state, mask=bc_mask)
         else:
-            loss, all_losses = self.loss_fn.forward(preds=pred_diff, target=diffs, mask=bc_mask)
+            # print(f'{pred_state.shape = }, {next_state.shape = }, {bc_mask.shape = }')
+            #
+            # norm_next_state, norm_pred_states = normalise_states(diffs, next_state, pred_state, 0.1, self.norm_channel_independent)
+            # print(f'{norm_next_state.shape = }, {norm_pred_states.shape = }')
+            # exit(45)
+            loss, all_losses = self.loss_fn.forward(preds=pred_state, target=next_state, mask=bc_mask)
 
         # Calculate metrics
         with torch.no_grad():
