@@ -1,9 +1,26 @@
-import torch
-import numpy as np
-
-x  = [0.0000, 0.0238, 0.0408, 0.0557, 0.0690, 0.0818, 0.0952, 0.1079, 0.1202,
-        0.1329, 0.1451]
-
-print(np.mean(x))
+def main():
+    print("hello")
 
 
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        raise e
+    else:
+        import subprocess
+
+        # import getpass
+
+        # Your program logic here
+
+        # Prompt the user for their sudo password
+        sudo_password = "nope"
+
+        # Create the command to shut down the computer
+        shutdown_command = f"nvidia-smi"
+
+        # Execute the command
+        print("Running shutdown command")
+        subprocess.run(shutdown_command, shell=True, check=True)
+        print("Shutdown command run, can still be canceled")

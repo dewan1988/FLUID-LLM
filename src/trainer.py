@@ -31,43 +31,6 @@ class Trainer:
         if self.loss_norm_eps is not None:
             self.loss_norm_eps = torch.nn.Parameter(torch.tensor(self.loss_norm_eps, device='cuda'), requires_grad=False)
         self.norm_channel_independent = params['channel_independent']
-    #
-    # def run_train_step(self, batch):
-    #     """
-    #     Returns
-    #     - loss (torch.Tensor): The total loss, used for backpropagation
-    #     - metrics_to_log (dict): A dictionary with the calculated metrics (detached from the computational graph)
-    #     """
-    #     states, _, diffs, bc_mask, position_ids = batch
-    #
-    #     # If fitting diffs, target is diffs. Otherwise, target is next state
-    #     self.model.train()
-    #     # Forward pass
-    #     if self.params['see_init_state']:
-    #         pred_diff = self.model.forward_see_init(states, position_ids)
-    #     else:
-    #         pred_diff = self.model(states, position_ids)
-    #
-    #     # Reshape targets to images and downsample
-    #     diffs = patch_to_img(diffs, self.ds_props)
-    #     bc_mask = patch_to_img(bc_mask.float(), self.ds_props).bool()
-    #
-    #     # Normalise predictions so loss is well scaled
-    #     if self.loss_norm_eps is not None:
-    #         norm_true_diffs, norm_pred_diff = normalise_diffs(diffs, pred_diff, self.loss_norm_eps, self.norm_channel_independent)
-    #         loss, all_losses = self.loss_fn.forward(preds=norm_pred_diff, target=norm_true_diffs, mask=bc_mask)
-    #     else:
-    #         loss, all_losses = self.loss_fn.forward(preds=pred_diff, target=diffs, mask=bc_mask)
-    #
-    #     # Calculate metrics
-    #     with torch.no_grad():
-    #         N_rmse = calc_n_rmse(pred_diff, diffs, bc_mask)
-    #
-    #     # Log metrics
-    #     all_losses["loss"] = loss
-    #     all_losses['N_RMSE'] = N_rmse
-    #
-    #     return loss, all_losses
 
     def run_train_step(self, batch):
         """

@@ -113,7 +113,7 @@ def train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optim
         wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
-        if epoch_idx % 2 == 0:
+        if epoch_idx % 3 == 0:
             val_metrics = val_epoch(valid_dl, trainer)
             val_log, val_loss, val_nmrse = process_metrics(val_metrics, val_steps, "Gen", "val")
             wandb.log(val_log, step=epoch_idx + start_ep)
@@ -200,4 +200,21 @@ if __name__ == '__main__':
                         help='Path to save model checkpoints. Defaults to time', default=None)
 
     args = parser.parse_args(sys.argv[1:])
-    main(args)
+    try:
+        main(args)
+    except Exception as e:
+        raise e
+    else:
+        import subprocess
+        time.sleep(1)  # Replace with your actual program logic
+
+        pwd = "nope"
+        # Create the command to shut down the computer
+        shutdown_command = f"echo {pwd} | sudo -S shutdown -h 3"
+
+        # Execute the command
+        print("Running shutdown command")
+        subprocess.run(shutdown_command, shell=True, check=True)
+        print("Shutdown command run, can still be canceled")
+
+

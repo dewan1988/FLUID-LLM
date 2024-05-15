@@ -1,8 +1,8 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
-llm_layers: 7
+llm_backbone: facebook/opt-2.7b  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
+llm_layers: 16
 llm_4bit_loading: false
 freeze_llm: false
 use_lora: true
@@ -20,7 +20,7 @@ see_init_state: true
 
 # Training params
 batch_size: 8
-num_epochs: 181
+num_epochs: 501
 optimizer: adamw
 learning_rate: 10e-4
 weight_decay: 1.0e-5
