@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
         pwd = "nope"
         # Create the command to shut down the computer
-        shutdown_command = f"echo {pwd} | sudo -S shutdown -h 3"
+        shutdown_command = f"cl-asuser shutdown"
 
         # Execute the command
         print("Running shutdown command")
