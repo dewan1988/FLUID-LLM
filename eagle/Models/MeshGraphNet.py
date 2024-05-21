@@ -18,6 +18,7 @@ class MeshGraphNet(nn.Module):
         self.noise_std = noise_std
         self.encoder = Encoder(state_size)
         self.processor = Processor(N)
+        self.processor = torch.compile(self.processor, dynamic=True)
         self.decoder = MLP(input_size=128, output_size=state_size, layer_norm=False)
         self.normalizer_output = Normalizer(state_size)
 

@@ -16,6 +16,8 @@ import torch.nn.functional as F
 
 from dataloader.simple_dataloader import MGNDataset
 
+torch._dynamo.config.cache_size_limit = 1
+
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
 
@@ -27,80 +29,11 @@ def get_eval_dl(model, bs, seq_len):
                     stride=model.config['stride'],
                     seq_len=seq_len,
                     seq_interval=model.config['seq_interval'],
-                    mode='valid',
+                    mode='test',
                     normalize=model.config['normalize_ds'])
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
     return dl
-
-
-def test_step(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
-    model.eval()
-    # Get batch and run through model
-    batch_data = next(iter(dl))
-
-    with torch.inference_mode():
-        states, target, bc_mask, position_ids = batch_data
-        bs = target.shape[0]
-        decoder_out = model.forward(states.cuda(), position_ids.cuda())
-
-        # Reshape targets to images and downsample
-        target = target.view(bs, -1, 60, 3, 16, 16)
-        target = target.view(-1, 60, 3 * 16 * 16).transpose(-1, -2)
-
-        targ_img = F.fold(target, output_size=(240, 64), kernel_size=(16, 16), stride=(16, 16))
-        targ_img = targ_img.view(bs, -1, 3, 240, 64)
-
-    fig, axs = plt.subplots(3, 2, figsize=(20, 8))
-    for i, ax in enumerate(axs):
-        plot_dim = i
-
-        plot_targ = targ_img[batch_num, plot_step, plot_dim]
-        plot_preds = decoder_out[batch_num, plot_step, plot_dim]
-
-        targ_min, targ_max = plot_targ.min(), plot_targ.max()
-        pred_min, pred_max = plot_preds.min(), plot_preds.max()
-
-        print()
-        print(f'Target min: {targ_min:.4g}, max: {targ_max:.4g}, std: {plot_targ.std():.4g}')
-        print(f'Pred min: {pred_min:.4g}, max: {pred_max:.4g}, std: {plot_preds.std():.4g}')
-
-        ax[0].imshow(plot_targ.cpu().T)
-        ax[1].imshow(plot_preds.cpu().T)
-
-    fig.tight_layout()
-    plt.show()
-
-    # Calculate normalised RMSE
-    decoder_out = decoder_out.cpu()
-    targ_std = targ_img.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std over each batch item
-    targ_img_red = targ_img / (targ_std)
-    decoder_out = decoder_out / (targ_std)
-
-    loss_fn = torch.nn.L1Loss()
-    loss = loss_fn(decoder_out, targ_img_red)
-    print(targ_std.squeeze())
-    print(loss)
-
-
-@torch.inference_mode()
-def get_ds_stats(model: MultivariateTimeLLM, dl):
-    all_states, all_targets = [], []
-    for batch in dl:
-        states, target, _, _ = batch
-        all_states.append(states)
-        all_targets.append(target)
-
-    all_states = torch.cat(all_states, dim=0)
-    all_targets = torch.cat(all_targets, dim=0)
-
-    print(all_targets.shape)
-    diff_stds = all_targets.std(dim=(0, 1, 2, 4, 5))
-    diff_mean = all_targets.mean(dim=(0, 1, 2, 4, 5))
-    print(f'STD over channels {diff_stds = }')
-
-    all_stds = all_targets.std()
-    print(f'STD over entire dataset: {all_stds = }')
 
 
 @torch.inference_mode()
@@ -148,8 +81,10 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
             img_1 = true_diffs[batch_num, plot_step, i].cpu()
             img_2 = pred_diffs[batch_num, plot_step, i].cpu()
 
-            ax[0].imshow(img_1.T)  # Initial image
-            ax[1].imshow(img_2.T)  # Predictions
+            vmin, vmax = img_1.min(), img_1.max()
+
+            ax[0].imshow(img_1.T, vmin=vmin, vmax=vmax)  # Initial image
+            ax[1].imshow(img_2.T, vmin=vmin, vmax=vmax)  # Predictions
             ax[0].axis('off'), ax[1].axis('off')
         fig.tight_layout()
         fig.show()

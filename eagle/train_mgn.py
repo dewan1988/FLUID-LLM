@@ -9,15 +9,15 @@ from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("medium")
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=1000, type=int, help="Number of epochs, set to 0 to evaluate")
+parser.add_argument('--epoch', default=500, type=int, help="Number of epochs, set to 0 to evaluate")
 parser.add_argument('--lr', default=1e-4, type=float, help="Learning rate")
 parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--w_pressure', default=0.1, type=float, help="Weighting for the pressure term in the loss")
-parser.add_argument('--horizon_val', default=10, type=int, help="Number of timestep to validate on")
-parser.add_argument('--horizon_train', default=3, type=int, help="Number of timestep to train on")
+parser.add_argument('--horizon_val', default=5, type=int, help="Number of timestep to validate on")
+parser.add_argument('--horizon_train', default=5, type=int, help="Number of timestep to train on")
 parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
@@ -26,7 +26,7 @@ args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MSE = nn.MSELoss()
-BATCHSIZE = 4
+BATCHSIZE = 2
 
 
 def collate(X):
@@ -92,7 +92,7 @@ def validate(model, dataloader, epoch=0, vizu=False):
 
         model.apply_noise = True
     results = total_loss / cpt
-    print(f"=== EPOCH {epoch + 1} ===\n{results}")
+    print(f"=== EPOCH {epoch + 1} ===\nloss = {results:.4g}")
     return results
 
 
@@ -105,8 +105,8 @@ def main():
 
     name = args.name
 
-    train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False)
-    valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False)
+    train_dataset = EagleMGNDataset(args.dataset_path, mode="train", window_length=args.horizon_train, with_cluster=False, normalize=False)
+    valid_dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=args.horizon_val, with_cluster=False, normalize=False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True, num_workers=8, pin_memory=True, collate_fn=collate)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batchsize, shuffle=False, num_workers=8, pin_memory=True, collate_fn=collate)
@@ -142,10 +142,12 @@ def main():
             costs['loss'].backward()
             optim.step()
 
-        if scheduler.get_last_lr()[0] > 1e-6 and epoch > 1:
+        if epoch > 1:
             scheduler.step()
 
         error = validate(model, valid_dataloader, epoch=epoch)
+        print(f'lr = {scheduler.get_last_lr()[0]}')
+
         if error < memory:
             memory = error
             os.makedirs(f"./eagle/trained_models/meshgraphnet/", exist_ok=True)

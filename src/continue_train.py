@@ -40,8 +40,8 @@ def load_model(save_file, training_params, ds_props):
 def main(args):
     set_seed()
     load_dir = f"./model_checkpoints"
-    load_file = "05-16_02-43-30"
-    load_num = 500
+    load_file = "05-15_14-27-01"
+    load_num = 120
 
     save_file = torch.load(f'{load_dir}/{load_file}/step_{load_num}.pth')
     # Use saved .yaml config for easier editing

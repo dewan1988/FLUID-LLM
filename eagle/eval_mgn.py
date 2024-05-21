@@ -27,10 +27,10 @@ BATCHSIZE = 1
 def evaluate():
     print(args)
     length = 251
-    dataset = EagleMGNDataset(args.dataset_path, mode="valid", window_length=length, with_cluster=False, normalize=False, with_cells=True)
+    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
-    model = MeshGraphNet(apply_noise=True, state_size=4, N=args.n_processor).to(device)
+    model = MeshGraphNet(apply_noise=False, state_size=4, N=args.n_processor).to(device)
 
     model.load_state_dict(torch.load(f"./eagle/trained_models/meshgraphnet/{args.name}.nn", map_location=device))
 
@@ -51,7 +51,7 @@ def evaluate():
         mask = torch.ones_like(mesh_pos)[..., 0]
 
         state = torch.cat([velocity, pressure], dim=-1)
-        state_hat, _, _ = model(mesh_pos, edges, state, node_type)
+        state_hat, output_hat, _ = model(mesh_pos, edges, state, node_type)
 
         velocity = velocity[:, 1:]
         pressure = pressure[:, 1:]
@@ -60,10 +60,15 @@ def evaluate():
         mask = mask[:, 1:].unsqueeze(-1)
 
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
-        rmses.append(rmse)
-        # plot_imgs(state, state_hat, mesh_pos, faces, plot_t)
-        # plot_preds(mesh_pos, velocity_hat, velocity, 0)
-        # plot_preds(mesh_pos, velocity_hat, velocity, 48)
+        rmses.append(rmse.numpy())
+
+        # print(f'{state.shape = }, {state_hat.shape = }, {state.shape = }, {x["cells"].shape = }')
+        # print(i)
+        # if i == 8:
+        #     true_diffs = state[:, 1:] - state[:, :-1]
+        #     plot_preds(mesh_pos, state_hat, state, 0)
+        #     plot_preds(mesh_pos, output_hat, true_diffs, 0)
+        #     exit(4)
 
         vel_error = velocity[0] * mask[0] - velocity_hat[0] * mask[0]
         pres_error = pressure[0] * mask[0] - pressure_hat[0] * mask[0]
@@ -88,6 +93,8 @@ def evaluate():
     np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
                delimiter=",")
 
+    rmses = np.concatenate(rmses)
+    print(f'{rmses.mean(axis=0).tolist()}')
     print(f"Mean NRMSE: {np.mean(rmses)}")
 
 

@@ -5,9 +5,9 @@ from matplotlib import pyplot as plt
 from matplotlib import tri
 
 
-def plot_graph(mesh_pos, velocity_hat, ax):
+def plot_graph(mesh_pos, velocity_hat, ax, vmin, vmax):
     triangulation = tri.Triangulation(mesh_pos[:, 0], mesh_pos[:, 1])
-    ax.tripcolor(triangulation, velocity_hat)
+    ax.tripcolor(triangulation, velocity_hat, vmin=vmin, vmax=vmax)
 
 
 def plot_preds(mesh_pos, state_hat, state_true, step_no, title=None):
@@ -20,8 +20,12 @@ def plot_preds(mesh_pos, state_hat, state_true, step_no, title=None):
     for i, ax in enumerate(axs):
         vel_hat = state_hat[:, i]
         vel_true = state_true[:, i]
-        plot_graph(mesh_pos, vel_true, ax[0])
-        plot_graph(mesh_pos, vel_hat, ax[1])
+
+        vmin, vmax = state_true.min(), state_true.max()
+        plot_graph(mesh_pos, vel_true, ax[0], vmin, vmax)
+        plot_graph(mesh_pos, vel_hat, ax[1], vmin, vmax)
+
+        print(f'{i = }, {vmin = }, {vmax = }')
         ax[0].axis('off'), ax[1].axis('off')
     plt.tight_layout()
     plt.show()
@@ -123,6 +127,5 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     # plt.tight_layout()
     # plt.show()
     # exit(7)
-    rmse = calc_n_rmse(pred_imgs, true_imgs, mask).mean()
-
+    rmse = calc_n_rmse(pred_imgs, true_imgs, mask)# .mean()
     return rmse

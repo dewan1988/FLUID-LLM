@@ -2,7 +2,7 @@ task_name: cylinder_task
 
 # LLM params
 llm_backbone: facebook/opt-2.7b  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
-llm_layers: 16
+llm_layers: -1
 llm_4bit_loading: false
 freeze_llm: false
 use_lora: true
@@ -31,8 +31,8 @@ schedule_gamma: 0.75
 
 # Train modifications
 pressure_weight: 0.1
-diff_scale_factor: 0.1   # Scale factor for diffs
-loss_norm_eps: null
+diff_scale_factor: 0.05   # Scale factor for diffs
+loss_norm_eps: 0.05
 channel_independent: false
 noise: null
 
@@ -76,7 +76,7 @@ patch_size: [16, 16]
 stride: [16, 16]
 resolution: 238
 normalize_ds: true
-seq_interval: 2
+seq_interval: 1
 seq_len: null
 
 # Logging params

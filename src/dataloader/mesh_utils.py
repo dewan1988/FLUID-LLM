@@ -31,7 +31,7 @@ def plot_patches(state: torch.Tensor, N_patch: tuple):
     # Normalize state to [0, 1]
     state = (state - v_min) / (v_max - v_min)
 
-    fig, axes = plt.subplots(y_count, x_count, figsize=(16, 4))
+    fig, axes = plt.subplots(y_count, x_count, figsize=(x_count, y_count))
     for i in range(y_count):
         for j in range(x_count):
             patch = state[i + j * y_count].T

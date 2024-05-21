@@ -113,7 +113,7 @@ def train_run(train_cfg, save_path, autoreg_dl, gen_dl, valid_dl, trainer, optim
         wandb.log(train_log, step=epoch_idx + start_ep)
 
         # Validation Step
-        if epoch_idx % 2 == 0:
+        if epoch_idx % 3 == 0:
             val_metrics = val_epoch(valid_dl, trainer)
             val_log, val_loss, val_nmrse = process_metrics(val_metrics, val_steps, "Gen", "val")
             wandb.log(val_log, step=epoch_idx + start_ep)

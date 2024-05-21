@@ -5,6 +5,8 @@ import json
 import os
 import numpy as np
 import torch
+
+torch.utils.data.datapipes.utils.common.DILL_AVAILABLE = torch.utils._import_utils.dill_available()
 from torchdata.datapipes.iter import FileLister, FileOpener
 import pickle
 
@@ -44,10 +46,10 @@ def parse_numerical_data(proto, meta):
 
 
 def main():
-    ds_name = 'cylinder'
+    ds_name = 'airfoil'
     dataset_path = f'/mnt/hdd1/fluid_ds/meshgraphnets/{ds_name}'
-    split_name = 'train'
-    save_path = f'./ds/MGN/{ds_name}_dataset/{split_name}2/'
+    split_name = 'valid'
+    save_path = f'./ds/MGN/{ds_name}_dataset/{split_name}'
 
     with open(os.path.join(dataset_path, 'meta.json'), 'r') as fp:
         meta = json.load(fp)
@@ -63,7 +65,7 @@ def main():
         print(sample.keys())
 
         # Unmodified save data
-        save_stats = {"velocity": sample['velocity'], "pressure": sample['pressure']}
+        save_stats = {"velocity": sample['velocity'], "pressure": sample['pressure'], 'density': sample['density'], }
 
         # Remove duplicate for static entries
         static_vars = ['cells', 'mesh_pos', 'node_type']
@@ -77,6 +79,14 @@ def main():
         # Convert cells to int16
         if torch.all(save_stats['cells'] >= np.iinfo(np.int16).min) and torch.all(save_stats['cells'] <= np.iinfo(np.int16).max):
             save_stats['cells'] = save_stats['cells'].to(torch.int16)
+        else:
+            print("Warning: Cells not in int16 range")
+
+        # # Convert node_type to int16
+        # if torch.all(save_stats['node_type'] >= np.iinfo(np.int16).min) and torch.all(save_stats['node_type'] <= np.iinfo(np.int16).max):
+        #     save_stats['node_type'] = save_stats['node_type'].to(torch.int16)
+        # else:
+        #     print("Warning: node_type not in int16 range")
 
         # Convert save_stats to numpy
         save_stats = {k: v.numpy() for k, v in save_stats.items()}
