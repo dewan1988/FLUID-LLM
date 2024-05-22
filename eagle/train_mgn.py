@@ -21,12 +21,12 @@ parser.add_argument('--horizon_train', default=5, type=int, help="Number of time
 parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
 parser.add_argument('--noise_std', default=2e-2, type=float,
                     help="Standard deviation of the gaussian noise to add on the input during training")
-parser.add_argument('--name', default='mgn_test', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='mgn', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MSE = nn.MSELoss()
-BATCHSIZE = 2
+BATCHSIZE = 4
 
 
 def collate(X):
@@ -145,14 +145,12 @@ def main():
         if epoch > 1:
             scheduler.step()
 
-        error = validate(model, valid_dataloader, epoch=epoch)
+        validate(model, valid_dataloader, epoch=epoch)
         print(f'lr = {scheduler.get_last_lr()[0]}')
 
-        if error < memory:
-            memory = error
-            os.makedirs(f"./eagle/trained_models/meshgraphnet/", exist_ok=True)
-            torch.save(model.state_dict(), f"./eagle/trained_models/meshgraphnet/{args.name}.nn")
-            print("Saved!")
+        os.makedirs(f"./eagle/trained_models/meshgraphnet/", exist_ok=True)
+        torch.save(model.state_dict(), f"./eagle/trained_models/meshgraphnet/{args.name}.nn")
+        print("Saved!")
 
     validate(model, valid_dataloader)
 

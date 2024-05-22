@@ -15,7 +15,7 @@ from eagle_utils import get_nrmse, plot_imgs, plot_preds
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
 parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
-parser.add_argument('--name', default='mgn_test', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='mgn', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
