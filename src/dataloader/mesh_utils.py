@@ -106,41 +106,23 @@ def get_mesh_interpolation(pos, faces, grid_res=256):
     return triang, tri_index, grid_x, grid_y
 
 
-def test_time(save_no=1):
-    with open(f"./ds/MGN/cylinder_dataset/save_{save_no}.pkl", 'rb') as f:
-        save_data = pickle.load(f)  # ['faces', 'mesh_pos', 'velocity', 'pressure']
+def plot_mesh(pos, faces, val):
+    """Plots triangular mesh from positions of nodes and triangles defined using faces."""
+    triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
 
-    pos = save_data['mesh_pos']
-    faces = save_data['cells']
+    plt.figure(figsize=(8, 8))
+    plt.tripcolor(triang, val)  # or contourf
+    plt.triplot(triang, "k-", lw=0.1)
 
-    Vx = save_data['velocity'][0][:, 0]
-    Vy = save_data['velocity'][0][:, 1]
-    P = save_data['pressure'][0][:, 0]
+    # plt.ylim([0., 0.5])
+    plt.axis("equal")
 
-    st = time.time()
-    triang, tri_index, grid_x, grid_y = get_mesh_interpolation(pos, faces)
+    # plt.axis("off")
+    plt.tight_layout()
 
-    Vx_interp, Vx_mask = to_grid(Vx, grid_x, grid_y, triang, tri_index)
-    Vy_interp, Vy_mask = to_grid(Vy, grid_x, grid_y, triang, tri_index)
-    P_interp, P_mask = to_grid(P, grid_x, grid_y, triang, tri_index)
-    print(f"Interpolation time: {time.time() - st:.3g}s")
-
-    return Vx_interp
+    plt.show()
 
 
-# def plot_mesh(pos, faces, val):
-#     """Plots triangular mesh from positions of nodes and triangles defined using faces."""
-#     triang = mtri.Triangulation(pos[:, 0], pos[:, 1], faces)
-#
-#     plt.figure(figsize=(10, 4))
-#     plt.tripcolor(triang, val)  # or contourf
-#     plt.ylim([0., 0.5])
-#     plt.axis("equal")
-#
-#     # plt.axis("off")
-#     plt.tight_layout()
-#
-#     plt.show()
 #
 #
 # def plot_mesh_smooth(pos, val, faces, grid_res):

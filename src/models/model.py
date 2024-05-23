@@ -208,7 +208,7 @@ class MultivariateTimeLLM(nn.Module):
         states, _, _, bc_mask, position_ids = batch_data
         bs, seq_len, N_patch, channel, px, py = states.shape
 
-        assert pred_steps + start_state <= seq_len, \
+        assert pred_steps + start_state -1 <= seq_len, \
             f'Prediction steps ({pred_steps}) + start state ({start_state}) must be less than total sequence length {seq_len}!'
 
         init_state = states[:, :start_state]

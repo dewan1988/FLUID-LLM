@@ -201,7 +201,7 @@ class Trainer:
         states, _, _, bc_mask, position_ids = batch
 
         bs, seq_len, N_patch, channel, px, py = states.shape
-        pred_states, pred_diffs = self.model.gen_seq(batch, pred_steps=seq_len - 1)
+        pred_states, pred_diffs = self.model.gen_seq(batch, pred_steps=seq_len)
         pred_states = pred_states[:, :-1]
 
         states_img = patch_to_img(states, self.ds_props)

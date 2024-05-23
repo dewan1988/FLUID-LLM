@@ -2,25 +2,41 @@ import torch
 import torch.nn.functional as F
 from dataloader.ds_props import DSProps
 from dataloader.simple_dataloader import MGNDataset
+from dataloader.airfoil_ds import AirfoilDataset
 from torch.utils.data import DataLoader
 
 
 def get_data_loader(config, mode="train"):
-    ds = MGNDataset(load_dir=f'{config["load_dir"]}/{mode}',
-                    resolution=config['resolution'],
-                    patch_size=config['patch_size'],
-                    stride=config['stride'],
-                    seq_len=config['seq_len'],
-                    seq_interval=config['seq_interval'],
-                    mode=mode,
-                    normalize=config['normalize_ds']
-                    )
+    ds_name = config["load_dir"]
+    if (ds_name == "./ds/MGN/cylinder_dataset") | (ds_name == "cylinder"):
+        ds = MGNDataset(load_dir=f'{ds_name}/{mode}',
+                        resolution=config['resolution'],
+                        patch_size=config['patch_size'],
+                        stride=config['stride'],
+                        seq_len=config['seq_len'],
+                        seq_interval=config['seq_interval'],
+                        mode=mode,
+                        normalize=config['normalize_ds']
+                        )
+    elif (ds_name == "./ds/MGN/airfoil_dataset") | (ds_name == "airfoil"):
+        ds = AirfoilDataset(load_dir=f'{ds_name}/{mode}',
+                            resolution=config['resolution'],
+                            patch_size=config['patch_size'],
+                            stride=config['stride'],
+                            seq_len=config['seq_len'],
+                            seq_interval=config['seq_interval'],
+                            mode=mode,
+                            normalize=config['normalize_ds']
+                            )
+    else:
+        raise ValueError(f"Invalid dataset {ds_name}")
 
     dl = DataLoader(ds,
                     batch_size=config['batch_size'],
                     num_workers=config['num_workers'],
                     prefetch_factor=2,
-                    pin_memory=True)
+                    pin_memory=True,
+                    shuffle=(mode == 'train'))
 
     N_x_patch, N_y_patch = ds.N_x_patch, ds.N_y_patch
     seq_len = ds.seq_len - 1
@@ -104,7 +120,7 @@ def normalise_diffs(targs, preds, norm_const, channel_indep):
     if channel_indep:
         targ_std = targs.std(dim=(-1, -2, -4), keepdim=True)  # Std pixels and seq_len
     else:
-        targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)    # Std pixels, channels and seq_len
+        targ_std = targs.std(dim=(-1, -2, -3, -4), keepdim=True)  # Std pixels, channels and seq_len
     targs = targs / (targ_std + norm_const)
     preds = preds / (targ_std + norm_const)
 
