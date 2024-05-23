@@ -90,6 +90,7 @@ class MultivariateTimeLLM(nn.Module):
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, ds_props, self.config['decoder_params'])
 
         # Adjust the backbone for time series task
+        self.max_ctx_len = 15 # self.max_seq_len
         self._adjust_backbone()
         self.to(device_map)
 
@@ -170,7 +171,7 @@ class MultivariateTimeLLM(nn.Module):
         all_states = [init_states]
         all_diffs = []
         # Keep a buffer of the last N states as model input
-        input_buff = deque(maxlen=self.max_seq_len)
+        input_buff = deque(maxlen=self.max_ctx_len)
         for t in range(init_len):
             input_buff.append(init_states[:, t:t+1])
 

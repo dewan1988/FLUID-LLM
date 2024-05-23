@@ -37,7 +37,7 @@ def get_eval_dl(model, bs, seq_len):
 
 
 def plot_set(plot_step, true_states, pred_states, title):
-    fig, axs = plt.subplots(2, 2, figsize=(10, 9))
+    fig, axs = plt.subplots(2, 2, figsize=(10, 6))
     fig.suptitle(f'{title}')
     for i, ax in enumerate(axs):
         img_1 = true_states[plot_step, i].cpu()
@@ -54,9 +54,9 @@ def plot_set(plot_step, true_states, pred_states, title):
 def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     model.eval()
 
-    start_step = 4
-    ctx_states = 2
-    pred_steps = 5      # Number of diffs. States is -1.
+    start_step = 10
+    ctx_states = 1
+    pred_steps = 15      # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
     end_state = pred_steps + ctx_states - 1
 
@@ -112,7 +112,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 def main():
     load_no = -1
     save_epoch = 180
-    seq_len = 16
+    seq_len = 29
     bs = 1
 
     plot_step = -1
