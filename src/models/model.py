@@ -51,7 +51,7 @@ class MultivariateTimeLLM(nn.Module):
             load_in_4bit=config['llm_4bit_loading'],
             torch_dtype=torch.bfloat16,
             device_map=device_map,
-            attn_implementation="flash_attention_2" if config['flash_attention'] else "eager",
+            attn_implementation="flash_attention_2",
         )
 
         if config['compile']:
@@ -144,7 +144,7 @@ class MultivariateTimeLLM(nn.Module):
             Input.shape = (bs, seq_len, N_patch, 3, 16, 16)
             Return.shape = (bs, 1, 3, patch_px, patch_py)"""
 
-        pred_diff = self.forward(states, position_ids)
+        pred_diff = self.forward_see_init(states, position_ids)
 
         diffs = pred_diff[:, -1:]
         diffs = img_to_patch(diffs, self.ds_props)
@@ -207,23 +207,12 @@ class MultivariateTimeLLM(nn.Module):
         states, _, _, bc_mask, position_ids = batch_data
         bs, seq_len, N_patch, channel, px, py = states.shape
 
-        assert pred_steps + start_state - 1 <= seq_len, \
-            f'Prediction steps ({pred_steps}) must be less than total sequence length ({seq_len} + 1)!'
+        assert pred_steps + start_state <= seq_len, \
+            f'Prediction steps ({pred_steps}) + start state ({start_state}) must be less than total sequence length {seq_len}!'
 
-        # Make sure the model can see everything before making the first prediction, duplicate the first state if start=1
-        if start_state == 1:
-            states = torch.cat([states[:, :1], states], dim=1)
-            init_state = states[:, :2]
-            bc_mask = torch.cat([bc_mask[:, :1], bc_mask], dim=1)
-            position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
-            pred_steps += 1
-        else:
-            init_state = states[:, :start_state]
+        init_state = states[:, :start_state]
 
         all_states, all_diffs = self._generate(init_state, bc_mask, position_ids, pred_steps)
-
-        if start_state == 1:
-            all_states = all_states[:, 1:]
 
         all_states = patch_to_img(all_states, self.ds_props)
         all_diffs = patch_to_img(all_diffs, self.ds_props)

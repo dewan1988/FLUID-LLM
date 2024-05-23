@@ -6,13 +6,13 @@ import logging
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-import time
 from cprint import c_print
+import numpy as np
+import torch.nn.functional as F
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
 from utils_model import calc_n_rmse, patch_to_img, get_data_loader
 from models.model import MultivariateTimeLLM
-import torch.nn.functional as F
 
 from dataloader.simple_dataloader import MGNDataset
 
@@ -36,28 +36,53 @@ def get_eval_dl(model, bs, seq_len):
     return dl
 
 
+def plot_set(plot_step, true_states, pred_states, title):
+    fig, axs = plt.subplots(2, 2, figsize=(10, 9))
+    fig.suptitle(f'{title}')
+    for i, ax in enumerate(axs):
+        img_1 = true_states[plot_step, i].cpu()
+        img_2 = pred_states[plot_step, i].cpu()
+
+        ax[0].imshow(img_1.T)  # Initial image
+        ax[1].imshow(img_2.T)  # Predictions
+        ax[0].axis('off'), ax[1].axis('off')
+    fig.tight_layout()
+    fig.show()
+
+
 @torch.inference_mode()
 def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     model.eval()
+
+    start_step = 4
+    ctx_states = 2
+    pred_steps = 5      # Number of diffs. States is -1.
+    start_cut = start_step - ctx_states
+    end_state = pred_steps + ctx_states - 1
 
     # Keep the first batch for plotting
     first_batch = None
     N_rmses = []
     # Get batch and run through model
     for i, batch in enumerate(dl):
-        print(f"Batch {i}")
+        # Filter out start
+        batch = [b[:, start_cut:] for b in batch]
         batch = [t.cuda() for t in batch]
+
         states, _, diffs, bc_mask, position_ids = batch
 
-        bs, seq_len, N_patch, channel, px, py = states.shape
-        pred_states, pred_diffs = model.gen_seq(batch, pred_steps=seq_len - 1)
-        pred_states = pred_states[:, :-1]
+        # bs, seq_len, N_patch, channel, px, py = states.shape
+        pred_states, pred_diffs = model.gen_seq(batch, pred_steps=pred_steps, start_state=ctx_states)
+        pred_states = pred_states[:, :-1]           # Since last state doesnt have diff.
 
         true_states = patch_to_img(states, model.ds_props)
         true_diffs = patch_to_img(diffs, model.ds_props)
         bc_mask = patch_to_img(bc_mask.float(), model.ds_props).bool()
-        # print(f'{pred_states.shape = }, {pred_diffs.shape = }')
-        # print(f'{true_states.shape = }, {true_diffs.shape = }')
+
+        true_states = true_states[:, :end_state]
+        bc_mask = bc_mask[:, :end_state]
+
+        # print(f'{pred_states.shape = }, {true_states.shape = }, {bc_mask.shape = }')
 
         N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
         N_rmses.append(N_rmse)
@@ -65,51 +90,32 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
         if first_batch is None:
             first_batch = (true_states, true_diffs, pred_states, pred_diffs)
 
+        # break
+
     N_rmses = torch.cat(N_rmses, dim=0)
-    N_rmse = torch.mean(N_rmses, dim=0)
-    first_rmses = torch.mean(N_rmse[:15])
-    c_print(f"First 15 N_RMSE: {first_rmses:.3g}", color='green')
+    N_rmse = torch.mean(N_rmses, dim=0)[ctx_states-1:]
     c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
 
     # Plotting
-    if True:
+    plot_nums = np.array([0, pred_steps-2]) + ctx_states
+    print(plot_nums)
+    for plot_step in plot_nums:
         true_states, true_diffs, pred_states, pred_diffs = first_batch
-        # Plot diffs
-        fig, axs = plt.subplots(3, 2, figsize=(20, 9))
-        fig.suptitle(f'Differences, step {plot_step}')
-        for i, ax in enumerate(axs):
-            img_1 = true_diffs[batch_num, plot_step, i].cpu()
-            img_2 = pred_diffs[batch_num, plot_step, i].cpu()
 
-            vmin, vmax = img_1.min(), img_1.max()
-
-            ax[0].imshow(img_1.T, vmin=vmin, vmax=vmax)  # Initial image
-            ax[1].imshow(img_2.T, vmin=vmin, vmax=vmax)  # Predictions
-            ax[0].axis('off'), ax[1].axis('off')
-        fig.tight_layout()
-        fig.show()
+        # # Plot diffs
+        # plot_set(plot_step, true_diffs[batch_num], pred_diffs[batch_num], 'Differences')
 
         # Plot states
-        fig, axs = plt.subplots(3, 2, figsize=(20, 9))
-        fig.suptitle(f'States, step {plot_step}')
-        for i, ax in enumerate(axs):
-            img_1 = true_states[batch_num, plot_step, i].cpu()
-            img_2 = pred_states[batch_num, plot_step, i].cpu()
-
-            ax[0].imshow(img_1.T)  # Initial image
-            ax[1].imshow(img_2.T)  # Predictions
-            ax[0].axis('off'), ax[1].axis('off')
-        fig.tight_layout()
-        fig.show()
+        plot_set(plot_step, true_states[batch_num], pred_states[batch_num], f'States, step {plot_step-ctx_states}')
 
 
 def main():
     load_no = -1
-    save_epoch = 500
-    seq_len = 251
-    bs = 16
+    save_epoch = 180
+    seq_len = 16
+    bs = 1
 
-    plot_step = 25
+    plot_step = -1
     plot_batch_num = 0
 
     set_seed()
@@ -143,8 +149,6 @@ def main():
 
     # Run test_generate
     test_generate(model, dl, plot_step, plot_batch_num)
-    # test_step(model, dl, plot_step, batch_num)
-    # get_ds_stats(model, dl)
 
 
 if __name__ == '__main__':
