@@ -15,6 +15,7 @@ from utils_model import calc_n_rmse, patch_to_img, get_data_loader
 from models.model import MultivariateTimeLLM
 
 from dataloader.simple_dataloader import MGNDataset
+from dataloader.airfoil_ds import AirfoilDataset
 
 torch._dynamo.config.cache_size_limit = 1
 
@@ -23,14 +24,24 @@ logging.basicConfig(level=logging.INFO,
 
 
 def get_eval_dl(model, bs, seq_len):
-    ds = MGNDataset(load_dir=f"./ds/MGN/cylinder_dataset/valid",
-                    resolution=model.config['resolution'],
-                    patch_size=model.config['patch_size'],
-                    stride=model.config['stride'],
-                    seq_len=seq_len,
-                    seq_interval=model.config['seq_interval'],
-                    mode='test',
-                    normalize=model.config['normalize_ds'])
+    if "cylinder" in model.config['load_dir']:
+        ds = MGNDataset(load_dir=f"./ds/MGN/cylinder_dataset/valid",
+                        resolution=model.config['resolution'],
+                        patch_size=model.config['patch_size'],
+                        stride=model.config['stride'],
+                        seq_len=seq_len,
+                        seq_interval=model.config['seq_interval'],
+                        mode='test',
+                        normalize=model.config['normalize_ds'])
+    elif "airfoil" in model.config['load_dir']:
+        ds = AirfoilDataset(load_dir=f"./ds/MGN/airfoil_dataset/valid",
+                            resolution=model.config['resolution'],
+                            patch_size=model.config['patch_size'],
+                            stride=model.config['stride'],
+                            seq_len=seq_len,
+                            seq_interval=model.config['seq_interval'],
+                            mode='test',
+                            normalize=model.config['normalize_ds'])
 
     dl = DataLoader(ds, batch_size=bs, pin_memory=True)
     return dl
@@ -54,7 +65,7 @@ def plot_set(plot_step, true_states, pred_states, title):
 def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     model.eval()
 
-    start_step = 10
+    start_step = 1
     ctx_states = 1
     pred_steps = 15      # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
@@ -110,7 +121,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 
 def main():
-    load_no = -1
+    load_no = -2
     save_epoch = 180
     seq_len = 29
     bs = 1
