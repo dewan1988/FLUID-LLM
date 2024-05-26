@@ -72,6 +72,7 @@ class MultivariateTimeLLM(nn.Module):
             BOS_embed = embeddings(torch.tensor(BOS_id).to(device_map)).clone()
             self.BOS_embed = torch.nn.Parameter(BOS_embed)
 
+        # Patch properties
         self.N_px_patch, self.N_py_patch = ds_props.patch_size
         self.patch_in_dim = self.N_px_patch * self.N_py_patch * 3
         self.patch_shape = (3, self.N_px_patch, self.N_py_patch)
@@ -111,6 +112,16 @@ class MultivariateTimeLLM(nn.Module):
         else:
             # Freeze backbone parameters
             freeze_model(self.backbone)
+
+    def forward_see_init(self, states, position_ids):
+        """ Repeat the first state so the model can see the entire initial conditions before making any predictions"""
+
+        states = torch.cat([states[:, :1], states], dim=1)
+        position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
+        pred_diffs = self.forward(states, position_ids)
+        pred_diffs = pred_diffs[:, 1:]
+
+        return pred_diffs
 
     def forward(self, x, position_ids):
         """
@@ -219,12 +230,3 @@ class MultivariateTimeLLM(nn.Module):
         all_diffs = patch_to_img(all_diffs, self.ds_props)
         return all_states, all_diffs
 
-    def forward_see_init(self, states, position_ids):
-        """ Repeat the first state so the model can see the entire initial conditions before making any predictions"""
-
-        states = torch.cat([states[:, :1], states], dim=1)
-        position_ids = torch.cat([position_ids[:, :1], position_ids], dim=1)
-        pred_diffs = self.forward(states, position_ids)
-        pred_diffs = pred_diffs[:, 1:]
-
-        return pred_diffs

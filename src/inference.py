@@ -62,10 +62,10 @@ def plot_set(plot_step, true_states, pred_states, title):
 
 
 @torch.inference_mode()
-def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
+def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
     model.eval()
 
-    start_step = 1
+    start_step = 5
     ctx_states = 1
     pred_steps = 15      # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
@@ -76,6 +76,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
     N_rmses = []
     # Get batch and run through model
     for i, batch in enumerate(dl):
+        print(f'{i = }')
         # Filter out start
         batch = [b[:, start_cut:] for b in batch]
         batch = [t.cuda() for t in batch]
@@ -109,7 +110,7 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
     # Plotting
     plot_nums = np.array([0, pred_steps-2]) + ctx_states
-    print(plot_nums)
+    print(f'{plot_nums = }')
     for plot_step in plot_nums:
         true_states, true_diffs, pred_states, pred_diffs = first_batch
 
@@ -121,12 +122,11 @@ def test_generate(model: MultivariateTimeLLM, dl, plot_step, batch_num=0):
 
 
 def main():
-    load_no = -2
+    load_no = -3
     save_epoch = 180
     seq_len = 29
-    bs = 1
+    bs = 4
 
-    plot_step = -1
     plot_batch_num = 0
 
     set_seed()
@@ -159,7 +159,7 @@ def main():
     dl = get_eval_dl(model, bs, seq_len)
 
     # Run test_generate
-    test_generate(model, dl, plot_step, plot_batch_num)
+    test_generate(model, dl, plot_batch_num)
 
 
 if __name__ == '__main__':
