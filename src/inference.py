@@ -17,7 +17,7 @@ from models.model import MultivariateTimeLLM
 from dataloader.simple_dataloader import MGNDataset
 from dataloader.airfoil_ds import AirfoilDataset
 
-torch._dynamo.config.cache_size_limit = 1
+torch._dynamo.config.cache_size_limit = 4
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO,
 
 def get_eval_dl(model, bs, seq_len):
     if "cylinder" in model.config['load_dir']:
-        ds = MGNDataset(load_dir=f"./ds/MGN/cylinder_dataset/valid",
+        ds = MGNDataset(load_dir=f"./ds/MGN/cylinder_dataset/test",
                         resolution=model.config['resolution'],
                         patch_size=model.config['patch_size'],
                         stride=model.config['stride'],
@@ -34,7 +34,7 @@ def get_eval_dl(model, bs, seq_len):
                         mode='test',
                         normalize=model.config['normalize_ds'])
     elif "airfoil" in model.config['load_dir']:
-        ds = AirfoilDataset(load_dir=f"./ds/MGN/airfoil_dataset/valid",
+        ds = AirfoilDataset(load_dir=f"./ds/MGN/airfoil_dataset/test",
                             resolution=model.config['resolution'],
                             patch_size=model.config['patch_size'],
                             stride=model.config['stride'],
@@ -65,9 +65,9 @@ def plot_set(plot_step, true_states, pred_states, title):
 def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
     model.eval()
 
-    start_step = 5
-    ctx_states = 1
-    pred_steps = 15      # Number of diffs. States is -1.
+    start_step = 10
+    ctx_states = 8
+    pred_steps = 50      # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
     end_state = pred_steps + ctx_states - 1
 
@@ -102,11 +102,12 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
         if first_batch is None:
             first_batch = (true_states, true_diffs, pred_states, pred_diffs)
 
-        # break
+#         break
 
     N_rmses = torch.cat(N_rmses, dim=0)
     N_rmse = torch.mean(N_rmses, dim=0)[ctx_states-1:]
-    c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.3g}", color='cyan')
+    c_print(f'{ctx_states = }', color='cyan')
+    c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.4g}", color='cyan')
 
     # Plotting
     plot_nums = np.array([0, pred_steps-2]) + ctx_states
@@ -122,12 +123,12 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
 
 def main():
-    load_no = -3
-    save_epoch = 180
-    seq_len = 29
+    load_no = -1
+    save_epoch = 500
+    seq_len = 61
     bs = 4
 
-    plot_batch_num = 0
+    plot_batch_num = 2
 
     set_seed()
 
@@ -142,7 +143,6 @@ def main():
     ckpt = torch.load(checkpoint_file_path)
     ckpt_state_dict = ckpt['state_dict']
     ckpt_params = load_yaml_from_file(f'{load_path}/training1.yaml')
-    # ckpt_params['compile'] = False
 
     # Get dataloader
     ckpt_params['seq_len'] = ckpt_params['autoreg_seq_len']

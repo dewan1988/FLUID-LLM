@@ -91,8 +91,9 @@ class MultivariateTimeLLM(nn.Module):
         self.output_layer = PatchDecoder(self.llm_in_dim, self.patch_in_dim, ds_props, self.config['decoder_params'])
 
         # Adjust the backbone for time series task
-        print(f'{self.max_seq_len = }')
-        self.max_ctx_len = self.max_seq_len
+        self.max_ctx_len = 1 #self.max_seq_len
+        print(f'{self.max_ctx_len = }')
+
         self._adjust_backbone()
         self.to(device_map)
 
