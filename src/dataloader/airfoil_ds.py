@@ -260,7 +260,7 @@ class AirfoilDataset(Dataset):
 def plot_all_patches():
     patch_size = (16, 16)
 
-    seq_dl = AirfoilDataset(load_dir="/mnt/StorageDisk/fluid_ds/meshgraphnets/airfoil_dataset/valid", resolution=210, patch_size=patch_size, stride=patch_size,
+    seq_dl = AirfoilDataset(load_dir="./ds/MGN/airfoil_dataset/valid", resolution=238, patch_size=patch_size, stride=patch_size,
                             seq_len=10, seq_interval=2, normalize=True, mode="valid")
 
     ds = DataLoader(seq_dl, batch_size=9, shuffle=False)
