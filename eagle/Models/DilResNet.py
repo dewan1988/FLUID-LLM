@@ -23,9 +23,9 @@ class DilResNet(nn.Module):
         self.noise_std = noise_std
 
     def forward(self, state, mask, apply_noise=True):
-
+        mask = mask.bool()
         if apply_noise:
-            noise_mask = torch.logical_or(mask[:, 0] == NODE_NORMAL, mask[:, 0] == NODE_OUTPUT)
+            noise_mask = ~mask[:, 0]
             noise_mask = noise_mask.unsqueeze(1).repeat(1, state.shape[2], 1, 1)
             noise = torch.randn_like(state[:, 0]).to(state.device) * self.noise_std
             state[:, 0] = state[:, 0] + noise * noise_mask
@@ -46,15 +46,16 @@ class DilResNet(nn.Module):
 
             target.append(state[:, i] - state_hat[-1])
 
-            boundaries = torch.logical_or(mask[:, i] == NODE_WALL, mask[:, i] == NODE_INPUT)
-            boundaries = torch.logical_or(boundaries, mask[:, i] == NODE_DISABLE)
+            # boundaries = torch.logical_or(mask[:, i] == NODE_WALL, mask[:, i] == NODE_INPUT)
+            # boundaries = torch.logical_or(boundaries, mask[:, i] == NODE_DISABLE)
+            boundaries = mask[:, i]
             boundaries = boundaries.unsqueeze(1).repeat(1, next_state.shape[1], 1, 1)
 
             next_state[boundaries] = state[:, i][boundaries]
             state_hat.append(next_state)
 
         delta = torch.stack(delta, dim=1)
-        state_hat = torch.stack(state_hat, dim=1)
+        # state_hat = torch.stack(state_hat, dim=1)
         target = torch.stack(target, dim=1)
         return state_hat, delta, target
 

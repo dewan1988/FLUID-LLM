@@ -120,7 +120,6 @@ def main():
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.991)
 
-    memory = torch.inf
     for epoch in range(args.epoch):
         model.train()
         model.apply_noise = True

@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-from Dataloader.IMG_Eagle import EagleDataset, grid2mesh
+from Dataloader.IMG_MGN import EagleDataset
 import random
 import numpy as np
 from torch.utils.data import DataLoader
@@ -10,16 +10,16 @@ import argparse
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', default=0, type=int)
-parser.add_argument('--lr', default=1e-3, type=float)
-parser.add_argument('--noise_std', default=0, type=float)
-parser.add_argument('--horizon_train', default=6, type=int)
-parser.add_argument('--horizon_val', default=25, type=int)
-parser.add_argument('--batchsize', default=10, type=int)
-parser.add_argument('--n_block', default=20, type=int)
+parser.add_argument('--epoch', default=500, type=int)
+parser.add_argument('--lr', default=1e-4, type=float)
+parser.add_argument('--noise_std', default=1e-4, type=float)
+parser.add_argument('--horizon_train', default=2, type=int)
+parser.add_argument('--horizon_val', default=20, type=int)
+parser.add_argument('--batchsize', default=8, type=int)
+parser.add_argument('--n_block', default=4, type=int)
 parser.add_argument('--seed', default=0, type=int)
-parser.add_argument('--dataset_path', default='', type=str)
-parser.add_argument('--name', default='', type=str)
+parser.add_argument('--dataset_path', default='./ds/MGN/cylinder_dataset', type=str)
+parser.add_argument('--name', default='DRN_Cylinder2', type=str)
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,7 +33,7 @@ def evaluate():
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     model = DilResNet(noise_std=args.noise_std,
-                      channels=4 if args.dataset == "fluent" else 3,
+                      channels=3,
                       N_block=args.n_block).to(device)
     model.load_state_dict(torch.load(f"../trained_models/DRN/{args.name}.nn", map_location=device))
 
@@ -151,10 +151,13 @@ def main():
                                   pin_memory=True)
 
     model = DilResNet(noise_std=args.noise_std,
-                      channels=4,
+                      channels=3,
                       N_block=args.n_block).to(device)
+    model = torch.compile(model)
+
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
-    memory = torch.inf
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.991)
+
     for epoch in range(args.epoch):
         model.train()
         for i, x in enumerate(tqdm(train_dataloader, desc="Training")):
@@ -176,12 +179,15 @@ def main():
             costs['loss'].backward()
             optim.step()
 
-        error = validate(model, valid_dataloader, epoch=epoch)
-        if error < memory:
-            memory = error
-            os.makedirs(f"../trained_models/DRN", exist_ok=True)
-            torch.save(model.state_dict(), f"../trained_models/DRN/{name}.nn")
-            print("Saved!")
+        validate(model, valid_dataloader, epoch=epoch)
+        print(f'lr = {scheduler.get_last_lr()[0]}')
+
+        os.makedirs(f"./eagle/trained_models/DRN", exist_ok=True)
+        torch.save(model.state_dict(), f"./eagle/trained_models/DRN/{name}.nn")
+        print("Saved!")
+
+        scheduler.step()
+
     validate(model, valid_dataloader)
 
 
