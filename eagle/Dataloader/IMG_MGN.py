@@ -48,25 +48,26 @@ class EagleDataset(Dataset):
         pos = save_data['mesh_pos']
         faces = save_data['cells']
 
-        # # Mask of unwatned nodes
-        # x_mask = (pos[:, 0] > -.5) & (pos[:, 0] < 2)
-        # y_mask = (pos[:, 1] > -.75) & (pos[:, 1] < 0.75)
-        # mask = x_mask & y_mask
-        #
-        # # Remove values
-        # pos = pos[mask]
-        # save_data['velocity'] = save_data['velocity'][:, mask]
-        # save_data['pressure'] = save_data['pressure'][:, mask]
-        # save_data['density'] = save_data['density'][:, mask]
-        #
-        # # Filter out faces that are not in the mask
-        # wanted_nodes = np.squeeze(np.nonzero(mask))
-        # # Make a mapping from all nodes to wanted nodes, unwanted nodes are set to 0
-        # all_nodes = np.zeros(len(mask), dtype=np.int64)
-        # all_nodes[mask] = np.arange(len(wanted_nodes), dtype=np.int64)
-        # face_mask = np.isin(faces, wanted_nodes).all(axis=1)
-        # faces = faces[face_mask]
-        # faces = all_nodes[faces]
+        if "airfoil" in self.fn:
+            # Mask of unwatned nodes
+            x_mask = (pos[:, 0] > -.5) & (pos[:, 0] < 2)
+            y_mask = (pos[:, 1] > -.75) & (pos[:, 1] < 0.75)
+            mask = x_mask & y_mask
+
+            # Remove values
+            pos = pos[mask]
+            save_data['velocity'] = save_data['velocity'][:, mask]
+            save_data['pressure'] = save_data['pressure'][:, mask]
+            save_data['density'] = save_data['density'][:, mask]
+
+            # Filter out faces that are not in the mask
+            wanted_nodes = np.squeeze(np.nonzero(mask))
+            # Make a mapping from all nodes to wanted nodes, unwanted nodes are set to 0
+            all_nodes = np.zeros(len(mask), dtype=np.int64)
+            all_nodes[mask] = np.arange(len(wanted_nodes), dtype=np.int64)
+            face_mask = np.isin(faces, wanted_nodes).all(axis=1)
+            faces = faces[face_mask]
+            faces = all_nodes[faces]
 
         triang, tri_index, grid_x, grid_y = get_mesh_interpolation(pos, faces, 238)
 
@@ -84,6 +85,12 @@ class EagleDataset(Dataset):
         Vy_interp, Vy_mask = to_grid(Vy, grid_x, grid_y, triang, tri_index)
         P_interp, P_mask = to_grid(P, grid_x, grid_y, triang, tri_index)
         step_state = np.stack([Vx_interp, Vy_interp, P_interp], axis=0)
+
+        if "airfoil" in self.fn:
+            # Crop the airfoil
+            ph, pw = (16, 16)
+            step_state = step_state[:, ph:-ph, pw:-pw]
+            P_mask = P_mask[ph:-ph, pw:-pw]
 
         return step_state, P_mask
 
@@ -106,7 +113,7 @@ class EagleDataset(Dataset):
         states = torch.from_numpy(states).float()
 
         output = {'states': self.normalize(states).permute(0, 2, 3, 1),
-                  'mask': masks.copy(), # [:, np.newaxis].repeat(3, axis=1),
+                  'mask': masks.copy(),  # [:, np.newaxis].repeat(3, axis=1),
                   }
         #
         # if self.with_mesh:
@@ -130,33 +137,52 @@ class EagleDataset(Dataset):
         return output
 
     def normalize(self, state):
-        shape = state.shape
+        if "airfoil" in self.fn:
+            s0_mean, s0_std = 170.1, 71.06
+            s1_mean, s1_std = -1.183, 46.73
+            s2_mean, s2_std = 9.935e+04, 8964
+        elif "cylinder" in self.fn:
+            s0_mean, s0_std = 0.823, 0.275
+            s1_mean, s1_std = 0.0005865, 0.275
+            s2_mean, s2_std = 0.04763, 0.275
+        else:
+            raise ValueError(f"Unknown dataset {self.fn}")
 
-        mean = torch.tensor([0.823, 0.0005865, 0.04763]).to(state.device).reshape(1, 3, 1, 1)
-        std = torch.tensor([0.275, 0.275, 0.275]).to(state.device).reshape(1, 3, 1, 1)
+        means = torch.tensor([s0_mean, s1_mean, s2_mean], device=state.device).reshape(1, 3, 1, 1)
+        stds = torch.tensor([s0_std, s1_std, s2_std], device=state.device).reshape(1, 3, 1, 1)
 
-        state = (state - mean) / std
-        return state.reshape(shape)
+        state = (state - means) / stds
+        return state
 
     def denormalize(self, state):
-        shape = state.shape
-        # print(f'{state.shape = }')
-        # exit(7)
-        mean = torch.tensor([0.823, 0.0005865, 0.04763]).to(state.device)#.reshape(1, 3, 1, 1)
-        std = torch.tensor([0.275, 0.275, 0.275]).to(state.device)#.reshape(1, 3, 1, 1)
+        if "airfoil" in self.fn:
+            s0_mean, s0_std = 170.1, 71.06
+            s1_mean, s1_std = -1.183, 46.73
+            s2_mean, s2_std = 9.935e+04, 8964
+        elif "cylinder" in self.fn:
+            s0_mean, s0_std = 0.823, 0.275
+            s1_mean, s1_std = 0.0005865, 0.275
+            s2_mean, s2_std = 0.04763, 0.275
+        else:
+            raise ValueError(f"Unknown dataset {self.fn}")
 
-        state = state * std + mean
-        return state.reshape(shape)
+        means = torch.tensor([s0_mean, s1_mean, s2_mean], device=state.device)
+        stds = torch.tensor([s0_std, s1_std, s2_std], device=state.device)
+        state = state * stds + means
+        return state
+
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     # Test the dataloader
-    dataset = EagleDataset(data_path="./ds/MGN/cylinder_dataset/", mode="train", window_length=10)
+    dataset = EagleDataset(data_path="./ds/MGN/airfoil_dataset/", mode="test", window_length=10)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
     for i, batch in enumerate(dataloader):
         state, mask = batch['states'], batch['mask']
+        #state = dataloader.normalize(state)
+        print(f'{state.mean() = }, {state.std() = }')
         print(f'{state.shape = }, {mask.shape = }')
         plt.imshow(state[0, 0, :, :, 0].T)
         plt.show()

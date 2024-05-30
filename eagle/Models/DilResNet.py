@@ -28,6 +28,7 @@ class DilResNet(nn.Module):
             noise_mask = ~mask[:, 0]
             noise_mask = noise_mask.unsqueeze(1).repeat(1, state.shape[2], 1, 1)
             noise = torch.randn_like(state[:, 0]).to(state.device) * self.noise_std
+
             state[:, 0] = state[:, 0] + noise * noise_mask
 
         state_hat, delta = [state[:, 0]], []

@@ -18,8 +18,8 @@ parser.add_argument('--horizon_val', default=20, type=int)
 parser.add_argument('--batchsize', default=8, type=int)
 parser.add_argument('--n_block', default=4, type=int)
 parser.add_argument('--seed', default=0, type=int)
-parser.add_argument('--dataset_path', default='./ds/MGN/cylinder_dataset', type=str)
-parser.add_argument('--name', default='DRN_Cylinder2', type=str)
+parser.add_argument('--dataset_path', default='./ds/MGN/airfoil_dataset', type=str)
+parser.add_argument('--name', default='DRN_Airfoil', type=str)
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -119,6 +119,7 @@ def validate(model, dataloader, epoch=0):
 
             state = states.permute(0, 1, 4, 2, 3)
             state_hat, target, delta_hat = model(state, mask, apply_noise=False)
+            state_hat = torch.stack(state_hat, dim=1)
 
             state = state.permute(0, 1, 3, 4, 2)
             state_hat = state_hat.permute(0, 1, 3, 4, 2)
@@ -166,6 +167,7 @@ def main():
 
             state = states.permute(0, 1, 4, 2, 3)
             state_hat, target, delta_hat = model(state, mask)
+            state_hat = torch.stack(state_hat, dim=1)
 
             state = state.permute(0, 1, 3, 4, 2)
             state_hat = state_hat.permute(0, 1, 3, 4, 2)

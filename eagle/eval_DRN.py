@@ -14,8 +14,8 @@ from src.utils_model import calc_n_rmse
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_block', default=4, type=int)
 parser.add_argument('--seed', default=0, type=int)
-parser.add_argument('--dataset_path', default='./ds/MGN/cylinder_dataset', type=str)
-parser.add_argument('--name', default='DRN_Cylinder2', type=str)
+parser.add_argument('--dataset_path', default='./ds/MGN/airfoil_dataset', type=str)
+parser.add_argument('--name', default='DRN_Airfoil', type=str)
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -31,7 +31,7 @@ def evaluate():
     model = DilResNet(noise_std=0,
                       channels=3,
                       N_block=args.n_block).to(device)
-    model = torch.compile(model)
+    # model = torch.compile(model)
     model.load_state_dict(torch.load(f"./eagle/trained_models/DRN/{args.name}.nn", map_location=device))
 
     rmses = []
