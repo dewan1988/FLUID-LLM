@@ -7,16 +7,14 @@ from torch.utils.data import DataLoader
 from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
-from matplotlib import pyplot as plt
-from matplotlib import tri
-from src.dataloader.mesh_utils import to_grid, get_mesh_interpolation
+
 from eagle_utils import get_nrmse, plot_imgs, plot_preds, plot_final
 
 torch.set_float32_matmul_precision('medium')
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/airfoil_dataset/', type=str, help="Dataset location")
-parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
-parser.add_argument('--name', default='airfoil', type=str, help="Name for saving/loading weights")
+parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
+parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
+parser.add_argument('--name', default='mgn_test', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,7 +25,7 @@ BATCHSIZE = 1
 @torch.inference_mode()
 def evaluate():
     print(args)
-    length = 3
+    length = 101
     dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
@@ -54,10 +52,10 @@ def evaluate():
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse.numpy())
 
-            # print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
-            # plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state[0])
-            #
-            # exit(7)
+        print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
+        plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state[0])
+
+        exit(7)
 
     rmses = np.concatenate(rmses)
     print(f'{rmses.mean(axis=0).tolist()}')

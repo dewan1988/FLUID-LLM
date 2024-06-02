@@ -91,7 +91,7 @@ def to_grid(val, grid_x, grid_y, triang, tri_index):
     return data, mask
 
 
-def get_mesh_interpolation(pos, faces, grid_res=256):
+def get_mesh_interpolation(pos, faces, grid_res=238):
     """ Returns mesh interpolation properties for a given mesh.
         Can be cached for efficiency if mesh is the same.
     """

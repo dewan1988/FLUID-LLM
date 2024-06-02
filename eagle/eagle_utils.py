@@ -113,6 +113,9 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     true_imgs, pred_imgs = true_imgs.unsqueeze(0), pred_imgs.unsqueeze(0)
     mask = torch.from_numpy(mask)
     mask = mask.view(1, 1, 1, mask.shape[0], mask.shape[1]).repeat(1, seq_len, 3, 1, 1)
+
+    # mask = mask[:, :, :, 16:-16, 16:-16]
+    # true_imgs, pred_imgs = true_imgs[:, :, :, 16:-16, 16:-16], pred_imgs[:, :, :, 16:-16, 16:-16]
     #
     # print(pred_imgs.shape)
     # plt.imshow(pred_imgs[0, 49, 0].cpu().numpy().T)
@@ -123,5 +126,22 @@ def get_nrmse(true_states, pred_states, mesh_pos, faces):
     # plt.tight_layout()
     # plt.show()
     # exit(7)
-    rmse = calc_n_rmse(pred_imgs, true_imgs, mask)# .mean()
+    rmse = calc_n_rmse(pred_imgs, true_imgs, mask)  # .mean()
     return rmse
+
+
+def plot_final(mesh_pos, faces, state_hat, state_true):
+    mesh_pos, faces, state_hat, state_true = mesh_pos.cpu().numpy(), faces.cpu().numpy(), state_hat.cpu().numpy(), state_true.cpu().numpy()
+    triang, tri_index, grid_x, grid_y = get_mesh_interpolation(mesh_pos, faces)
+
+    vmin, vmax = state_true[:100, :, 0].min(), state_true[:100, :, 0].max()
+    for j in [0, 20, 40, 60, 80, 100]:
+        interp, _ = to_grid(state_true[j, :, 0], grid_x, grid_y, triang, tri_index)
+        # interp = interp[16:-16, 16:-16]
+        print(f'{interp.shape = }')
+        fig = plt.figure(figsize=(15, 4))
+        plt.imshow(interp.T, vmin=vmin, vmax=vmax)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f'./plots/cylinder_{j}.png', bbox_inches='tight', pad_inches=0)
+        plt.show()

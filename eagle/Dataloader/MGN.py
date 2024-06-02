@@ -5,6 +5,7 @@ from torch.nn.functional import one_hot
 import torch
 import numpy as np
 import pickle
+import natsort
 
 NODE_NORMAL = 0
 NODE_INPUT = 4
@@ -44,6 +45,7 @@ class EagleMGNDataset(Dataset):
 
                 if filepath.endswith(".pkl"):
                     self.dataloc.append(filepath)
+        self.dataloc = natsort.natsorted(self.dataloc)
 
         self.with_cells = with_cells
         self.with_cluster = with_cluster
