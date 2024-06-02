@@ -10,12 +10,13 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 from matplotlib import tri
 from src.dataloader.mesh_utils import to_grid, get_mesh_interpolation
-from eagle_utils import get_nrmse, plot_imgs, plot_preds
+from eagle_utils import get_nrmse, plot_imgs, plot_preds, plot_final
 
+torch.set_float32_matmul_precision('medium')
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/airfoil_dataset/', type=str, help="Dataset location")
 parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
-parser.add_argument('--name', default='airfoil_good', type=str, help="Name for saving/loading weights")
+parser.add_argument('--name', default='airfoil', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,9 +38,6 @@ def evaluate():
     model.eval()
     model.apply_noise = False
 
-    error_velocity = torch.zeros(length - 1).to(device)
-    error_pressure = torch.zeros(length - 1).to(device)
-
     os.makedirs(f"./eagle/Results/meshgraphnet", exist_ok=True)
     rmses = []
     for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
@@ -48,50 +46,18 @@ def evaluate():
         velocity = x["velocity"].to(device)
         pressure = x["pressure"].to(device)
         node_type = x["node_type"].to(device)
-        mask = torch.ones_like(mesh_pos)[..., 0]
+        faces = x['cells']
 
         state = torch.cat([velocity, pressure], dim=-1)
         state_hat, output_hat, _ = model(mesh_pos, edges, state, node_type)
 
-        velocity = velocity[:, 1:]
-        pressure = pressure[:, 1:]
-        velocity_hat = state_hat[:, 1:, :, :2]
-        pressure_hat = state_hat[:, 1:, :, 2:]
-        mask = mask[:, 1:].unsqueeze(-1)
-
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse.numpy())
 
-        # print(f'{state.shape = }, {state_hat.shape = }, {state.shape = }, {x["cells"].shape = }')
-        # print(i)
-        # if i == 8:
-        #     true_diffs = state[:, 1:] - state[:, :-1]
-        #     plot_preds(mesh_pos, state_hat, state, 0)
-        #     plot_preds(mesh_pos, output_hat, true_diffs, 0)
-        #     exit(4)
-
-        vel_error = velocity[0] * mask[0] - velocity_hat[0] * mask[0]
-        pres_error = pressure[0] * mask[0] - pressure_hat[0] * mask[0]
-        pres_error = pres_error[:, :, 1:]
-
-        rmse_velocity = torch.sqrt(vel_error.pow(2).mean(dim=(-1, -2)))
-        rmse_pressure = torch.sqrt(pres_error.pow(2).mean(dim=(-1, -2)))
-
-        rmse_velocity = torch.cumsum(rmse_velocity, dim=0) / torch.arange(1, rmse_velocity.shape[0] + 1,
-                                                                          device=device)
-        rmse_pressure = torch.cumsum(rmse_pressure, dim=0) / torch.arange(1, rmse_pressure.shape[0] + 1,
-                                                                          device=device)
-
-        error_velocity = error_velocity + rmse_velocity
-        error_pressure = error_pressure + rmse_pressure
-
-    error_velocity = error_velocity / len(dataloader)
-    error_pressure = error_pressure / len(dataloader)
-
-    np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_velocity.csv", error_velocity.cpu().numpy(),
-               delimiter=",")
-    np.savetxt(f"./eagle/Results/meshgraphnet/{args.name}_error_pressure.csv", error_pressure.cpu().numpy(),
-               delimiter=",")
+            # print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
+            # plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state[0])
+            #
+            # exit(7)
 
     rmses = np.concatenate(rmses)
     print(f'{rmses.mean(axis=0).tolist()}')
