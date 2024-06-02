@@ -13,9 +13,9 @@ from src.dataloader.mesh_utils import to_grid, get_mesh_interpolation
 from eagle_utils import get_nrmse, plot_imgs, plot_preds
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
-parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
-parser.add_argument('--name', default='mgn', type=str, help="Name for saving/loading weights")
+parser.add_argument('--dataset_path', default='/home/bubbles/Documents/LLM_Fluid/ds/MGN/airfoil_dataset/', type=str, help="Dataset location")
+parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
+parser.add_argument('--name', default='airfoil_good', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,7 +26,7 @@ BATCHSIZE = 1
 @torch.inference_mode()
 def evaluate():
     print(args)
-    length = 251
+    length = 3
     dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
