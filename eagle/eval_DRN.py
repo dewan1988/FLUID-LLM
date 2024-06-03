@@ -69,7 +69,7 @@ def evaluate():
         state = state.cpu()
         mask = mask.cpu()
 
-        if i == 15:
+        if i == 0:
             print(f'{state_hat.shape = }, {state.shape = }, {mask.shape = }')
             plot_final(state_hat[0], state[0])
             exit(9)
