@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from cprint import c_print
 import numpy as np
 import torch.nn.functional as F
+import natsort
 
 from utils import set_seed, load_yaml_from_file, get_available_device, get_save_folder, get_accelerator
 from utils_model import calc_n_rmse, patch_to_img, get_data_loader
@@ -17,7 +18,7 @@ from models.model import MultivariateTimeLLM
 from dataloader.simple_dataloader import MGNDataset
 from dataloader.airfoil_ds import AirfoilDataset
 
-torch._dynamo.config.cache_size_limit = 4
+torch._dynamo.config.cache_size_limit = 1
 
 logging.basicConfig(level=logging.INFO,
                     format=f'[{__name__}:%(levelname)s] %(message)s')
@@ -43,7 +44,7 @@ def get_eval_dl(model, bs, seq_len):
                             mode='test',
                             normalize=model.config['normalize_ds'])
 
-    dl = DataLoader(ds, batch_size=bs, pin_memory=True)
+    dl = DataLoader(ds, batch_size=bs, pin_memory=True, num_workers=8)
     return dl
 
 
@@ -61,13 +62,29 @@ def plot_set(plot_step, true_states, pred_states, title):
     fig.show()
 
 
+def plot_final(state_hat, state_true):
+    vmin, vmax = state_true[:100, 0].min(), state_true[:100, 0].max()
+
+    for j in [0, 20, 40, 60, 80, 100]:
+        plot_state = state_hat[j, 0]
+        #fig = plt.figure(figsize=(15, 4))
+        fig = plt.figure(figsize=(13, 7), dpi=100)
+
+        plt.imshow(np.flipud(plot_state.T), vmin=vmin, vmax=vmax)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f'./plots/airfoil_125m_{j}.png', bbox_inches='tight', pad_inches=0)
+        plt.show()
+    exit(4)
+
+
 @torch.inference_mode()
 def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
     model.eval()
 
     start_step = 1
     ctx_states = 1
-    pred_steps = 251      # Number of diffs. States is -1.
+    pred_steps = 101  # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
     end_state = pred_steps + ctx_states - 1
 
@@ -77,6 +94,9 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
     # Get batch and run through model
     for i, batch in enumerate(dl):
         print(f'{i = }')
+        if i != 15:
+            continue
+
         # Filter out start
         batch = [b[:, start_cut:] for b in batch]
         batch = [t.cuda() for t in batch]
@@ -85,7 +105,7 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
         # bs, seq_len, N_patch, channel, px, py = states.shape
         pred_states, pred_diffs = model.gen_seq(batch, pred_steps=pred_steps, start_state=ctx_states)
-        pred_states = pred_states[:, :-1]           # Since last state doesnt have diff.
+        pred_states = pred_states[:, :-1]  # Since last state doesnt have diff.
 
         true_states = patch_to_img(states, model.ds_props)
         true_diffs = patch_to_img(diffs, model.ds_props)
@@ -99,18 +119,22 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
         N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
         N_rmses.append(N_rmse)
 
+        print(f'{true_states.shape = }')
+        if i == 15:
+            plot_final(pred_states[0].cpu(), true_states[0].cpu())
+            exit(7)
         if first_batch is None:
             first_batch = (true_states, true_diffs, pred_states, pred_diffs)
 
-#         break
+        # break
 
     N_rmses = torch.cat(N_rmses, dim=0)
-    N_rmse = torch.mean(N_rmses, dim=0)[ctx_states-1:]
+    N_rmse = torch.mean(N_rmses, dim=0)[ctx_states - 1:]
     c_print(f'{ctx_states = }', color='cyan')
     c_print(f"Standard N_RMSE: {N_rmse}, Mean: {N_rmse.mean().item():.4g}", color='cyan')
 
     # Plotting
-    plot_nums = np.array([0, pred_steps-2]) + ctx_states
+    plot_nums = np.array([0, pred_steps - 2]) + ctx_states
     print(f'{plot_nums = }')
     for plot_step in plot_nums:
         true_states, true_diffs, pred_states, pred_diffs = first_batch
@@ -119,16 +143,16 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
         # plot_set(plot_step, true_diffs[batch_num], pred_diffs[batch_num], 'Differences')
 
         # Plot states
-        plot_set(plot_step, true_states[batch_num], pred_states[batch_num], f'States, step {plot_step-ctx_states}')
+        plot_set(plot_step, true_states[batch_num], pred_states[batch_num], f'States, step {plot_step - ctx_states}')
 
 
 def main():
-    load_no = -1
-    save_epoch = 500
-    seq_len = 255
-    bs = 4
+    load_no = -3
+    save_epoch = 180
+    seq_len = 151
+    bs = 1
 
-    plot_batch_num = 2
+    plot_batch_num = 0
 
     set_seed()
 

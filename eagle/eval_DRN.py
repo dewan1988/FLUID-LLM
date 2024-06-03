@@ -27,7 +27,7 @@ def plot_final(state_hat, state_true):
     vmin, vmax = state_true[:100, 0].min(), state_true[:100, 0].max()
 
     for j in [0, 20, 40, 60, 80, 100]:
-        plot_state = state_true[j, 0]
+        plot_state = state_hat[j, 0]
         #fig = plt.figure(figsize=(15, 4))
         fig = plt.figure(figsize=(13, 7))
 
