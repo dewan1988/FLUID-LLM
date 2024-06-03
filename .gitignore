@@ -175,3 +175,4 @@ model_checkpoints/*.pt
 **/*.pt
 **/**/*.pt
 /eagle/trained_models/graphvit/
+/eagle/Results/meshgraphnet/
