@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 import numpy as np
 import torch
 import pickle
+import natsort
 
 from src.dataloader.mesh_utils import get_mesh_interpolation, to_grid
 
@@ -33,6 +34,7 @@ class EagleDataset(Dataset):
 
                 if filepath.endswith(".pkl"):
                     self.dataloc.append(filepath)
+        self.dataloc = natsort.natsorted(self.dataloc)
 
         self.mode = mode
         self.length = 990
