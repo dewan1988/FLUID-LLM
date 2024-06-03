@@ -148,8 +148,8 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
 
 def main():
-    load_no = -2
-    save_epoch = 180
+    load_no = -3
+    save_epoch = 500
     seq_len = 253
     bs = 1
 
