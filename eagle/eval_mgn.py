@@ -8,7 +8,7 @@ from Models.MeshGraphNet import MeshGraphNet
 import argparse
 from tqdm import tqdm
 
-from eagle_utils import get_nrmse, plot_imgs, plot_preds, plot_final
+from eagle_utils import get_nrmse, plot_final
 
 torch.set_float32_matmul_precision('medium')
 parser = argparse.ArgumentParser()
@@ -25,7 +25,7 @@ BATCHSIZE = 1
 @torch.inference_mode()
 def evaluate():
     print(args)
-    length = 251
+    length = 102
     dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
@@ -52,10 +52,10 @@ def evaluate():
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse.numpy())
 
-        # print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
-        # plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state[0])
-        #
-        # exit(7)
+        print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
+        plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state_true=state[0])
+        print(rmse)
+        exit(7)
 
     rmses = np.concatenate(rmses)
     print(f'{rmses.mean(axis=0).tolist()}')
