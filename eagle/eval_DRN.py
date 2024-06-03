@@ -15,8 +15,8 @@ from src.dataloader.mesh_utils import to_grid, get_mesh_interpolation
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_block', default=4, type=int)
 parser.add_argument('--seed', default=0, type=int)
-parser.add_argument('--dataset_path', default='./ds/MGN/airfoil_dataset', type=str)
-parser.add_argument('--name', default='DRN_Airfoil', type=str)
+parser.add_argument('--dataset_path', default='./ds/MGN/cylinder_dataset', type=str)
+parser.add_argument('--name', default='DRN_Cylinder2', type=str)
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,13 +28,13 @@ def plot_final(state_hat, state_true):
 
     for j in [0, 20, 40, 60, 80, 100]:
         plot_state = state_hat[j, 0]
-        #fig = plt.figure(figsize=(15, 4))
-        fig = plt.figure(figsize=(13, 7))
+        fig = plt.figure(figsize=(15, 4), dpi=100)
+        # fig = plt.figure(figsize=(13, 7), dpi=100)
 
         plt.imshow(plot_state.T, vmin=vmin, vmax=vmax)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f'./plots/airfoil_DRN_{j}.png', bbox_inches='tight', pad_inches=0)
+        plt.savefig(f'./plots/cylinder_DRN_{j}.png', bbox_inches='tight', pad_inches=0)
         plt.show()
     exit(4)
 
@@ -49,7 +49,7 @@ def evaluate():
     model = DilResNet(noise_std=0,
                       channels=3,
                       N_block=args.n_block).to(device)
-    # model = torch.compile(model)
+    model = torch.compile(model)
     model.load_state_dict(torch.load(f"./eagle/trained_models/DRN/{args.name}.nn", map_location=device))
 
     rmses = []
