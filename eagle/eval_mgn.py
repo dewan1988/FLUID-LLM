@@ -52,10 +52,10 @@ def evaluate():
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse.numpy())
 
-        print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
-        plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state_true=state[0])
-        print(rmse)
-        exit(7)
+        # print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
+        # plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state_true=state[0])
+        # print(rmse)
+        # exit(7)
 
     rmses = np.concatenate(rmses)
     print(f'{rmses.mean(axis=0).tolist()}')

@@ -67,13 +67,13 @@ def plot_final(state_hat, state_true):
 
     for j in [0, 20, 40, 60, 80, 100]:
         plot_state = state_hat[j, 0]
-        #fig = plt.figure(figsize=(15, 4))
-        fig = plt.figure(figsize=(13, 7), dpi=100)
+        fig = plt.figure(figsize=(15, 4), dpi=100)
+        # fig = plt.figure(figsize=(13, 7), dpi=100)
 
         plt.imshow(np.flipud(plot_state.T), vmin=vmin, vmax=vmax)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f'./plots/cylinder_125m_{j}.png', bbox_inches='tight', pad_inches=0)
+        plt.savefig(f'./plots/cylinder_large_{j}.png', bbox_inches='tight', pad_inches=0)
         plt.show()
     exit(4)
 
@@ -93,9 +93,9 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
     N_rmses = []
     # Get batch and run through model
     for i, batch in enumerate(dl):
-        print(f'{i = }')
-        if i != 15:
-            continue
+        # print(f'{i = }')
+        # if i != 15:
+        #     continue
 
         # Filter out start
         batch = [b[:, start_cut:] for b in batch]
@@ -120,9 +120,10 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
         N_rmses.append(N_rmse)
 
         print(f'{true_states.shape = }')
-        if i == 15:
+        if i == 0:
             plot_final(pred_states[0].cpu(), true_states[0].cpu())
             exit(7)
+
         if first_batch is None:
             first_batch = (true_states, true_diffs, pred_states, pred_diffs)
 
@@ -147,7 +148,7 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
 
 def main():
-    load_no = -4
+    load_no = -2
     save_epoch = 500
     seq_len = 151
     bs = 1
