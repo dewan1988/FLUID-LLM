@@ -84,7 +84,7 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
     start_step = 1
     ctx_states = 1
-    pred_steps = 101  # Number of diffs. States is -1.
+    pred_steps = 251  # Number of diffs. States is -1.
     start_cut = start_step - ctx_states
     end_state = pred_steps + ctx_states - 1
 
@@ -149,8 +149,8 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
 def main():
     load_no = -2
-    save_epoch = 500
-    seq_len = 151
+    save_epoch = 180
+    seq_len = 253
     bs = 1
 
     plot_batch_num = 0
