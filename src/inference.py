@@ -73,7 +73,7 @@ def plot_final(state_hat, state_true):
         plt.imshow(np.flipud(plot_state.T), vmin=vmin, vmax=vmax)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f'./plots/airfoil_125m_{j}.png', bbox_inches='tight', pad_inches=0)
+        plt.savefig(f'./plots/cylinder_125m_{j}.png', bbox_inches='tight', pad_inches=0)
         plt.show()
     exit(4)
 
