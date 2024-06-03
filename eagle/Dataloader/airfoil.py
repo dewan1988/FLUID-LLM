@@ -124,42 +124,6 @@ class AirfoilDataset(Dataset):
 
         return output
 
-    # def normalize(self, velocity=None, pressure=None):
-    #     if pressure is not None:
-    #         pressure_shape = pressure.shape
-    #         mean = torch.tensor([0.8845, -0.0002054]).to(pressure.device)
-    #         std = torch.tensor([0.5875, 0.1286]).to(pressure.device)
-    #         pressure = pressure.reshape(-1, 2)
-    #         pressure = (pressure - mean) / std
-    #         pressure = pressure.reshape(pressure_shape)
-    #     if velocity is not None:
-    #         velocity_shape = velocity.shape
-    #         mean = torch.tensor([0.04064, 0.04064]).to(velocity.device).view(-1, 2)
-    #         std = torch.tensor([0.2924, 0.2924]).to(velocity.device).view(-1, 2)
-    #         velocity = velocity.reshape(-1, 2)
-    #         velocity = (velocity - mean) / std
-    #         velocity = velocity.reshape(velocity_shape)
-    #
-    #     return velocity, pressure
-    #
-    # def denormalize(self, velocity=None, pressure=None):
-    #     if pressure is not None:
-    #         pressure_shape = pressure.shape
-    #         mean = torch.tensor([0.8845, -0.0002054]).to(pressure.device)
-    #         std = torch.tensor([0.5875, 0.1286]).to(pressure.device)
-    #         pressure = pressure.reshape(-1, 2)
-    #         pressure = (pressure * std) + mean
-    #         pressure = pressure.reshape(pressure_shape)
-    #     if velocity is not None:
-    #         velocity_shape = velocity.shape
-    #         mean = torch.tensor([0.04064, 0.04064]).to(velocity.device).view(-1, 2)
-    #         std = torch.tensor([0.2924, 0.2924]).to(velocity.device).view(-1, 2)
-    #         velocity = velocity.reshape(-1, 2)
-    #         velocity = velocity * std + mean
-    #         velocity = velocity.reshape(velocity_shape)
-    #
-    #     return velocity, pressure
-
 
 def get_data(path, window_length, mode):
     # Time sampling is random during training, but set to a fix value during test and valid, to ensure repeatability.
@@ -180,8 +144,8 @@ def get_data(path, window_length, mode):
     node_type = np.repeat(node_type[np.newaxis], window_length, axis=0)
 
     # Remove outer region
-    x_mask = (pos[:, :, 0] > -.42) & (pos[:, :, 0] < 1.71)
-    y_mask = (pos[:, :, 1] > -.64) & (pos[:, :, 1] < 0.85)
+    x_mask = (pos[:, :, 0] > -0.5) & (pos[:, :, 0] < 2)
+    y_mask = (pos[:, :, 1] > -.75) & (pos[:, :, 1] < 0.75)
     mask = x_mask & y_mask
     mask = mask[0]
 
