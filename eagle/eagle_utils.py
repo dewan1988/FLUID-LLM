@@ -135,13 +135,13 @@ def plot_final(mesh_pos, faces, state_hat, state_true):
     triang, tri_index, grid_x, grid_y = get_mesh_interpolation(mesh_pos, faces)
 
     vmin, vmax = state_true[:100, :, 0].min(), state_true[:100, :, 0].max()
-    for j in [0, 20, 40, 60, 80, 100]:
+    for j in [0, 20, 40, 60, 80, 100, 200]:
         interp, _ = to_grid(state_hat[j, :, 0], grid_x, grid_y, triang, tri_index)
-        interp = interp[16:-16, 16:-16]
+        # interp = interp[16:-16, 16:-16]
         print(f'{interp.shape = }')
-        fig = plt.figure(figsize=(13, 7), dpi=100)
+        fig = plt.figure(figsize=(15, 4), dpi=100)
         plt.imshow(interp.T, vmin=vmin, vmax=vmax)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f'./plots/airfoil_MGN_{j}.png', bbox_inches='tight', pad_inches=0)
+        # plt.savefig(f'./plots/airfoil_MGN_{j}.png', bbox_inches='tight', pad_inches=0)
         plt.show()
