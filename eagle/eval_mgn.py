@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-#from Dataloader.MGN import EagleMGNDataset
+from Dataloader.MGN import EagleMGNDataset
 from Dataloader.airfoil import AirfoilDataset
 import numpy as np
 from torch.utils.data import DataLoader
@@ -13,9 +13,9 @@ from eagle_utils import get_nrmse, plot_final
 
 torch.set_float32_matmul_precision('medium')
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='./ds/MGN/airfoil_dataset/', type=str, help="Dataset location")
-parser.add_argument('--n_processor', default=10, type=int, help="Number of chained GNN layers")
-parser.add_argument('--name', default='airfoil', type=str, help="Name for saving/loading weights")
+parser.add_argument('--dataset_path', default='./ds/MGN/cylinder_dataset/', type=str, help="Dataset location")
+parser.add_argument('--n_processor', default=15, type=int, help="Number of chained GNN layers")
+parser.add_argument('--name', default='cylinder', type=str, help="Name for saving/loading weights")
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,8 +26,9 @@ BATCHSIZE = 1
 @torch.inference_mode()
 def evaluate():
     print(args)
-    length = 102
-    dataset = AirfoilDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=True, with_cells=True)
+    length = 101
+    dataset = EagleMGNDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=False, with_cells=True)
+    # dataset = AirfoilDataset(args.dataset_path, mode="test", window_length=length, with_cluster=False, normalize=True, with_cells=True)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
     model = MeshGraphNet(apply_noise=False, state_size=4, N=args.n_processor).to(device)
@@ -40,8 +41,8 @@ def evaluate():
     os.makedirs(f"./eagle/Results/meshgraphnet", exist_ok=True)
     rmses = []
     for i, x in enumerate(tqdm(dataloader, desc="Evaluation")):
-        if i != 15:
-            continue
+        # if i != 0:
+        #     continue
 
         mesh_pos = x["mesh_pos"].to(device)
         edges = x['edges'].to(device).long()
@@ -56,11 +57,11 @@ def evaluate():
         rmse = get_nrmse(state, state_hat, mesh_pos, x['cells'])
         rmses.append(rmse.numpy())
 
-        if i == 15:
-            print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
-            plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state_true=state[0])
-            print(rmse)
-            exit(7)
+        # if i == 0:
+        #     print(f'{mesh_pos.shape = }, {faces.shape = }, {state_hat.shape = }, {state.shape = }')
+        #     plot_final(mesh_pos[0, 0], faces[0, 0], state_hat[0], state_true=state[0])
+        #     print(rmse)
+        #     exit(7)
 
     rmses = np.concatenate(rmses)
     print(f'{rmses.mean(axis=0).tolist()}')

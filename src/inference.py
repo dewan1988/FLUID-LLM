@@ -73,7 +73,7 @@ def plot_final(state_hat, state_true):
         plt.imshow(np.flipud(plot_state.T), vmin=vmin, vmax=vmax)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f'./plots/cylinder_large_{j}.png', bbox_inches='tight', pad_inches=0)
+        # plt.savefig(f'./plots/cylinder_125m_{j}.png', bbox_inches='tight', pad_inches=0)
         plt.show()
     exit(4)
 
@@ -119,8 +119,8 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
         N_rmse = calc_n_rmse(pred_states, true_states, bc_mask)
         N_rmses.append(N_rmse)
 
-        print(f'{true_states.shape = }')
-        if i == 0:
+        # print(f'{true_states.shape = }')
+        if i == 15:
             plot_final(pred_states[0].cpu(), true_states[0].cpu())
             exit(7)
 
@@ -148,8 +148,8 @@ def test_generate(model: MultivariateTimeLLM, dl, batch_num=0):
 
 
 def main():
-    load_no = -3
-    save_epoch = 500
+    load_no = 1
+    save_epoch = 180
     seq_len = 253
     bs = 1
 
