@@ -1,5 +1,5 @@
 # FLUID-LLM: Learning Computational Fluid Dynamics with Spatiotemporal-aware Large Language Models
-### [Paper](https://arxiv.org/abs/2402.07309](https://arxiv.org/pdf/2406.04501)
+### Paper: [https://arxiv.org/abs/2402.07309](https://arxiv.org/pdf/2406.04501)
 
 This is the official implementation of the paper "FLUID-LLM: Learning Computational Fluid Dynamics with Spatiotemporal-aware Large Language Models".
 
