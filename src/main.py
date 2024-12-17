@@ -206,7 +206,4 @@ if __name__ == '__main__':
         main(args)
     except Exception as e:
         raise e
-    else:
-        time.sleep(1)  # Replace with your actual program logic
-
 
