@@ -1,7 +1,7 @@
 task_name: cylinder_task
 
 # LLM params
-llm_backbone: facebook/opt-2.7b  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
+llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
 llm_layers: -1
 llm_4bit_loading: false
 freeze_llm: false
@@ -80,8 +80,8 @@ seq_interval: 1
 seq_len: null
 
 # Logging params
-enable_wandb: false
-save_on: false
+enable_wandb: true
+save_on: true
 save_model_each: 20
 checkpoint_save_path: model_checkpoints
 compile: true
