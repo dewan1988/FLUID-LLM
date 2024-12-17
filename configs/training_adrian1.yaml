@@ -1,0 +1,78 @@
+task_name: cylinder_task
+
+# LLM params
+llm_backbone: facebook/opt-125m  # facebook/opt-350m, facebook/opt-125m, facebook/opt-2.7b, huggyllama/llama-7b
+llm_layers: 0
+llm_4bit_loading: false
+freeze_llm: false
+use_lora: true
+lora_config:
+  r: 16
+  lora_alpha: 64
+  lora_dropout: 0.1
+  bias: none
+  use_dora: True
+half_precision: true
+flash_attention: true
+use_deepspeed: false
+input_emb_layer_norm_eps: 1.0e-05
+input_emb_layer_dropout: 0.1
+use_bos_token: true
+diff_scale_factor: 0.03   # Scale factor for diffs
+
+#  Positional embedding params
+pos_embedding_type: pos  # "pos", "rope"
+init_pos_embed: "normal"   # "normal", "zero", "scaled"
+use_patches_self_attention: false
+max_num_embed: 24
+
+# Encoder params
+encoder_params:
+    type: CNN
+    num_layers: 2
+    hidden_dim: 256
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+
+# Decoder params
+decoder_params:
+    type: CNN
+    num_layers: 2
+    hidden_dim: 256
+    activation: leakyrelu    # relu, leakyrelu, gelu, tanh, sigmoid, linear
+    zero_last_layer: true
+
+# Training params
+batch_size: 8
+num_epochs: 301
+epoch_size: 100
+learning_rate: 1e-3
+weight_decay: 0
+optimizer: adam
+loss_function: ['rmse']
+loss_weighting: [1]
+schedule_epoch: 50
+schedule_gamma: 0.8
+# Teacher forcing params
+teacher_forcing:
+    ratio: 0.1
+    start_epoch: 100
+
+# Dataloader params
+num_workers: 8
+load_dir: /home/datasets/mgn/MGN/cylinder_dataset
+patch_size: [16, 16]
+stride: [16, 16]
+seq_len: 5
+seq_interval: 2
+resolution: 240
+normalize_ds: false
+fit_diffs: true
+# Validation
+
+# Logging params
+enable_wandb: false
+save_on: false
+save_model_each: 10
+checkpoint_save_path: model_checkpoints
+
+
