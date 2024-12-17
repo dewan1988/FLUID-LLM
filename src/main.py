@@ -156,7 +156,7 @@ def run_everything(train_cfg, autoreg_dl, gen_dl, valid_dl, model_components, ar
         os.environ['WANDB_MODE'] = 'disabled'
     tag = "airfoil" if "airfoil" in train_cfg['load_dir'] else "25_validation"
     c_print(f'{tag = }', color="magenta")
-    wandb.init(project="llm4multivariatets", entity="adrianbzgteam", tags=[tag], config=train_cfg)
+    wandb.init(project="llm4multivariatets", entity="llm4multivariatets", tags=[tag], config=train_cfg)
     wandb.save(args.config_path)
     run_name = wandb.run.name
 
