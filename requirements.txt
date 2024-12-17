@@ -26,5 +26,6 @@ numba~=0.60.0
 pillow
 ninja
 networkx~=3.4.2
-cprint~=2
+cprint
 pyyaml~=6.0.2
+torch_geometric

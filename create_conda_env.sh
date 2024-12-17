@@ -1,3 +1,3 @@
 #!/usr/bin/bash
-conda create python=3.10 --name llm4multivariatets -f environment.yml
+conda env create -n llm4multivariatets -f environemnt.yml python=3.10
 conda activate llm4multivariatets
