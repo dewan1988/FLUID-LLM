@@ -142,6 +142,11 @@ dependencies:
       - docker-pycreds==0.4.0
       - einops==0.8.0
       - filelock==3.16.1
+      - torch==2.2.1
+      - torch-geometric==2.6.1
+      - torchaudio==2.2.1
+      - torchdiffeq==0.2.5
+      - torchvision==0.17.1
       - flash-attn==2.5.6
       - fonttools==4.55.1
       - frozenlist==1.5.0
@@ -218,11 +223,6 @@ dependencies:
       - tensorboardx==2.6.1
       - threadpoolctl==3.5.0
       - tokenizers==0.15.2
-      - torch==2.2.1
-      - torch-geometric==2.6.1
-      - torchaudio==2.2.1
-      - torchdiffeq==0.2.5
-      - torchvision==0.17.1
       - tqdm==4.66.2
       - transformers==4.39.2
       - triton==2.2.0
